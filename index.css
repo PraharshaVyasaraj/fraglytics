@@ -1,0 +1,31 @@
+/* Intelligence Report Theme */
+:root {
+  --report-bg: #0A0A0A;
+  --report-paper: #F5F2ED;
+  --report-accent: #C5A073;
+  --report-ink: #1A1A1A;
+  --report-red: #E11D48;
+}
+
+/* Outlined Typography (The "Big Win" Look) */
+.text-outline {
+  -webkit-text-stroke: 1px var(--report-ink);
+  color: transparent;
+}
+
+/* Paper Texture (Subtle) */
+.paper-texture {
+  background-color: var(--report-paper);
+  background-image: url("https://www.transparenttextures.com/patterns/paper-fibers.png");
+}
+
+/* Tactical Trend Indicators */
+.trend-up {
+  border-left: 4px solid #10b981;
+}
+.trend-down {
+  border-left: 4px solid #ef4444;
+}
+.trend-stable {
+  border-left: 4px solid #71717a;
+}

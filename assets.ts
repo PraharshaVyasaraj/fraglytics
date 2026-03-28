@@ -1,0 +1,35 @@
+export const ASSETS = {
+  CHARACTERS: {
+    MARATHI_MALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600789/Marathi_male_1_l64or0.png",
+    FEATURE_THUMBNAIL_MALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600760/Select_a_file_name_for_output_files_1_eeisqu.png",
+    MAFIA_MALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600747/Mafia_Male_1_xloqoa.png",
+    DANCER_MALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600745/Dancer_Male_1_fipevq.png",
+    GUJJU_MALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600727/Gujju_Male_1_bwd0vf.png",
+    GUJJU_FEMALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600700/Gujju_Female_2_1_w8kvla.png",
+    VERTICAL_THUMBNAIL_GLARE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600681/Verticle_Thumbnail_Character_With_Glare_1_srindo.png",
+    FULL_OUTFIT_MALE_02_V3: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600665/02_FullOutfit_Male_01_3_cv9vop.png",
+    TAMIL_FEMALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600661/Tamil_Female_gmlkxb.png",
+    MARATHI_FEMALE: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600660/Marathi_Female_2_1_nzu0jv.png",
+    FEATURE_THUMBNAIL_MALE_01: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600643/Feature_Thumbnail_01_Male_1_vu3yrb.png",
+    STORE_THUMBNAIL: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600621/Store_Thumbnail_4_uvjtzn.png",
+    FULL_OUTFIT_MALE_01_V2: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600591/01_FullOutfit_Male_01_2_ljakg8.png",
+    FULL_OUTFIT_FEMALE_02_V3: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600588/02_FullOutfit_Female_01_3_lvxj94.png",
+    SANTA: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600571/Santa_png_apwvxd.png",
+    COMBAT_FEMALE_POSE_A: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600569/image_2_d5rphi.png",
+    FULL_OUTFIT_FEMALE_01_V2: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600537/01_FullOutfit_Female_01_2_t3dlks.png",
+    COMBAT_MALE_POSE_A: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600531/image_nhyxrs.png",
+    COMBAT_MALE_POSE_B: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600527/image_4_gzmt6f.png",
+  },
+  BRANDING: {
+    SCARFALL_2_0_COLORED: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600414/2.0_Colored_vbdgq7.png",
+    SCARFALL_FULL_COLORED: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/Logo_full_colored_gmn2ra.png",
+    SCARFALL_NEW_ICON: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/New-SF-icon6_b8g70n.png",
+    SCARFALL_SQUARE_ICON: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/SF_500x500_wsu9qx.png",
+  },
+  PARTNERS: {
+    XSQUADS_NEW_LOGO: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600280/XSQUADS_New_Logo_hts5so.jpg",
+    XSQUADS_LOGO_PNG: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600279/XSQUADS_1_jleeov.png",
+    XSQUADS_TECH_PVT_LTD: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600279/XSQUADS_Tech_Private_Limited_rl0usz.jpg",
+    XSQUADS_BLACK_LOGO: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600279/XSQUADS_Black_anqqlv.png",
+  }
+};
