@@ -253,7 +253,7 @@ export const generateSnapshot = (
 ): string => {
     const snapshot: Snapshot = {
         meta: {
-            type: 'SCARFALL_SNAPSHOT',
+            type: 'FRAGLAB_SNAPSHOT',
             version: '2.4.0',
             timestamp: Date.now(),
             hash: Math.random().toString(36).substring(2, 15),

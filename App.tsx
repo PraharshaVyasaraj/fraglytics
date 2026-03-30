@@ -30,6 +30,7 @@ import { ExportMode } from './components/ExportRenderer';
 import { generateSnapshot } from './services/exportEngine';
 
 import LiveMatchLab from './components/LiveMatchLab';
+import GroupsView from './components/GroupsView';
 
 // Type for View Control
 type ViewScope = 
@@ -42,10 +43,11 @@ type ActiveView =
   | { type: 'team', teamName: string }
   | { type: 'player', playerName: string, teamName: string, from: 'dashboard' | 'team' }
   | { type: 'mvp' }
-  | { type: 'live-lab' };
+  | { type: 'live-lab' }
+  | { type: 'groups' };
 
 const DEFAULT_BRANDING: BrandingConfig = {
-    orgName: 'ScarFall Analytics',
+    orgName: 'FragLab',
     accentColor: '#ef4444',
 };
 
@@ -314,7 +316,7 @@ const App: React.FC = () => {
           try {
               const json = JSON.parse(event.target?.result as string);
               
-              if (json.meta && json.meta.type === 'SCARFALL_SNAPSHOT') {
+              if (json.meta && json.meta.type === 'FRAGLAB_SNAPSHOT') {
                   const snapshot = json as Snapshot;
                   setRawMatches(snapshot.data.matches);
                   setScoringRules(snapshot.config.rules);
@@ -370,7 +372,7 @@ const App: React.FC = () => {
 
           } catch (err) {
               console.error(err);
-              alert("Failed to parse save file. Ensure it is a valid ScarFall JSON.");
+              alert("Failed to parse save file. Ensure it is a valid FragLab JSON.");
           }
       };
       reader.readAsText(file);
@@ -418,6 +420,11 @@ const App: React.FC = () => {
         activeView={activeView}
         onNavigate={navigateTo}
         onOpenStudio={() => handleOpenStudio('standings')}
+        onOpenSettings={() => {
+          // Global settings can be implemented here if needed
+          // For now, it's a placeholder as requested
+          console.log('Global settings opened');
+        }}
         search={
           <SearchBar 
             teams={currentDisplayData} 

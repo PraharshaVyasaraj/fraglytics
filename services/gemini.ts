@@ -103,7 +103,7 @@ export const parseRawData = async (text: string, day: number, matchInDay: number
     try {
         const response = await ai.models.generateContent({
           model: MODEL_NAME,
-          contents: `Parse ScarFall scoreboard text to JSON Atomic Stats. 
+          contents: `Parse FragLab scoreboard text to JSON Atomic Stats. 
           Context: Day ${day}, Match ${matchInDay}.
           Input: "${text}"`,
           config: {

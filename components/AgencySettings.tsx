@@ -179,7 +179,7 @@ const AgencySettings: React.FC<AgencySettingsProps> = ({ isOpen, onClose, config
                          value={localConfig.orgName}
                          onChange={(e) => setLocalConfig({...localConfig, orgName: e.target.value})}
                          className="w-full bg-black border border-tactical-gray p-3 text-white focus:border-white outline-none rounded-sm text-lg font-bold"
-                         placeholder="e.g. SCARFALL ESPORTS"
+                         placeholder="e.g. FRAGLAB ESPORTS"
                       />
                    </div>
 

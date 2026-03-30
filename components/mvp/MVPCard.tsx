@@ -1,6 +1,8 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import { StatRow } from './StatRow';
+import { motion } from 'motion/react';
+import { Star } from 'lucide-react';
 
 export interface MVPPlayer {
   id: string;
@@ -20,83 +22,126 @@ export interface MVPPlayer {
 interface MVPCardProps {
   player: MVPPlayer;
   isPrimary?: boolean;
+  accentColor?: string;
 }
 
-export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false }) => {
+export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false, accentColor = '#00FF00' }) => {
   return (
     <div className={cn(
-      "flex flex-col relative group transition-transform hover:-translate-y-1 duration-300",
-      isPrimary ? "w-full md:w-[380px] z-10 shadow-2xl shadow-yellow-500/20" : "w-full md:w-[240px] shadow-lg"
+      "flex flex-col relative group transition-all duration-300",
+      isPrimary ? "w-full md:w-[420px] z-10" : "w-full md:w-[280px]"
     )}>
-      {/* Image Section */}
+      {/* Brutalist Border Container */}
       <div className={cn(
-        "relative bg-gradient-to-b from-tactical-gray to-black aspect-[4/5] overflow-hidden border-2",
-        isPrimary ? "border-yellow-500" : "border-tactical-gray"
-      )}>
-        {/* Team Logo Overlay */}
-        <div className="absolute top-4 left-4 w-12 h-12 z-20 drop-shadow-md">
-           {player.teamLogo ? (
-             <img src={player.teamLogo} alt={player.teamName} className="w-full h-full object-contain" />
-           ) : (
-             <div className="w-full h-full bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-[10px] font-bold border border-white/10 text-white">
-               {player.teamName.substring(0, 3)}
-             </div>
-           )}
+        "relative border-2 bg-black overflow-hidden",
+        isPrimary ? "" : "border-white/20 shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
+      )} style={isPrimary ? { borderColor: accentColor, boxShadow: `8px 8px 0px 0px ${accentColor}4D` } : {}}>
+        
+        {/* Header Bar */}
+        <div className={cn(
+            "h-8 flex items-center px-3 border-b-2",
+            isPrimary ? "" : "bg-white/10 border-white/20 text-white/40"
+        )} style={isPrimary ? { backgroundColor: accentColor, borderColor: accentColor, color: '#000' } : {}}>
+            <div className="flex gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-current opacity-30"></div>
+                <div className="w-2 h-2 rounded-full bg-current opacity-30"></div>
+                <div className="w-2 h-2 rounded-full bg-current opacity-30"></div>
+            </div>
+            <div className="ml-auto font-mono text-[10px] uppercase tracking-widest font-bold">
+                {isPrimary ? "ELITE_STATUS" : "OPERATOR_DATA"}
+            </div>
         </div>
 
-        {/* Player Image */}
-        <img 
-          src={player.playerImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&clothing=graphicShirt&hair=shortHair&accessories=sunglasses`} 
-          alt={player.name}
-          className={cn(
-            "absolute bottom-0 left-1/2 -translate-x-1/2 object-cover transition-transform duration-500 group-hover:scale-105",
-            isPrimary ? "h-[110%] w-auto max-w-none" : "h-[90%] w-auto"
-          )}
-        />
-        
-        {/* Gradient Overlay for Text Readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none"></div>
+        {/* Image Section */}
+        <div className="relative aspect-[4/5] overflow-hidden bg-[#0a0a0a]">
+            {/* Team Info Overlay */}
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-3">
+                <div className={cn(
+                    "w-10 h-10 border-2 flex items-center justify-center bg-black/80 backdrop-blur-md",
+                    isPrimary ? "" : "border-white/20"
+                )} style={isPrimary ? { borderColor: accentColor } : {}}>
+                    {player.teamLogo ? (
+                        <img src={player.teamLogo} alt={player.teamName} className="w-full h-full object-contain p-1" />
+                    ) : (
+                        <span className="text-xs font-black text-white">{player.teamName.substring(0, 2)}</span>
+                    )}
+                </div>
+                <div className="bg-black/80 backdrop-blur-md px-2 py-1 border border-white/10">
+                    <p className="text-[10px] font-mono text-white/60 uppercase leading-none mb-0.5">TEAM</p>
+                    <p className="text-xs font-black text-white leading-none uppercase">{player.teamName}</p>
+                </div>
+            </div>
+
+            {/* Player Image */}
+            <motion.img 
+                whileHover={{ scale: 1.05 }}
+                src={player.playerImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&clothing=graphicShirt&hair=shortHair&accessories=sunglasses`} 
+                alt={player.name}
+                className={cn(
+                    "absolute bottom-0 left-1/2 -translate-x-1/2 object-cover",
+                    isPrimary ? "h-[110%] w-auto max-w-none" : "h-[95%] w-auto"
+                )}
+            />
+            
+            {/* Scanline Effect */}
+            <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]"></div>
+        </div>
+
+        {/* Player Name Section */}
+        <div className={cn(
+            "p-4 border-t-2 flex items-center justify-between",
+            isPrimary ? "" : "bg-white border-white text-black"
+        )} style={isPrimary ? { backgroundColor: accentColor, borderColor: accentColor, color: '#000' } : {}}>
+            <div>
+                <p className="text-[10px] font-mono uppercase tracking-widest leading-none opacity-60 mb-1">OPERATOR_ID</p>
+                <h3 className="text-2xl font-black uppercase tracking-tighter leading-none italic">{player.name}</h3>
+            </div>
+            {isPrimary && <Star className="w-6 h-6 fill-black" />}
+        </div>
+
+        {/* Stats Section */}
+        <div className="bg-black p-4 space-y-2">
+            <StatRow 
+                label="MVP_RATING" 
+                value={player.stats.mvpRating.toFixed(2)} 
+                variant={isPrimary ? 'primary' : 'secondary'} 
+                accentColor={accentColor}
+            />
+            <div className="grid grid-cols-2 gap-2">
+                <StatRow 
+                    label="KILLS" 
+                    value={player.stats.finishes} 
+                    variant={isPrimary ? 'primary' : 'secondary'} 
+                    accentColor={accentColor}
+                />
+                <StatRow 
+                    label="DAMAGE" 
+                    value={player.stats.damage} 
+                    variant={isPrimary ? 'primary' : 'secondary'} 
+                    accentColor={accentColor}
+                />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+                <StatRow 
+                    label="SURVIVAL" 
+                    value={player.stats.avgSurvival} 
+                    variant={isPrimary ? 'primary' : 'secondary'} 
+                    accentColor={accentColor}
+                />
+                <StatRow 
+                    label="KNOCKS" 
+                    value={player.stats.knocks} 
+                    variant={isPrimary ? 'primary' : 'secondary'} 
+                    accentColor={accentColor}
+                    isLast
+                />
+            </div>
+        </div>
       </div>
 
-      {/* Player Name Bar */}
-      <div className={cn(
-        "py-3 px-4 text-center uppercase font-black tracking-wider text-xl truncate relative z-10",
-        isPrimary ? "bg-yellow-500 text-black" : "bg-tactical-dark text-white border-x border-tactical-gray" 
-      )}>
-        {player.name}
-      </div>
-
-      {/* Stats Panel */}
-      <div className={cn(
-        "flex flex-col pt-2 pb-4",
-        isPrimary ? "bg-[#F2C94C] text-black" : "bg-black/90 text-white border-x border-b border-tactical-gray"
-      )}>
-        <StatRow 
-          label="MVP Rating" 
-          value={player.stats.mvpRating.toFixed(2)} 
-          variant={isPrimary ? 'primary' : 'secondary'} 
-        />
-        <StatRow 
-          label="Finishes" 
-          value={player.stats.finishes} 
-          variant={isPrimary ? 'primary' : 'secondary'} 
-        />
-        <StatRow 
-          label="Damage" 
-          value={player.stats.damage} 
-          variant={isPrimary ? 'primary' : 'secondary'} 
-        />
-        <StatRow 
-          label="Avg. Surv." 
-          value={player.stats.avgSurvival} 
-          variant={isPrimary ? 'primary' : 'secondary'} 
-        />
-        <StatRow 
-          label="Knocks" 
-          value={player.stats.knocks} 
-          variant={isPrimary ? 'primary' : 'secondary'} 
-          isLast
-        />
+      {/* Decorative ID Number */}
+      <div className="absolute -bottom-4 -right-4 font-mono text-6xl font-black opacity-10 pointer-events-none select-none italic">
+          #{isPrimary ? "01" : "0" + (Math.floor(Math.random() * 8) + 2)}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 {
-  "name": "scarfall-analytics-suite",
+  "name": "fraglab-analytics",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -19,6 +19,7 @@
     "jspdf": "2.5.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.564.0",
+    "motion": "^12.38.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^2.12.0",

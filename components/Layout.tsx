@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Crosshair, Settings, ChevronRight, RotateCcw, ShieldCheck, Terminal, Wifi, WifiOff, Download, ChevronDown, Image as ImageIcon, FileText, Layout as LayoutIcon, Maximize, PenTool, Braces, MonitorPlay } from 'lucide-react';
+import { Crosshair, Settings, ChevronRight, RotateCcw, ShieldCheck, Terminal, Wifi, WifiOff, Download, ChevronDown, Image as ImageIcon, FileText, Layout as LayoutIcon, Maximize, PenTool, Braces, MonitorPlay, Users } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +11,7 @@ interface LayoutProps {
   activeView?: any;
   onNavigate?: (view: any) => void;
   onOpenStudio?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -22,7 +23,8 @@ const Layout: React.FC<LayoutProps> = ({
   search,
   activeView,
   onNavigate,
-  onOpenStudio
+  onOpenStudio,
+  onOpenSettings
 }) => {
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
@@ -54,7 +56,7 @@ const Layout: React.FC<LayoutProps> = ({
           serif: 'Playfair Display, ui-serif, Georgia, serif',
           mono: 'JetBrains Mono, ui-monospace, SFMono-Regular, monospace',
         },
-        theme: 'ScarFall Analytics Tactical UI',
+        theme: 'FragLab Tactical UI',
         exportDate: new Date().toISOString()
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(designTokens, null, 2));
@@ -128,7 +130,7 @@ const Layout: React.FC<LayoutProps> = ({
               <Crosshair className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <h1 className="font-serif text-lg sm:text-xl font-bold tracking-tight text-white hidden sm:block">
-              ScarFall <span className="text-tactical-light font-normal hidden lg:inline">Analytics</span>
+              FragLab <span className="text-tactical-light font-normal hidden lg:inline">Analytics</span>
             </h1>
           </div>
 
@@ -254,7 +256,11 @@ const Layout: React.FC<LayoutProps> = ({
                 </div>
               )}
             </div>
-            <button className="p-2 hover:bg-tactical-gray rounded-full transition-colors text-tactical-light hover:text-white">
+            <button 
+              onClick={onOpenSettings}
+              className="p-2 hover:bg-tactical-gray rounded-full transition-colors text-tactical-light hover:text-white"
+              title="Settings"
+            >
               <Settings className="w-4 h-4" />
             </button>
           </div>
@@ -278,6 +284,14 @@ const Layout: React.FC<LayoutProps> = ({
           >
             <LayoutIcon className="w-5 h-5" />
             <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
+          </button>
+          
+          <button 
+            onClick={() => onNavigate({ type: 'groups' })}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeView?.type === 'groups' ? 'text-white' : 'text-tactical-light'}`}
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Groups</span>
           </button>
           
           <button 

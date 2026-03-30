@@ -52,7 +52,7 @@ const PressKitRenderer: React.FC<PressKitRendererProps> = ({ data, branding, ins
        <div className="flex items-center gap-4">
            <span>CONFIDENTIAL // BROADCAST USE ONLY</span>
            <span className="w-px h-3 bg-gray-300"></span>
-           <span>GENERATED VIA SCARFALL ANALYTICS</span>
+           <span>GENERATED VIA FRAGLAB ANALYTICS</span>
        </div>
        <div className="font-bold text-black">PAGE {pageNum}</div>
     </div>

@@ -1,7 +1,7 @@
-# ScarFall Analytics Suite - Design Document
+# FragLab - Design Document
 
 ## 1. Overview
-**ScarFall Analytics Suite** is a professional-grade eSports analytics platform designed specifically for Battle Royale tournaments. It allows tournament organizers, commissioners, and analysts to ingest raw match telemetry (via manual CSV or AI-powered image/text parsing), aggregate statistics, and generate deep tactical insights.
+**FragLab** is a professional-grade eSports analytics platform designed specifically for Battle Royale tournaments. It allows tournament organizers, commissioners, and analysts to ingest raw match telemetry (via manual CSV or AI-powered image/text parsing), aggregate statistics, and generate deep tactical insights.
 
 The application is built to handle complex scoring rules, provide advanced player/team metrics (like Clutch Rating, Support Rating, and Z-Scores), and generate broadcast-ready assets and comprehensive data exports.
 

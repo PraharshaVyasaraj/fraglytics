@@ -21,10 +21,10 @@ export const ASSETS = {
     COMBAT_MALE_POSE_B: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600527/image_4_gzmt6f.png",
   },
   BRANDING: {
-    SCARFALL_2_0_COLORED: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600414/2.0_Colored_vbdgq7.png",
-    SCARFALL_FULL_COLORED: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/Logo_full_colored_gmn2ra.png",
-    SCARFALL_NEW_ICON: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/New-SF-icon6_b8g70n.png",
-    SCARFALL_SQUARE_ICON: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/SF_500x500_wsu9qx.png",
+    FRAGLAB_2_0_COLORED: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600414/2.0_Colored_vbdgq7.png",
+    FRAGLAB_FULL_COLORED: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/Logo_full_colored_gmn2ra.png",
+    FRAGLAB_NEW_ICON: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/New-SF-icon6_b8g70n.png",
+    FRAGLAB_SQUARE_ICON: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600413/SF_500x500_wsu9qx.png",
   },
   PARTNERS: {
     XSQUADS_NEW_LOGO: "https://res.cloudinary.com/da6mjhvgj/image/upload/v1772600280/XSQUADS_New_Logo_hts5so.jpg",

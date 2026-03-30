@@ -197,7 +197,7 @@ export interface RegistryConfig {
 // 📜 SNAPSHOT (Versioned History File)
 export interface Snapshot {
     meta: {
-      type: 'SCARFALL_SNAPSHOT';
+      type: 'FRAGLAB_SNAPSHOT';
       version: string; // App Version
       timestamp: number;
       hash: string; // Simple unique ID for the snapshot

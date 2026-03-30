@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TeamData, BrandingConfig } from '../types';
 import ExportRenderer, { ExportMode, AspectRatio, ExportTheme, ExportLayout } from './ExportRenderer';
-import { X, Download, LayoutTemplate, Trophy, User, Swords, ChevronDown, MonitorPlay, Smartphone, Monitor, Square, Crown, LogOut, ChevronLeft, ChevronRight, ListOrdered, Crosshair, Copy, Palette, Layout, Type, Contact, Users, Sliders, Zap, ArrowRightLeft, Shield, Settings } from 'lucide-react';
+import { X, Download, LayoutTemplate, Trophy, User, Swords, ChevronDown, MonitorPlay, Smartphone, Monitor, Square, Crown, LogOut, ChevronLeft, ChevronRight, ListOrdered, Crosshair, Copy, Palette, Layout, Type, Contact, Users, Sliders, Zap, ArrowRightLeft, Shield, Settings, ImageIcon } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 interface BroadcastStudioProps {
@@ -66,7 +66,26 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'content' | 'design' | 'assets' | 'settings'>('design');
+  const [activeTab, setActiveTab] = useState<'content' | 'design' | 'assets' | 'edit'>('edit');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const downloadRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+      if (downloadRef.current && !downloadRef.current.contains(event.target as Node)) {
+        setIsDownloadOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [customBackground, setCustomBackground] = useState<string | undefined>(branding.customBackground);
   
   // Sync player selection when team changes
@@ -103,11 +122,13 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
   const getRowsPerPage = () => {
       if (mode === 'standings') return ROWS_PER_PAGE_STANDINGS;
       if (mode === 'player_leaderboard') return ROWS_PER_PAGE_PLAYERS;
+      if (mode === 'team_grid') return 16;
       return 100; 
   };
 
   const getTotalPages = () => {
       if (mode === 'standings') return Math.ceil(data.length / ROWS_PER_PAGE_STANDINGS);
+      if (mode === 'team_grid') return Math.ceil(data.length / 16);
       if (mode === 'player_leaderboard') {
           const playerCount = data.reduce((sum, t) => sum + t.players.length, 0);
           return Math.ceil(playerCount / ROWS_PER_PAGE_PLAYERS);
@@ -158,14 +179,14 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
             if (aspectRatio === '9:16') { targetW = 1080; targetH = 1920; }
             if (aspectRatio === '1:1') { targetW = 1080; targetH = 1080; }
             
-            const padding = 64; 
+            const padding = 32; // Reduced from 64
             const availableW = clientWidth - padding;
             const availableH = clientHeight - padding;
             
             const scaleW = availableW / targetW;
             const scaleH = availableH / targetH;
             
-            setScale(Math.min(scaleW, scaleH, 1)); 
+            setScale(Math.min(scaleW, scaleH, 1.1)); // Increased from 1
         }
     };
     
@@ -175,7 +196,7 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
         window.removeEventListener('resize', updateScale);
         clearTimeout(timer);
     };
-  }, [aspectRatio, isOpen]);
+  }, [aspectRatio, isOpen, isSidebarCollapsed]);
 
   useEffect(() => {
       setPage(1);
@@ -192,6 +213,28 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
             case 'intelligence': return '#0A0A0A';
             case 'protocol': default: return '#0E0E0E';
         }
+  };
+
+  const handleElementClick = (element: string, data?: any) => {
+    if (isExporting) return;
+    
+    switch (element) {
+      case 'header':
+        setActiveTab('edit');
+        setIsSidebarCollapsed(false);
+        break;
+      case 'team':
+        setActiveTab('edit');
+        setIsSidebarCollapsed(false);
+        if (data?.teamId) setFocusTeamId(data.teamId);
+        break;
+      case 'footer':
+        setActiveTab('edit');
+        setIsSidebarCollapsed(false);
+        break;
+      default:
+        break;
+    }
   };
 
   const handleDownload = async (allPages: boolean = false) => {
@@ -216,11 +259,13 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
               const dataUrl = await toPng(node, {
                   backgroundColor: getThemeHexBg(theme), // Explicitly pass correct BG color
                   width,
-                  height,
+                  height: node.scrollHeight > height ? node.scrollHeight : height,
                   pixelRatio: 1,
                   style: {
                       transform: 'scale(1)', // Reset scale for capture
                       transformOrigin: 'top left',
+                      height: node.scrollHeight > height ? `${node.scrollHeight}px` : `${height}px`,
+                      overflow: 'visible',
                       // Force kill animations in the capture context
                       animation: 'none',
                       transition: 'none'
@@ -263,25 +308,179 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
             <MonitorPlay className="w-6 h-6 text-white animate-pulse" />
             <span className="font-serif font-bold text-white tracking-widest uppercase">Broadcast Studio</span>
          </div>
-         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <button 
-                onClick={() => setActiveTab('settings')} 
-                className={`p-2 rounded-full transition-colors ${activeTab === 'settings' ? 'bg-tactical-red text-white' : 'hover:bg-white/10 text-white'}`}
-                title="Studio Settings"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-white/5 text-white border border-white/10 rounded-sm hover:bg-white/10 transition-all"
+                title={isSidebarCollapsed ? "Show Controls" : "Hide Controls"}
             >
-                <Settings className="w-5 h-5" />
+                {isSidebarCollapsed ? <LayoutTemplate className="w-3 h-3" /> : <Layout className="w-3 h-3" />}
+                <span className="hidden sm:inline">{isSidebarCollapsed ? "Show Controls" : "Hide Controls"}</span>
             </button>
+            <div className="relative" ref={downloadRef}>
+                <button 
+                    onClick={() => setIsDownloadOpen(!isDownloadOpen)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-tactical-red text-white border border-tactical-red rounded-sm hover:bg-red-600 transition-all"
+                    title="Download Visuals"
+                >
+                    <Download className="w-3 h-3" />
+                    <span className="hidden sm:inline">Download Visuals</span>
+                    <ChevronDown className={`w-3 h-3 transition-transform ${isDownloadOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isDownloadOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-tactical-dark border border-tactical-gray rounded-sm shadow-xl z-50 overflow-hidden">
+                        <div className="px-3 py-2 border-b border-tactical-gray bg-black/50">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-tactical-light">Export Options</span>
+                        </div>
+                        <div className="p-1">
+                            <button 
+                                onClick={() => { handleDownload(false); setIsDownloadOpen(false); }}
+                                disabled={isExporting}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors text-left disabled:opacity-50"
+                            >
+                                <ImageIcon className="w-4 h-4 text-tactical-light" />
+                                Download Current
+                            </button>
+                            {totalPages > 1 && (
+                                <button 
+                                    onClick={() => { handleDownload(true); setIsDownloadOpen(false); }}
+                                    disabled={isExporting}
+                                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors text-left disabled:opacity-50"
+                                >
+                                    <Copy className="w-4 h-4 text-tactical-light" />
+                                    Download All ({totalPages})
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="relative" ref={settingsRef}>
+                <button 
+                    onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
+                    className={`p-2 rounded-full transition-colors ${isSettingsOpen ? 'bg-tactical-red text-white' : 'hover:bg-white/10 text-white'}`}
+                    title="Studio Settings"
+                >
+                    <Settings className="w-5 h-5" />
+                </button>
+
+                {isSettingsOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-tactical-dark border border-tactical-gray rounded-sm shadow-xl z-50 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-tactical-gray bg-black/50 flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-tactical-light">Studio Settings</span>
+                            <button 
+                                onClick={() => {
+                                    setVisualConfig({
+                                        headerScale: 1,
+                                        rankScale: 1.2, 
+                                        statPriority: 'combat',
+                                        spacing: 1,
+                                        padding: 1,
+                                        itemSpacing: 1,
+                                        containerPadding: 1,
+                                        rowHeight: 1,
+                                        fontScale: 1
+                                    });
+                                }}
+                                className="text-[10px] font-bold uppercase tracking-widest text-tactical-red hover:underline"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-6 max-h-[70vh] overflow-y-auto">
+                            {/* Fine Tuning */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-white">
+                                    <Sliders className="w-3 h-3 text-tactical-red" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">Fine Tuning</span>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[10px] font-mono text-tactical-light uppercase">
+                                            <span>Header Scale</span>
+                                            <span>{visualConfig.headerScale.toFixed(1)}x</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="0.5" max="1.5" step="0.1" value={visualConfig.headerScale}
+                                            onChange={(e) => setVisualConfig(prev => ({ ...prev, headerScale: parseFloat(e.target.value) }))}
+                                            className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-tactical-red"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[10px] font-mono text-tactical-light uppercase">
+                                            <span>Rank Scale</span>
+                                            <span>{visualConfig.rankScale.toFixed(1)}x</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="0.5" max="2" step="0.1" value={visualConfig.rankScale}
+                                            onChange={(e) => setVisualConfig(prev => ({ ...prev, rankScale: parseFloat(e.target.value) }))}
+                                            className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-tactical-red"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[10px] font-mono text-tactical-light uppercase">
+                                            <span>Row Spacing</span>
+                                            <span>{visualConfig.spacing.toFixed(1)}x</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="0.5" max="2" step="0.1" value={visualConfig.spacing}
+                                            onChange={(e) => setVisualConfig(prev => ({ ...prev, spacing: parseFloat(e.target.value) }))}
+                                            className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-tactical-red"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[10px] font-mono text-tactical-light uppercase">
+                                            <span>Font Scale</span>
+                                            <span>{visualConfig.fontScale.toFixed(1)}x</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="0.5" max="1.5" step="0.1" value={visualConfig.fontScale}
+                                            onChange={(e) => setVisualConfig(prev => ({ ...prev, fontScale: parseFloat(e.target.value) }))}
+                                            className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-tactical-red"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Advanced Mapping */}
+                            <div className="space-y-4 pt-4 border-t border-tactical-gray/30">
+                                <div className="flex items-center gap-2 text-white">
+                                    <Zap className="w-3 h-3 text-yellow-500" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">Advanced Template Mapping</span>
+                                </div>
+                                <div className="p-3 bg-black/50 border border-dashed border-tactical-gray rounded-sm text-center">
+                                    <p className="text-[10px] text-tactical-light font-mono leading-relaxed">
+                                        Upload a custom image template and map data points directly to the visual layer.
+                                    </p>
+                                    <button className="mt-3 w-full py-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all">
+                                        Initialize Mapper
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-white transition-colors">
                 <X className="w-5 h-5" />
             </button>
-         </div>
+          </div>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
          {/* Sidebar Controls */}
-         <div className="w-full lg:w-80 bg-tactical-dark border-b lg:border-b-0 lg:border-r border-tactical-gray flex flex-col z-10 h-[40vh] lg:h-full">
+         <div className={`bg-tactical-dark border-b lg:border-b-0 lg:border-r border-tactical-gray flex flex-col z-10 transition-all duration-300 ease-in-out overflow-hidden ${isSidebarCollapsed ? 'w-0 lg:w-0' : 'w-full lg:w-80 h-[40vh] lg:h-full'}`}>
             {/* ... Sidebar contents ... */}
             <div className="flex border-b border-tactical-gray">
+                <button 
+                    onClick={() => setActiveTab('edit')}
+                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${activeTab === 'edit' ? 'bg-tactical-gray/50 text-white' : 'text-tactical-light hover:text-white'}`}
+                >
+                    Edit
+                </button>
                 <button 
                     onClick={() => setActiveTab('content')}
                     className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${activeTab === 'content' ? 'bg-tactical-gray/50 text-white' : 'text-tactical-light hover:text-white'}`}
@@ -300,16 +499,199 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                 >
                     Assets
                 </button>
-                <button 
-                    onClick={() => setActiveTab('settings')}
-                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${activeTab === 'settings' ? 'bg-tactical-gray/50 text-white' : 'text-tactical-light hover:text-white'}`}
-                >
-                    Settings
-                </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
                 
+                {activeTab === 'edit' && (
+                    <div className="space-y-6 animate-in slide-in-from-left-2">
+                        {/* Quick Text Edit */}
+                        <div className="space-y-4">
+                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                <Type className="w-3 h-3"/> Quick Text Edit
+                            </label>
+                            <div className="space-y-3">
+                                <div>
+                                    <span className="text-[10px] text-tactical-light mb-1 block uppercase">Main Title</span>
+                                    <input 
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        className="w-full bg-black border border-tactical-gray p-2 text-white text-sm focus:border-tactical-red outline-none rounded-sm"
+                                        placeholder="Main Title"
+                                    />
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-tactical-light mb-1 block uppercase">Subtitle</span>
+                                    <input 
+                                        value={subtitle}
+                                        onChange={(e) => setSubtitle(e.target.value)}
+                                        className="w-full bg-black border border-tactical-gray p-2 text-tactical-light text-sm focus:border-tactical-red outline-none rounded-sm"
+                                        placeholder="Subtitle"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Focus Selection */}
+                        <div className="space-y-4 pt-4 border-t border-tactical-gray/30">
+                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                <Crosshair className="w-3 h-3"/> Focus Selection
+                            </label>
+                            
+                            <div className="space-y-3">
+                                {(mode === 'team_profile' || mode === 'winner' || mode === 'faceoff') && (
+                                    <div>
+                                        <span className="text-[10px] text-tactical-light mb-1 block uppercase">Focus Team</span>
+                                        <div className="relative">
+                                            <select 
+                                                value={focusTeamId}
+                                                onChange={(e) => setFocusTeamId(e.target.value)}
+                                                className="w-full bg-black border border-tactical-gray p-2 text-white text-xs appearance-none focus:border-tactical-red outline-none rounded-sm"
+                                            >
+                                                {data.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-2 top-2.5 w-3 h-3 text-white pointer-events-none" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {mode === 'faceoff' && (
+                                    <div>
+                                        <span className="text-[10px] text-tactical-light mb-1 block uppercase">Compare Team</span>
+                                        <div className="relative">
+                                            <select 
+                                                value={compareTeamId}
+                                                onChange={(e) => setCompareTeamId(e.target.value)}
+                                                className="w-full bg-black border border-tactical-gray p-2 text-white text-xs appearance-none focus:border-tactical-red outline-none rounded-sm"
+                                            >
+                                                {data.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-2 top-2.5 w-3 h-3 text-white pointer-events-none" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {(mode === 'player_profile' || mode === 'mvp' || mode === 'player_comparison') && (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <span className="text-[10px] text-tactical-light mb-1 block uppercase">Focus Player Team</span>
+                                            <div className="relative">
+                                                <select 
+                                                    value={focusTeamId}
+                                                    onChange={(e) => setFocusTeamId(e.target.value)}
+                                                    className="w-full bg-black border border-tactical-gray p-2 text-white text-xs appearance-none focus:border-tactical-red outline-none rounded-sm"
+                                                >
+                                                    {data.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                                                </select>
+                                                <ChevronDown className="absolute right-2 top-2.5 w-3 h-3 text-white pointer-events-none" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-tactical-light mb-1 block uppercase">Focus Player</span>
+                                            <div className="relative">
+                                                <select 
+                                                    value={focusPlayerName}
+                                                    onChange={(e) => setFocusPlayerName(e.target.value)}
+                                                    className="w-full bg-black border border-tactical-gray p-2 text-white text-xs appearance-none focus:border-tactical-red outline-none rounded-sm"
+                                                >
+                                                    {data.find(t => t.name === focusTeamId)?.players.map(p => (
+                                                        <option key={p.playerName} value={p.playerName}>{p.playerName}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute right-2 top-2.5 w-3 h-3 text-white pointer-events-none" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {mode === 'player_comparison' && (
+                                    <div className="space-y-3 pt-2">
+                                        <div>
+                                            <span className="text-[10px] text-tactical-light mb-1 block uppercase">Compare Player Team</span>
+                                            <div className="relative">
+                                                <select 
+                                                    value={comparePlayerTeamId}
+                                                    onChange={(e) => setComparePlayerTeamId(e.target.value)}
+                                                    className="w-full bg-black border border-tactical-gray p-2 text-white text-xs appearance-none focus:border-tactical-red outline-none rounded-sm"
+                                                >
+                                                    {data.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                                                </select>
+                                                <ChevronDown className="absolute right-2 top-2.5 w-3 h-3 text-white pointer-events-none" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-tactical-light mb-1 block uppercase">Compare Player</span>
+                                            <div className="relative">
+                                                <select 
+                                                    value={comparePlayerName}
+                                                    onChange={(e) => setComparePlayerName(e.target.value)}
+                                                    className="w-full bg-black border border-tactical-gray p-2 text-white text-xs appearance-none focus:border-tactical-red outline-none rounded-sm"
+                                                >
+                                                    {data.find(t => t.name === comparePlayerTeamId)?.players.map(p => (
+                                                        <option key={p.playerName} value={p.playerName}>{p.playerName}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute right-2 top-2.5 w-3 h-3 text-white pointer-events-none" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Visual Quick Tuning */}
+                        <div className="space-y-4 pt-4 border-t border-tactical-gray/30">
+                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                <Sliders className="w-3 h-3"/> Quick Tuning
+                            </label>
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="flex justify-between mb-1">
+                                        <span className="text-[10px] text-tactical-light uppercase">Font Scale</span>
+                                        <span className="text-[10px] text-white font-mono">{visualConfig.fontScale.toFixed(2)}x</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.5" max="2" step="0.05"
+                                        value={visualConfig.fontScale}
+                                        onChange={(e) => setVisualConfig({...visualConfig, fontScale: parseFloat(e.target.value)})}
+                                        className="w-full accent-tactical-red"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="flex justify-between mb-1">
+                                        <span className="text-[10px] text-tactical-light uppercase">Row Height</span>
+                                        <span className="text-[10px] text-white font-mono">{visualConfig.rowHeight.toFixed(2)}x</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.5" max="2" step="0.05"
+                                        value={visualConfig.rowHeight}
+                                        onChange={(e) => setVisualConfig({...visualConfig, rowHeight: parseFloat(e.target.value)})}
+                                        className="w-full accent-tactical-red"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={() => {
+                                setVisualConfig({
+                                    headerScale: 1,
+                                    rankScale: 1,
+                                    spacing: 1,
+                                    padding: 1,
+                                    itemSpacing: 1,
+                                    containerPadding: 1,
+                                    rowHeight: 1,
+                                    fontScale: 1
+                                });
+                            }}
+                            className="w-full py-2 border border-tactical-gray/30 text-[10px] text-tactical-light uppercase hover:bg-tactical-gray/20 transition-colors rounded-sm"
+                        >
+                            Reset Visuals
+                        </button>
+                    </div>
+                )}
+
                 {activeTab === 'content' && (
                     <>
                         {/* Mode Selector */}
@@ -392,6 +774,13 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                             >
                                 <LayoutTemplate className="w-5 h-5 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Groups</span>
+                            </button>
+                            <button 
+                                onClick={() => setMode('sdrr')}
+                                className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'sdrr' ? 'bg-[#00FF00] text-black border-[#00FF00]' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
+                            >
+                                <Trophy className="w-5 h-5 mb-1" />
+                                <span className="text-[10px] uppercase font-bold">SDRR</span>
                             </button>
                         </div>
                         </div>
@@ -795,139 +1184,41 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                     </div>
                 )}
 
-                {activeTab === 'settings' && (
-                    <div className="space-y-8 animate-in slide-in-from-left-2">
-                        {/* Visual Tuning */}
-                        <div className="space-y-6">
-                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2"><Sliders className="w-3 h-3"/> Fine Tuning</label>
-                            
-                            <div className="space-y-4">
-                                {/* Stat Priority Toggle */}
-                                <div className="bg-black border border-tactical-gray rounded-sm p-1 flex">
-                                    <button 
-                                        onClick={() => setVisualConfig(p => ({...p, statPriority: 'combat'}))}
-                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-sm flex items-center justify-center gap-2 transition-all ${visualConfig.statPriority === 'combat' ? 'bg-tactical-red text-white' : 'text-tactical-light hover:text-white'}`}
-                                    >
-                                        <Crosshair className="w-3 h-3" /> Combat
-                                    </button>
-                                    <button 
-                                        onClick={() => setVisualConfig(p => ({...p, statPriority: 'rating'}))}
-                                        className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-sm flex items-center justify-center gap-2 transition-all ${visualConfig.statPriority === 'rating' ? 'bg-tactical-white text-black' : 'text-tactical-light hover:text-white'}`}
-                                    >
-                                        <Zap className="w-3 h-3" /> Rating
-                                    </button>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] text-tactical-light uppercase font-bold">Header Scale</span>
-                                        <span className="text-[10px] text-white font-mono">{visualConfig.headerScale.toFixed(1)}x</span>
-                                    </div>
-                                    <input 
-                                        type="range" min="0.5" max="2" step="0.1"
-                                        value={visualConfig.headerScale}
-                                        onChange={(e) => setVisualConfig({...visualConfig, headerScale: parseFloat(e.target.value)})}
-                                        className="w-full accent-tactical-red"
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] text-tactical-light uppercase font-bold">Font Scale</span>
-                                        <span className="text-[10px] text-white font-mono">{visualConfig.fontScale.toFixed(1)}x</span>
-                                    </div>
-                                    <input 
-                                        type="range" min="0.5" max="2" step="0.1"
-                                        value={visualConfig.fontScale}
-                                        onChange={(e) => setVisualConfig({...visualConfig, fontScale: parseFloat(e.target.value)})}
-                                        className="w-full accent-tactical-red"
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] text-tactical-light uppercase font-bold">Row Height</span>
-                                        <span className="text-[10px] text-white font-mono">{visualConfig.rowHeight.toFixed(1)}x</span>
-                                    </div>
-                                    <input 
-                                        type="range" min="0.5" max="3" step="0.1"
-                                        value={visualConfig.rowHeight}
-                                        onChange={(e) => setVisualConfig({...visualConfig, rowHeight: parseFloat(e.target.value)})}
-                                        className="w-full accent-tactical-red"
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] text-tactical-light uppercase font-bold">Container Padding</span>
-                                        <span className="text-[10px] text-white font-mono">{visualConfig.containerPadding.toFixed(1)}x</span>
-                                    </div>
-                                    <input 
-                                        type="range" min="0.5" max="3" step="0.1"
-                                        value={visualConfig.containerPadding}
-                                        onChange={(e) => setVisualConfig({...visualConfig, containerPadding: parseFloat(e.target.value)})}
-                                        className="w-full accent-tactical-red"
-                                    />
-                                </div>
-
-                                <button 
-                                    onClick={() => setVisualConfig({
-                                        headerScale: 1,
-                                        fontScale: 1,
-                                        rowHeight: 1,
-                                        containerPadding: 1,
-                                        padding: 1,
-                                        spacing: 1,
-                                        itemSpacing: 1,
-                                        rankScale: 1,
-                                        statPriority: 'combat'
-                                    })}
-                                    className="w-full mt-4 py-2 border border-tactical-gray text-tactical-light text-[10px] font-bold uppercase rounded-sm hover:bg-white/5 hover:text-white transition-all flex items-center justify-center gap-2"
-                                >
-                                    <ArrowRightLeft className="w-3 h-3" /> Reset to Defaults
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Advanced Template Mapping (Placeholder) */}
-                        <div className="pt-6 border-t border-tactical-gray/30 space-y-4">
-                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2"><Zap className="w-3 h-3"/> Advanced Mapping</label>
-                            <div className="p-4 bg-black/40 border border-tactical-gray rounded-sm text-center">
-                                <p className="text-[10px] text-tactical-light uppercase leading-relaxed">
-                                    Custom Template Mapping Engine coming soon. This will allow you to map data slots to any uploaded image.
-                                </p>
-                                <button disabled className="mt-3 w-full py-2 bg-tactical-gray/20 text-tactical-light text-[10px] font-bold uppercase rounded-sm cursor-not-allowed">
-                                    Initialize Mapper
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
             </div>
 
             {/* Action Bar */}
             <div className="mt-auto p-6 pt-4 border-t border-tactical-gray space-y-3 bg-tactical-black z-20">
                <button 
-                  onClick={() => handleDownload(false)}
-                  disabled={isExporting}
-                  className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-sm hover:bg-gray-200 transition-all flex items-center justify-center gap-2 rounded-sm"
+                  onClick={() => setIsDownloadOpen(!isDownloadOpen)}
+                  className="w-full py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 rounded-sm relative"
                >
-                  {isExporting ? 'Rendering...' : 'Download Current'} 
-                  <Download className="w-4 h-4" />
+                  <Download className="w-4 h-4" /> Download Visuals
+                  {isDownloadOpen && (
+                      <div className="absolute bottom-full left-0 w-full mb-2 bg-tactical-dark border border-tactical-gray rounded-sm shadow-xl z-50 overflow-hidden text-left">
+                          <div className="p-1">
+                              <div 
+                                  onClick={(e) => { e.stopPropagation(); handleDownload(false); setIsDownloadOpen(false); }}
+                                  className="w-full flex items-center gap-3 px-3 py-3 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors cursor-pointer"
+                              >
+                                  <ImageIcon className="w-4 h-4 text-tactical-light" />
+                                  Download Current Page
+                              </div>
+                              {totalPages > 1 && (
+                                  <div 
+                                      onClick={(e) => { e.stopPropagation(); handleDownload(true); setIsDownloadOpen(false); }}
+                                      className="w-full flex items-center gap-3 px-3 py-3 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors cursor-pointer border-t border-tactical-gray/50"
+                                  >
+                                      <Copy className="w-4 h-4 text-tactical-light" />
+                                      Download All Pages ({totalPages})
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  )}
                </button>
-               {totalPages > 1 && (
-                   <button 
-                      onClick={() => handleDownload(true)}
-                      disabled={isExporting}
-                      className="w-full py-3 bg-tactical-dark border border-tactical-gray text-white font-bold uppercase tracking-widest text-xs hover:bg-white/10 transition-all flex items-center justify-center gap-2 rounded-sm"
-                   >
-                      <Copy className="w-4 h-4" /> Download All ({totalPages})
-                   </button>
-               )}
                <button 
                   onClick={onClose}
-                  className="w-full py-3 bg-tactical-red text-white font-bold uppercase tracking-widest text-xs hover:bg-red-600 transition-all flex items-center justify-center gap-2 rounded-sm"
+                  className="w-full py-4 bg-tactical-red text-white font-black uppercase tracking-widest text-sm hover:bg-red-600 transition-all flex items-center justify-center gap-2 rounded-sm"
                >
                   <LogOut className="w-4 h-4" /> Exit Studio
                </button>
@@ -935,13 +1226,37 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
          </div>
 
          {/* Preview Area */}
-         <div className="flex-1 bg-black relative flex flex-col items-center justify-center overflow-hidden p-8" ref={containerRef}>
+         <div className="flex-1 bg-black relative overflow-auto" ref={containerRef}>
              {/* Dynamic BG based on theme preview */}
-             <div className={`absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${theme === 'slate' ? 'from-slate-800 to-black' : theme === 'violet' ? 'from-violet-900 to-black' : 'from-tactical-gray to-black'}`}></div>
+             <div className={`fixed inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${theme === 'slate' ? 'from-slate-800 to-black' : theme === 'violet' ? 'from-violet-900 to-black' : 'from-tactical-gray to-black'} pointer-events-none`}></div>
              
+             {/* Zoom Controls */}
+             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 bg-tactical-dark/80 backdrop-blur-md border border-tactical-gray rounded-full px-4 py-2 flex items-center gap-4 text-white shadow-2xl">
+                 <span className="text-[10px] font-bold uppercase tracking-widest text-tactical-light">Zoom</span>
+                 <input 
+                     type="range" 
+                     min="0.1" 
+                     max="2" 
+                     step="0.05" 
+                     value={scale}
+                     onChange={(e) => setScale(parseFloat(e.target.value))}
+                     className="w-32 h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-white"
+                 />
+                 <span className="text-xs font-mono w-12 text-right">{(scale * 100).toFixed(0)}%</span>
+                 <button 
+                     onClick={() => {
+                         // Trigger auto-scale recalculation
+                         window.dispatchEvent(new Event('resize'));
+                     }}
+                     className="text-[10px] font-bold uppercase tracking-widest text-tactical-red hover:text-white transition-colors ml-2"
+                 >
+                     Auto
+                 </button>
+             </div>
+
              {/* Pagination Controls in Preview */}
              {totalPages > 1 && !isExporting && (
-                 <div className="absolute top-4 z-20 bg-tactical-dark border border-tactical-gray rounded-full px-4 py-2 flex items-center gap-4 text-white">
+                 <div className="fixed top-20 right-8 z-20 bg-tactical-dark border border-tactical-gray rounded-full px-4 py-2 flex items-center gap-4 text-white shadow-xl">
                      <button 
                         onClick={() => setPage(p => Math.max(1, p-1))}
                         disabled={page === 1}
@@ -960,35 +1275,44 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                  </div>
              )}
 
-             {/* Dynamic Scale Container */}
-             <div 
-                className="relative shadow-2xl shadow-black border border-tactical-gray/50 transition-transform duration-300 ease-out origin-center" 
-                style={{ 
-                    width: aspectRatio === '9:16' ? 1080 : aspectRatio === '1:1' ? 1080 : 1920,
-                    height: aspectRatio === '9:16' ? 1920 : 1080,
-                    transform: `scale(${scale})`, 
-                }}
-             >
-                <ExportRenderer 
-                   data={data.map(t => ({ ...t, logoUrl: teamLogos[t.name] || t.logoUrl }))} 
-                   mode={mode}
-                   aspectRatio={aspectRatio}
-                   theme={theme}
-                   layout={layout}
-                   branding={{...branding, customBackground}}
-                   config={{ title, subtitle, focusTeamId, compareTeamId, focusPlayerName, comparePlayerName }}
-                   pagination={{
-                       page,
-                       totalPages,
-                       rowsPerPage: getRowsPerPage()
-                   }}
-                   visualConfig={visualConfig}
-                   isExporting={isExporting}
-                   timerSeconds={timerSeconds}
-                />
+             <div className="min-h-full min-w-full flex items-center justify-center p-4">
+                 {/* Dynamic Scale Container */}
+                 <div 
+                    className="relative shadow-2xl shadow-black border border-tactical-gray/50 transition-all duration-300 ease-out flex-shrink-0" 
+                    style={{ 
+                        width: (aspectRatio === '9:16' ? 1080 : aspectRatio === '1:1' ? 1080 : 1920) * scale,
+                        height: (aspectRatio === '9:16' ? 1920 : aspectRatio === '1:1' ? 1080 : 1080) * scale,
+                    }}
+                 >
+                    <div style={{
+                        width: aspectRatio === '9:16' ? 1080 : aspectRatio === '1:1' ? 1080 : 1920,
+                        height: aspectRatio === '9:16' ? 1920 : aspectRatio === '1:1' ? 1080 : 1080,
+                        transform: `scale(${scale})`,
+                        transformOrigin: 'top left'
+                    }}>
+                        <ExportRenderer 
+                           data={data.map(t => ({ ...t, logoUrl: teamLogos[t.name] || t.logoUrl }))} 
+                           mode={mode}
+                           aspectRatio={aspectRatio}
+                           theme={theme}
+                           layout={layout}
+                           branding={{...branding, customBackground}}
+                           config={{ title, subtitle, focusTeamId, compareTeamId, focusPlayerName, comparePlayerName }}
+                           pagination={{
+                               page,
+                               totalPages,
+                               rowsPerPage: getRowsPerPage()
+                           }}
+                           visualConfig={visualConfig}
+                           isExporting={isExporting}
+                           timerSeconds={timerSeconds}
+                           onElementClick={handleElementClick}
+                        />
+                    </div>
+                 </div>
              </div>
              
-             <div className="absolute bottom-4 right-4 text-xs font-mono text-tactical-gray flex items-center gap-2">
+             <div className="fixed bottom-4 right-4 text-xs font-mono text-tactical-gray flex items-center gap-2 z-20 pointer-events-none">
                 <span className="w-2 h-2 rounded-full" style={{backgroundColor: branding.accentColor}}></span>
                 {branding.orgName} // {aspectRatio} // Scale: {scale.toFixed(2)}x
              </div>
