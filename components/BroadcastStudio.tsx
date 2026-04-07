@@ -68,19 +68,14 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
   // Tab State
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'assets' | 'edit'>('edit');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
-  const downloadRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
         setIsSettingsOpen(false);
-      }
-      if (downloadRef.current && !downloadRef.current.contains(event.target as Node)) {
-        setIsDownloadOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -113,7 +108,7 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
   
   // Scaling State
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.5);
 
   // Constants
   const ROWS_PER_PAGE_STANDINGS = 8; 
@@ -186,15 +181,13 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
             const scaleW = availableW / targetW;
             const scaleH = availableH / targetH;
             
-            setScale(Math.min(scaleW, scaleH, 1.1)); // Increased from 1
+            setScale(Math.min(scaleW, scaleH, 1.1)); // Fit to screen
         }
     };
     
     window.addEventListener('resize', updateScale);
-    const timer = setTimeout(updateScale, 100);
     return () => {
         window.removeEventListener('resize', updateScale);
-        clearTimeout(timer);
     };
   }, [aspectRatio, isOpen, isSidebarCollapsed]);
 
@@ -317,44 +310,16 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                 {isSidebarCollapsed ? <LayoutTemplate className="w-3 h-3" /> : <Layout className="w-3 h-3" />}
                 <span className="hidden sm:inline">{isSidebarCollapsed ? "Show Controls" : "Hide Controls"}</span>
             </button>
-            <div className="relative" ref={downloadRef}>
+            <div className="relative">
                 <button 
-                    onClick={() => setIsDownloadOpen(!isDownloadOpen)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-tactical-red text-white border border-tactical-red rounded-sm hover:bg-red-600 transition-all"
+                    onClick={() => handleDownload(false)}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-tactical-red text-white border border-tactical-red rounded-sm hover:bg-red-600 transition-all disabled:opacity-50"
                     title="Download Visuals"
                 >
                     <Download className="w-3 h-3" />
                     <span className="hidden sm:inline">Download Visuals</span>
-                    <ChevronDown className={`w-3 h-3 transition-transform ${isDownloadOpen ? 'rotate-180' : ''}`} />
                 </button>
-                
-                {isDownloadOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-tactical-dark border border-tactical-gray rounded-sm shadow-xl z-50 overflow-hidden">
-                        <div className="px-3 py-2 border-b border-tactical-gray bg-black/50">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-tactical-light">Export Options</span>
-                        </div>
-                        <div className="p-1">
-                            <button 
-                                onClick={() => { handleDownload(false); setIsDownloadOpen(false); }}
-                                disabled={isExporting}
-                                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors text-left disabled:opacity-50"
-                            >
-                                <ImageIcon className="w-4 h-4 text-tactical-light" />
-                                Download Current
-                            </button>
-                            {totalPages > 1 && (
-                                <button 
-                                    onClick={() => { handleDownload(true); setIsDownloadOpen(false); }}
-                                    disabled={isExporting}
-                                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors text-left disabled:opacity-50"
-                                >
-                                    <Copy className="w-4 h-4 text-tactical-light" />
-                                    Download All ({totalPages})
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className="relative" ref={settingsRef}>
@@ -682,7 +647,8 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                     itemSpacing: 1,
                                     containerPadding: 1,
                                     rowHeight: 1,
-                                    fontScale: 1
+                                    fontScale: 1,
+                                    statPriority: 'combat'
                                 });
                             }}
                             className="w-full py-2 border border-tactical-gray/30 text-[10px] text-tactical-light uppercase hover:bg-tactical-gray/20 transition-colors rounded-sm"
@@ -1179,6 +1145,25 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                     </div>
                                     <span className="text-[10px] font-bold uppercase">Hero</span>
                                 </button>
+                                <button onClick={() => setLayout('statistics')} className={`p-3 border text-left flex flex-col items-center gap-2 ${layout === 'statistics' ? 'bg-white text-black border-white' : 'bg-black border-tactical-gray text-tactical-light'}`}>
+                                    <div className="w-full h-8 border border-current opacity-30 flex gap-1 p-1">
+                                        <div className="w-2/3 bg-current opacity-50"></div>
+                                        <div className="w-1/3 flex flex-col gap-1">
+                                            <div className="h-1/3 bg-current opacity-30"></div>
+                                            <div className="h-1/3 bg-current opacity-30"></div>
+                                            <div className="h-1/3 bg-current opacity-30"></div>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase">Stats</span>
+                                </button>
+                                <button onClick={() => setLayout('cyber_glitch')} className={`p-3 border text-left flex flex-col items-center gap-2 ${layout === 'cyber_glitch' ? 'bg-white text-black border-white' : 'bg-black border-tactical-gray text-tactical-light'}`}>
+                                    <div className="w-full h-8 border border-current opacity-30 flex flex-col p-1 gap-1 relative overflow-hidden">
+                                        <div className="h-2 bg-current w-full"></div>
+                                        <div className="h-2 bg-current w-full opacity-50 translate-x-1"></div>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase">Cyber Glitch</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1189,33 +1174,21 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
             {/* Action Bar */}
             <div className="mt-auto p-6 pt-4 border-t border-tactical-gray space-y-3 bg-tactical-black z-20">
                <button 
-                  onClick={() => setIsDownloadOpen(!isDownloadOpen)}
-                  className="w-full py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 rounded-sm relative"
+                  onClick={() => handleDownload(false)}
+                  disabled={isExporting}
+                  className="w-full py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 rounded-sm relative disabled:opacity-50"
                >
                   <Download className="w-4 h-4" /> Download Visuals
-                  {isDownloadOpen && (
-                      <div className="absolute bottom-full left-0 w-full mb-2 bg-tactical-dark border border-tactical-gray rounded-sm shadow-xl z-50 overflow-hidden text-left">
-                          <div className="p-1">
-                              <div 
-                                  onClick={(e) => { e.stopPropagation(); handleDownload(false); setIsDownloadOpen(false); }}
-                                  className="w-full flex items-center gap-3 px-3 py-3 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors cursor-pointer"
-                              >
-                                  <ImageIcon className="w-4 h-4 text-tactical-light" />
-                                  Download Current Page
-                              </div>
-                              {totalPages > 1 && (
-                                  <div 
-                                      onClick={(e) => { e.stopPropagation(); handleDownload(true); setIsDownloadOpen(false); }}
-                                      className="w-full flex items-center gap-3 px-3 py-3 text-xs font-medium text-white hover:bg-tactical-gray rounded-sm transition-colors cursor-pointer border-t border-tactical-gray/50"
-                                  >
-                                      <Copy className="w-4 h-4 text-tactical-light" />
-                                      Download All Pages ({totalPages})
-                                  </div>
-                              )}
-                          </div>
-                      </div>
-                  )}
                </button>
+               {totalPages > 1 && (
+                   <button 
+                      onClick={() => handleDownload(true)}
+                      disabled={isExporting}
+                      className="w-full py-4 bg-tactical-gray text-white font-black uppercase tracking-widest text-sm hover:bg-tactical-light transition-all flex items-center justify-center gap-2 rounded-sm relative disabled:opacity-50"
+                   >
+                      <Copy className="w-4 h-4" /> Download All ({totalPages})
+                   </button>
+               )}
                <button 
                   onClick={onClose}
                   className="w-full py-4 bg-tactical-red text-white font-black uppercase tracking-widest text-sm hover:bg-red-600 transition-all flex items-center justify-center gap-2 rounded-sm"

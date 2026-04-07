@@ -81,8 +81,8 @@ const ComparativeRadar: React.FC<{ teamA: TeamData, teamB: TeamData, lobbyAvg: a
                             return (
                                 <div className="bg-black border border-tactical-gray p-2 text-xs font-mono">
                                     <div className="text-white mb-1 font-bold">{subject}</div>
-                                    <div className="text-tactical-red">{teamA.name}: {payload[0].value?.toFixed(0)}</div>
-                                    <div className="text-blue-400">{teamB.name}: {payload[1].value?.toFixed(0)}</div>
+                                    <div className="text-tactical-red">{teamA.name}: {Number(payload[0].value || 0).toFixed(0)}</div>
+                                    <div className="text-blue-400">{teamB.name}: {Number(payload[1].value || 0).toFixed(0)}</div>
                                 </div>
                             );
                         }}

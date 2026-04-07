@@ -1,8 +1,11 @@
 
 import React, { useState, useRef } from 'react';
 import { PlayerDerived, TeamData } from '../types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { generatePlayerProfileJSON, generatePlayerHistoryCSV } from '../services/exportEngine';
-import { ArrowLeft, Crosshair, Skull, ShieldAlert, Zap, BarChart2, TrendingUp, Activity, History, MonitorPlay, Download, FileJson, FileSpreadsheet, Loader2, Check, Trophy, Gamepad2 } from 'lucide-react';
+import { generateScoutingReport } from '../services/gemini';
+import { ArrowLeft, Crosshair, Skull, ShieldAlert, Zap, BarChart2, TrendingUp, Activity, History, MonitorPlay, Download, FileJson, FileSpreadsheet, Loader2, Check, Trophy, Gamepad2, BrainCircuit, X } from 'lucide-react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, ReferenceLine, AreaChart, Area, ComposedChart, Line, Brush } from 'recharts';
 import { toPng } from 'html-to-image';
 
@@ -18,6 +21,8 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isSnapshotting, setIsSnapshotting] = useState(false);
   const [snapDone, setSnapDone] = useState(false);
+  const [scoutingReport, setScoutingReport] = useState<string | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   
   // Calculate Avg Team Stats for comparison
   const avgDmg = team.totalDamage / team.players.length;
@@ -158,6 +163,29 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
       }
   };
 
+  const handleGenerateReport = async () => {
+      setIsGeneratingReport(true);
+      const statsJson = JSON.stringify({
+          name: player.playerName,
+          team: team.name,
+          kills: player.finishes,
+          damage: player.damage,
+          dpk: player.dpk.toFixed(0),
+          matches: player.matchesPlayed,
+          survivalTime: player.playTimeMinutes,
+          carryClass: player.carryClass,
+          winRate: winRate.toFixed(1),
+          zScoreDamage: player.zScoreDamage.toFixed(2),
+          zScoreKills: player.zScoreKills.toFixed(2),
+          impactScore: player.impactScore.toFixed(1),
+          damageShare: player.damageShare.toFixed(1),
+          kpm: player.kpm.toFixed(2)
+      });
+      const report = await generateScoutingReport(player.playerName, 'player', statsJson);
+      setScoutingReport(report);
+      setIsGeneratingReport(false);
+  };
+
   return (
     <div ref={containerRef} className="animate-in slide-in-from-right-8 duration-500 max-w-7xl mx-auto pb-12 bg-tactical-black p-4 sm:p-6 rounded-lg">
       {/* Header */}
@@ -186,6 +214,13 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
             </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+                <button 
+                  onClick={handleGenerateReport}
+                  disabled={isGeneratingReport}
+                  className="flex items-center gap-2 px-4 py-2 bg-tactical-dark border border-tactical-gray text-white font-bold uppercase text-xs tracking-wider hover:border-red-500 rounded-sm transition-colors disabled:opacity-50"
+                >
+                  {isGeneratingReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4 text-red-500" />} AI Report
+                </button>
                 {onOpenStudio && (
                     <button 
                         onClick={onOpenStudio}
@@ -224,6 +259,29 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
             </div>
         </div>
       </div>
+
+      {/* AI Scouting Report */}
+      {scoutingReport && (
+          <div className="mb-8 bg-black/50 border border-red-500/30 rounded-lg p-6 relative">
+              <button 
+                  onClick={() => setScoutingReport(null)}
+                  className="absolute top-4 right-4 text-tactical-light hover:text-white"
+              >
+                  <X className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-2 mb-4">
+                  <BrainCircuit className="w-5 h-5 text-red-500" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">AI Scouting Report</h3>
+              </div>
+              <div className="text-tactical-light text-sm leading-relaxed">
+                  <div className="markdown-body">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {scoutingReport}
+                      </ReactMarkdown>
+                  </div>
+              </div>
+          </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         

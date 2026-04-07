@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { BrandingConfig, TeamData } from '../types';
 import { X, Upload, Palette, Building2, Save, Users, User, Shield, Tv } from 'lucide-react';
+import { compressImage } from '../lib/imageUtils';
 
 interface AgencySettingsProps {
   isOpen: boolean;
@@ -46,80 +47,85 @@ const AgencySettings: React.FC<AgencySettingsProps> = ({ isOpen, onClose, config
     }
   }, [isOpen, config, teams]);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLocalConfig(prev => ({ ...prev, logoUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 512, 512, 0.8);
+        setLocalConfig(prev => ({ ...prev, logoUrl: compressed }));
+      } catch (err) {
+        console.error("Failed to compress image", err);
+      }
     }
   };
 
-  const handlePublisherLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePublisherLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLocalConfig(prev => ({ ...prev, publisherLogoUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 512, 512, 0.8);
+        setLocalConfig(prev => ({ ...prev, publisherLogoUrl: compressed }));
+      } catch (err) {
+        console.error("Failed to compress image", err);
+      }
     }
   };
 
-  const handleSponsorLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+  const handleSponsorLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compressed = await compressImage(file, 256, 256, 0.8);
         setLocalConfig(prev => {
           const newSponsors = [...(prev.sponsorLogos || [])];
-          newSponsors[index] = reader.result as string;
+          newSponsors[index] = compressed;
           return { ...prev, sponsorLogos: newSponsors };
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("Failed to compress image", err);
+      }
     }
   };
 
-  const handleTeamLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, teamName: string) => {
+  const handleTeamLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, teamName: string) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compressed = await compressImage(file, 256, 256, 0.8);
         setLocalConfig(prev => ({
             ...prev,
             teamBranding: {
                 ...(prev.teamBranding || {}),
                 [teamName]: {
                     ...(prev.teamBranding?.[teamName] || {}),
-                    logoUrl: reader.result as string
+                    logoUrl: compressed
                 }
             }
         }));
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("Failed to compress image", err);
+      }
     }
   };
 
-  const handlePlayerPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, playerName: string) => {
+  const handlePlayerPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, playerName: string) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compressed = await compressImage(file, 256, 256, 0.8);
         setLocalConfig(prev => ({
             ...prev,
             playerBranding: {
                 ...(prev.playerBranding || {}),
                 [playerName]: {
                     ...(prev.playerBranding?.[playerName] || {}),
-                    photoUrl: reader.result as string
+                    photoUrl: compressed
                 }
             }
         }));
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error("Failed to compress image", err);
+      }
     }
   };
 
@@ -321,7 +327,7 @@ const AgencySettings: React.FC<AgencySettingsProps> = ({ isOpen, onClose, config
                                     )}
                                     <input 
                                         type="file" 
-                                        ref={el => sponsorLogoInputRefs.current[index] = el} 
+                                        ref={el => { sponsorLogoInputRefs.current[index] = el; }} 
                                         onChange={(e) => handleSponsorLogoUpload(e, index)} 
                                         accept="image/*" 
                                         className="hidden" 

@@ -2,7 +2,14 @@ import React from 'react';
 import TeamMetadataPlaceholder from './TeamMetadataPlaceholder';
 import { Users } from 'lucide-react';
 
-const GroupsView: React.FC = () => {
+import { BrandingConfig, TeamData } from '../types';
+
+interface GroupsViewProps {
+  branding: BrandingConfig;
+  teams: TeamData[];
+}
+
+const GroupsView: React.FC<GroupsViewProps> = ({ branding, teams }) => {
   return (
     <div className="p-8 animate-in fade-in duration-500">
       <div className="flex items-center gap-3 mb-8">

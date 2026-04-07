@@ -136,6 +136,51 @@ export const parseRawData = async (text: string, day: number, matchInDay: number
   });
 };
 
+export const createAnalystChatSession = (tournamentContext: string) => {
+  return ai.chats.create({
+    model: "gemini-3-flash-preview",
+    config: {
+      systemInstruction: `You are FragLab AI, a world-class esports analyst and lead commentator. 
+      You have access to real-time tournament data from the current session.
+      
+      CORE DIRECTIVES:
+      1. PLAYER UNIQUENESS: Players are identified by a combination of their Team Tag and IGN (e.g., "TEAM A | PLAYER 1"). Treat players with the same IGN but different teams as completely separate individuals.
+      2. DATA SOURCE: Use ONLY the provided TOURNAMENT CONTEXT. If data is missing, state that you don't have that specific information yet.
+      3. ANALYTICAL DEPTH: Don't just list stats. Explain what they MEAN. (e.g., "Team X has high damage but low kills, suggesting they are failing to close out fights").
+      4. TONE: Professional, insightful, and occasionally high-energy (like a live broadcast analyst). Use terms like 'clutch factor', 'aggression index', 'rotation', and 'lethality'.
+      5. FORMATTING: Use bolding for team names and player names. Use bullet points for lists.
+      
+      TOURNAMENT CONTEXT:
+      ${tournamentContext}`,
+    },
+  });
+};
+
+export const generateScoutingReport = async (entityName: string, entityType: 'team' | 'player', statsJson: string): Promise<string> => {
+  return retryOperation(async () => {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: `Generate a high-level professional scouting report for the ${entityType} "${entityName}".
+        
+        PERSONA: You are a Head Scout for a top-tier esports organization.
+        
+        TASK: Analyze the provided statistical data and write a narrative report (3 paragraphs).
+        - Paragraph 1: Performance Overview & Playstyle (Aggressive, Passive, Tactical).
+        - Paragraph 2: Statistical Strengths & Weaknesses (using metrics like DPK, KPM, and Impact Score).
+        - Paragraph 3: Strategic Recommendation (How to play with/against this ${entityType}).
+        
+        DATA CONTEXT:
+        ${statsJson}`,
+      });
+      return response.text || "Report generation failed.";
+    } catch (error) {
+      console.error("Error generating scouting report:", error);
+      return "Unable to generate report at this time due to an error.";
+    }
+  });
+};
+
 export const generateInsights = async (data: any[]): Promise<any[]> => {
     // Keep existing insight logic, just pass through
     return []; 

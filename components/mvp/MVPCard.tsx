@@ -23,32 +23,38 @@ interface MVPCardProps {
   player: MVPPlayer;
   isPrimary?: boolean;
   accentColor?: string;
+  rank?: number;
 }
 
-export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false, accentColor = '#00FF00' }) => {
+export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false, accentColor = '#00FF00', rank }) => {
+  const displayRank = rank || (isPrimary ? 1 : 2);
+  
   return (
     <div className={cn(
       "flex flex-col relative group transition-all duration-300",
-      isPrimary ? "w-full md:w-[420px] z-10" : "w-full md:w-[280px]"
+      isPrimary ? "w-full max-w-[420px] z-10" : "w-full max-w-[320px]"
     )}>
       {/* Brutalist Border Container */}
       <div className={cn(
-        "relative border-2 bg-black overflow-hidden",
+        "relative border-2 bg-black overflow-hidden flex flex-col",
         isPrimary ? "" : "border-white/20 shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
       )} style={isPrimary ? { borderColor: accentColor, boxShadow: `8px 8px 0px 0px ${accentColor}4D` } : {}}>
         
         {/* Header Bar */}
         <div className={cn(
-            "h-8 flex items-center px-3 border-b-2",
-            isPrimary ? "" : "bg-white/10 border-white/20 text-white/40"
+            "h-10 flex-shrink-0 flex items-center px-4 border-b-2",
+            isPrimary ? "" : "bg-white/5 border-white/10 text-white/40"
         )} style={isPrimary ? { backgroundColor: accentColor, borderColor: accentColor, color: '#000' } : {}}>
-            <div className="flex gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-current opacity-30"></div>
-                <div className="w-2 h-2 rounded-full bg-current opacity-30"></div>
-                <div className="w-2 h-2 rounded-full bg-current opacity-30"></div>
+            <div className="flex gap-1">
+                {[1,2,3].map(i => (
+                    <div key={i} className="w-1 h-4 bg-current opacity-40"></div>
+                ))}
             </div>
-            <div className="ml-auto font-mono text-[10px] uppercase tracking-widest font-bold">
-                {isPrimary ? "ELITE_STATUS" : "OPERATOR_DATA"}
+            <div className="ml-3 font-mono text-[9px] uppercase tracking-[0.2em] font-black">
+                {isPrimary ? "PRIORITY_OPERATOR_DETECTED" : "DATA_STREAM_ACTIVE"}
+            </div>
+            <div className="ml-auto font-mono text-[8px] opacity-50">
+                {Math.random().toString(16).slice(2, 10).toUpperCase()}
             </div>
         </div>
 
@@ -78,8 +84,8 @@ export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false, acc
                 src={player.playerImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&clothing=graphicShirt&hair=shortHair&accessories=sunglasses`} 
                 alt={player.name}
                 className={cn(
-                    "absolute bottom-0 left-1/2 -translate-x-1/2 object-cover",
-                    isPrimary ? "h-[110%] w-auto max-w-none" : "h-[95%] w-auto"
+                    "absolute bottom-0 left-1/2 -translate-x-1/2 object-contain",
+                    isPrimary ? "h-[105%] w-auto" : "h-[90%] w-auto"
                 )}
             />
             
@@ -89,59 +95,87 @@ export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false, acc
 
         {/* Player Name Section */}
         <div className={cn(
-            "p-4 border-t-2 flex items-center justify-between",
+            "p-4 border-t-2 flex-shrink-0 flex items-center justify-between relative overflow-hidden",
             isPrimary ? "" : "bg-white border-white text-black"
         )} style={isPrimary ? { backgroundColor: accentColor, borderColor: accentColor, color: '#000' } : {}}>
-            <div>
-                <p className="text-[10px] font-mono uppercase tracking-widest leading-none opacity-60 mb-1">OPERATOR_ID</p>
-                <h3 className="text-2xl font-black uppercase tracking-tighter leading-none italic">{player.name}</h3>
+            {/* Background Decorative Text */}
+            <div className="absolute -right-4 -bottom-2 opacity-10 font-black text-4xl italic select-none pointer-events-none uppercase">
+                {player.name}
             </div>
-            {isPrimary && <Star className="w-6 h-6 fill-black" />}
+            
+            <div className="w-full relative z-10">
+                <p className="text-[8px] font-mono uppercase tracking-[0.4em] leading-none opacity-60 mb-1.5">OPERATOR_IDENTIFICATION</p>
+                <h3 className="text-3xl font-black uppercase tracking-tighter leading-none italic truncate w-full group-hover:skew-x-2 transition-transform duration-75">
+                    {player.name}
+                </h3>
+            </div>
+            {isPrimary && <Star className="w-6 h-6 fill-black animate-pulse" />}
         </div>
 
-        {/* Stats Section */}
-        <div className="bg-black p-4 space-y-2">
+        {/* Stats Section (List Style) */}
+        <div className={cn(
+            "p-2 flex-1 flex flex-col relative",
+            isPrimary ? "bg-black" : "bg-black"
+        )}>
+            {/* Stat Visualization Bar */}
+            <div className="px-3 py-2 mb-1 flex items-end gap-0.5 h-8">
+                {[...Array(20)].map((_, i) => {
+                    const height = 20 + Math.random() * 80;
+                    return (
+                        <motion.div 
+                            key={i}
+                            initial={{ height: 0 }}
+                            animate={{ height: `${height}%` }}
+                            transition={{ delay: i * 0.02, duration: 0.5 }}
+                            className="flex-1"
+                            style={{ backgroundColor: i < 12 ? accentColor : '#333', opacity: i < 12 ? 0.8 : 0.3 }}
+                        />
+                    );
+                })}
+            </div>
+
             <StatRow 
-                label="MVP_RATING" 
+                label="IMPACT_RATING" 
                 value={player.stats.mvpRating.toFixed(2)} 
                 variant={isPrimary ? 'primary' : 'secondary'} 
                 accentColor={accentColor}
+                color="#fbbf24"
             />
-            <div className="grid grid-cols-2 gap-2">
-                <StatRow 
-                    label="KILLS" 
-                    value={player.stats.finishes} 
-                    variant={isPrimary ? 'primary' : 'secondary'} 
-                    accentColor={accentColor}
-                />
-                <StatRow 
-                    label="DAMAGE" 
-                    value={player.stats.damage} 
-                    variant={isPrimary ? 'primary' : 'secondary'} 
-                    accentColor={accentColor}
-                />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-                <StatRow 
-                    label="SURVIVAL" 
-                    value={player.stats.avgSurvival} 
-                    variant={isPrimary ? 'primary' : 'secondary'} 
-                    accentColor={accentColor}
-                />
-                <StatRow 
-                    label="KNOCKS" 
-                    value={player.stats.knocks} 
-                    variant={isPrimary ? 'primary' : 'secondary'} 
-                    accentColor={accentColor}
-                    isLast
-                />
-            </div>
+            <StatRow 
+                label="TOTAL_FINISHES" 
+                value={player.stats.finishes} 
+                variant={isPrimary ? 'primary' : 'secondary'} 
+                accentColor={accentColor}
+                color="#4ade80"
+            />
+            <StatRow 
+                label="COMBAT_DAMAGE" 
+                value={player.stats.damage.toLocaleString()} 
+                variant={isPrimary ? 'primary' : 'secondary'} 
+                accentColor={accentColor}
+                color="#f87171"
+            />
+            <StatRow 
+                label="SURVIVAL_TIME" 
+                value={player.stats.avgSurvival} 
+                variant={isPrimary ? 'primary' : 'secondary'} 
+                accentColor={accentColor}
+                color="#60a5fa"
+            />
+            <StatRow 
+                label="KNOCKOUTS" 
+                value={player.stats.knocks} 
+                variant={isPrimary ? 'primary' : 'secondary'} 
+                accentColor={accentColor}
+                color="#a78bfa"
+                isLast
+            />
         </div>
       </div>
 
       {/* Decorative ID Number */}
-      <div className="absolute -bottom-4 -right-4 font-mono text-6xl font-black opacity-10 pointer-events-none select-none italic">
-          #{isPrimary ? "01" : "0" + (Math.floor(Math.random() * 8) + 2)}
+      <div className="absolute -bottom-6 -right-2 font-mono text-7xl font-black opacity-[0.07] pointer-events-none select-none italic z-0">
+          #{displayRank.toString().padStart(2, '0')}
       </div>
     </div>
   );

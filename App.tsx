@@ -1,6 +1,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
+import Hub from './components/Hub';
 import DataInput from './components/DataInput';
 import PointsTable from './components/PointsTable';
 import Analytics from './components/Analytics';
@@ -21,9 +22,13 @@ import DataNexus from './components/DataNexus';
 import PredictionWidget from './components/PredictionWidget'; 
 import MatchList from './components/MatchList'; // Imported MatchList
 import SearchBar from './components/SearchBar';
+import { AnalystChat } from './components/AnalystChat';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { TeamData, Insight, MatchData, ScoringRules, PlayerDerived, BrandingConfig, Snapshot } from './types';
+import { sanitizeTournament } from './lib/sanitizer';
 import { generateInsights } from './services/gemini';
 import { aggregateTournamentStats, DEFAULT_SCORING_RULES, recalculateMatchScores } from './services/analyticsEngine';
+import { SAMPLE_SNAPSHOT } from './services/sampleData';
 import { Loader2, Shield, LayoutGrid, Sword, Download, FileSpreadsheet, FileSpreadsheet as TableIcon, FileJson, Image, Share2, Settings, Calendar, ChevronDown, Trophy, BrainCircuit, Zap, Power, Upload, Save, MonitorPlay, Building2, FileText, Copy, Table, Eye, EyeOff, Database, History, Lock, LogOut, LayoutTemplate, User, Swords, Crosshair } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { ExportMode } from './components/ExportRenderer';
@@ -31,6 +36,7 @@ import { generateSnapshot } from './services/exportEngine';
 
 import LiveMatchLab from './components/LiveMatchLab';
 import GroupsView from './components/GroupsView';
+import StatisticsMode from './components/StatisticsMode';
 
 // Type for View Control
 type ViewScope = 
@@ -44,7 +50,8 @@ type ActiveView =
   | { type: 'player', playerName: string, teamName: string, from: 'dashboard' | 'team' }
   | { type: 'mvp' }
   | { type: 'live-lab' }
-  | { type: 'groups' };
+  | { type: 'groups' }
+  | { type: 'statistics' };
 
 const DEFAULT_BRANDING: BrandingConfig = {
     orgName: 'FragLab',
@@ -52,22 +59,18 @@ const DEFAULT_BRANDING: BrandingConfig = {
 };
 
 const App: React.FC = () => {
+  const [rawMatches, setRawMatches] = useState<MatchData[]>([]);
+  const [scoringRules, setScoringRules] = useState<ScoringRules>(DEFAULT_SCORING_RULES);
+  const [brandingConfig, setBrandingConfig] = useState<BrandingConfig>(DEFAULT_BRANDING);
+  const [insights, setInsights] = useState<Insight[]>([]);
   const [workflowStep, setWorkflowStep] = useState<'ingestion' | 'analysis'>('ingestion');
   const [operationMode, setOperationMode] = useState<'manual' | 'auto'>('manual');
-  
-  // Store raw matches to allow switching views
-  const [rawMatches, setRawMatches] = useState<MatchData[]>([]);
+  const [isAutoInsightsEnabled, setIsAutoInsightsEnabled] = useState(false);
   
   // Filter/View State
   const [viewScope, setViewScope] = useState<ViewScope>({ type: 'tournament' });
   const [activeView, setActiveView] = useState<ActiveView>({ type: 'dashboard' });
 
-  const [insights, setInsights] = useState<Insight[]>([]);
-  
-  // Scoring & Settings State
-  const [scoringRules, setScoringRules] = useState<ScoringRules>(DEFAULT_SCORING_RULES);
-  const [brandingConfig, setBrandingConfig] = useState<BrandingConfig>(DEFAULT_BRANDING);
-  
   // Modals
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
@@ -79,9 +82,6 @@ const App: React.FC = () => {
   const [isAgencyOpen, setIsAgencyOpen] = useState(false);
   const [isPressKitOpen, setIsPressKitOpen] = useState(false);
   const [isNexusOpen, setIsNexusOpen] = useState(false); 
-  
-  // AI Analyst State
-  const [isAutoInsightsEnabled, setIsAutoInsightsEnabled] = useState(false);
   
   // Snapshot / History Mode
   const [isSnapshotMode, setIsSnapshotMode] = useState(false);
@@ -132,22 +132,19 @@ const App: React.FC = () => {
   // Derived data based on selection AND scoring rules
   // Returns both the Aggregated Team Data and the Filtered Match List
   const { displayData: currentDisplayData, filteredMatches: currentFilteredMatches } = useMemo(() => {
-    // 1. Recalculate specific match scores based on current rules
-    const recalculatedMatches = recalculateMatchScores(rawMatches, scoringRules);
-    
-    // 2. Filter Matches based on Scope
-    let filteredMatches: MatchData[] = [];
-
+    // 1. Filter Matches based on Scope FIRST
+    let matchesToProcess: MatchData[] = [];
     if (viewScope.type === 'tournament') {
-        filteredMatches = recalculatedMatches;
-    } 
-    else if (viewScope.type === 'day') {
-        filteredMatches = recalculatedMatches.filter(m => m.day === viewScope.day);
-    } 
-    else if (viewScope.type === 'match') {
-        const match = recalculatedMatches.find(m => m.id === viewScope.matchId);
-        filteredMatches = match ? [match] : [];
+        matchesToProcess = rawMatches;
+    } else if (viewScope.type === 'day') {
+        matchesToProcess = rawMatches.filter(m => m.day === viewScope.day);
+    } else if (viewScope.type === 'match') {
+        const match = rawMatches.find(m => m.id === viewScope.matchId);
+        matchesToProcess = match ? [match] : [];
     }
+
+    // 2. Recalculate ONLY the filtered matches
+    const filteredMatches = recalculateMatchScores(matchesToProcess, scoringRules);
     
     // 3. Aggregate based on filtered matches
     // Note: If viewScope is 'match', we still use aggregateTournamentStats to get TeamData format
@@ -209,24 +206,28 @@ const App: React.FC = () => {
   // Effect to manage Auto-Insights behavior
   useEffect(() => {
     if (operationMode === 'manual' && !isSnapshotMode) {
-        setIsAutoInsightsEnabled(false);
-        setInsights([]);
+        if (isAutoInsightsEnabled || insights.length > 0) {
+            setIsAutoInsightsEnabled(false);
+            setInsights([]);
+        }
         return;
     }
 
     if (isAutoInsightsEnabled && currentDisplayData.length > 0 && activeView.type === 'dashboard' && !isSnapshotMode) {
       generateInsightsForData(currentDisplayData);
-    } else if (!isSnapshotMode) {
+    } else if (!isSnapshotMode && insights.length > 0) {
       setInsights([]); 
     }
-  }, [isAutoInsightsEnabled, currentDisplayData, operationMode, activeView, isSnapshotMode]); 
+  }, [isAutoInsightsEnabled, currentDisplayData, operationMode, activeView, isSnapshotMode, insights.length]); 
 
   const handleDataLoaded = useCallback(async (matches: MatchData[]) => {
     if (matches.length > 0) {
         handleLoading(true, "Aggregating Tournament Data...");
         setRawMatches(matches);
+        setWorkflowStep('analysis');
+    } else {
+        setWorkflowStep('analysis');
     }
-    setWorkflowStep('analysis');
     handleLoading(false, "");
   }, []);
 
@@ -238,12 +239,12 @@ const App: React.FC = () => {
     if(confirm("Are you sure you want to reset the current operation? All unsaved data will be lost.")) {
       setWorkflowStep('ingestion');
       setRawMatches([]);
+      setInsights([]);
+      setScoringRules(DEFAULT_SCORING_RULES);
+      setIsAutoInsightsEnabled(false);
       setViewScope({ type: 'tournament' });
       setActiveView({ type: 'dashboard' });
-      setInsights([]);
       setIsAnalyzing(false);
-      setScoringRules(DEFAULT_SCORING_RULES);
-      setIsAutoInsightsEnabled(false); 
       setIsSnapshotMode(false);
       setSnapshotMeta(null);
       window.history.pushState(null, '', window.location.pathname); // Clear history
@@ -274,23 +275,50 @@ const App: React.FC = () => {
   };
 
   // --- SAVE / LOAD STATE ---
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only warn if there's actually data in the active tournament
+      if (rawMatches.length > 0 && !isSnapshotMode) {
+        e.preventDefault();
+        e.returnValue = ''; // Required for Chrome
+        return ''; // Required for Safari
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [rawMatches.length, isSnapshotMode]);
+
   const handleExportState = () => {
-      const stateToSave = {
-          version: '1.2',
-          timestamp: Date.now(),
-          mode: operationMode,
-          rules: scoringRules,
-          branding: brandingConfig,
-          data: rawMatches,
-          autoInsights: isAutoInsightsEnabled,
-          insights: insights
+      const stateToSave: Snapshot = {
+          meta: {
+              type: 'FRAGLAB_SNAPSHOT',
+              version: '1.0',
+              timestamp: Date.now(),
+              hash: `export-${Date.now()}`
+          },
+          config: {
+              rules: scoringRules,
+              branding: brandingConfig,
+              mode: operationMode
+          },
+          data: {
+              matches: rawMatches
+          },
+          analysis: {
+              insights: insights
+          }
       };
       
-      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(stateToSave, null, 2))}`;
+      const blob = new Blob([JSON.stringify(stateToSave, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = jsonString;
-      link.download = `scarfall_${brandingConfig.orgName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+      link.href = url;
+      link.download = `fraglab_state_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
   };
   
   // --- PUBLISH SNAPSHOT ---
@@ -298,31 +326,51 @@ const App: React.FC = () => {
       if (!rawMatches.length) return;
       const jsonContent = generateSnapshot(rawMatches, scoringRules, brandingConfig, insights, operationMode, `Full Export ${new Date().toLocaleDateString()}`);
       
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonContent);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.setAttribute("href", dataStr);
-      link.setAttribute("download", `SNAPSHOT_${brandingConfig.orgName.replace(/\s+/g, '_')}_${Date.now()}.json`);
+      link.href = url;
+      link.download = `SNAPSHOT_${brandingConfig.orgName.replace(/\s+/g, '_')}_${Date.now()}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+  };
+
+  const handleLoadSample = () => {
+    setRawMatches(SAMPLE_SNAPSHOT.data.matches);
+    setScoringRules(SAMPLE_SNAPSHOT.config.rules);
+    setBrandingConfig(SAMPLE_SNAPSHOT.config.branding);
+    setInsights(SAMPLE_SNAPSHOT.analysis.insights || []);
+    setOperationMode(SAMPLE_SNAPSHOT.config.mode);
+    setWorkflowStep('analysis');
+    setIsSnapshotMode(false);
+    setSnapshotMeta(null);
+    setViewScope({ type: 'tournament' });
+    setActiveView({ type: 'dashboard' });
+    alert("Sample Data Loaded: TCE SPRINGS CUP 2026");
   };
 
   const handleLoadState = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
+      const target = e.target;
       if (!file) return;
 
       const reader = new FileReader();
       reader.onload = (event) => {
           try {
               const json = JSON.parse(event.target?.result as string);
+              const type = json.meta?.type?.toUpperCase();
               
-              if (json.meta && json.meta.type === 'FRAGLAB_SNAPSHOT') {
+              if (type === 'FRAGLAB_SNAPSHOT') {
                   const snapshot = json as Snapshot;
+                  
                   setRawMatches(snapshot.data.matches);
                   setScoringRules(snapshot.config.rules);
                   setBrandingConfig(snapshot.config.branding);
-                  setOperationMode(snapshot.config.mode);
                   setInsights(snapshot.analysis.insights || []);
+                  setOperationMode(snapshot.config.mode);
+                  setWorkflowStep('analysis');
                   
                   setIsSnapshotMode(true);
                   setSnapshotMeta({ 
@@ -331,8 +379,8 @@ const App: React.FC = () => {
                       hash: snapshot.meta.hash 
                   });
                   
-                  setWorkflowStep('analysis');
                   setViewScope({ type: 'tournament' });
+                  setActiveView({ type: 'dashboard' });
                   alert(`Snapshot Loaded: ${snapshot.meta.label || 'Archive'}`);
                   return;
               }
@@ -341,12 +389,6 @@ const App: React.FC = () => {
                   alert("Invalid save file: Missing match data.");
                   return;
               }
-
-              setOperationMode(json.mode || 'manual');
-              setScoringRules(json.rules || DEFAULT_SCORING_RULES);
-              if (json.branding) setBrandingConfig(json.branding);
-              if (json.autoInsights !== undefined) setIsAutoInsightsEnabled(json.autoInsights);
-              if (json.insights) setInsights(json.insights);
 
               const migratedMatches: MatchData[] = json.data.map((m: MatchData) => ({
                   ...m,
@@ -361,7 +403,12 @@ const App: React.FC = () => {
               }));
 
               setRawMatches(migratedMatches);
-              setWorkflowStep('ingestion'); 
+              setScoringRules(json.rules || DEFAULT_SCORING_RULES);
+              setBrandingConfig(json.branding || DEFAULT_BRANDING);
+              setInsights(json.insights || []);
+              setOperationMode(json.mode || 'manual');
+              setWorkflowStep('ingestion');
+              
               setViewScope({ type: 'tournament' });
               setActiveView({ type: 'dashboard' });
               setIsSnapshotMode(false);
@@ -376,11 +423,11 @@ const App: React.FC = () => {
           }
       };
       reader.readAsText(file);
-      if (loadInputRef.current) loadInputRef.current.value = '';
+      target.value = '';
   };
 
   const toggleMode = () => {
-      setOperationMode(prev => prev === 'manual' ? 'auto' : 'manual');
+      setOperationMode(operationMode === 'manual' ? 'auto' : 'manual');
   };
 
   const activeTeamData = activeView.type === 'team' || activeView.type === 'player' 
@@ -468,14 +515,16 @@ const App: React.FC = () => {
           isOpen={isRulesOpen} 
           onClose={() => setIsRulesOpen(false)}
           currentRules={scoringRules}
-          onSave={setScoringRules}
+          onSave={(rules) => setScoringRules(rules)}
         />
 
         <AgencySettings
           isOpen={isAgencyOpen}
           onClose={() => setIsAgencyOpen(false)}
           config={brandingConfig}
-          onSave={setBrandingConfig}
+          onSave={(config) => {
+            setBrandingConfig(config);
+          }}
           teams={currentDisplayData}
         />
 
@@ -550,7 +599,7 @@ const App: React.FC = () => {
                        type="file" 
                        ref={loadInputRef} 
                        className="hidden" 
-                       accept=".json"
+                       accept=".json,.fraglab-workspace,application/json"
                        onChange={handleLoadState}
                     />
                  </div>
@@ -644,6 +693,14 @@ const App: React.FC = () => {
                          <div className="w-px h-3 bg-tactical-gray hidden sm:block"></div>
                          
                          <div className="flex gap-1">
+                            <button 
+                                onClick={() => navigateTo({ type: 'statistics' })} 
+                                title="Analyst Workbench (Deep Dive Statistics)" 
+                                className={`px-3 py-1.5 border rounded-sm transition-colors flex items-center gap-2 ${activeView.type === 'statistics' ? 'bg-tactical-green/20 border-tactical-green text-tactical-green' : 'bg-tactical-dark border-tactical-gray hover:bg-white/10 text-white'}`}
+                            >
+                                <LayoutGrid className="w-3 h-3" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Stats Mode</span>
+                            </button>
                             <button 
                                 onClick={() => setIsNexusOpen(true)} 
                                 title="Open Data Nexus (Excel/CSV Exports)" 
@@ -836,7 +893,34 @@ const App: React.FC = () => {
                       >
                           ← Back
                       </button>
-                      <TournamentMVP data={currentDisplayData} branding={brandingConfig} />
+                      <TournamentMVP 
+                        data={currentDisplayData} 
+                        branding={brandingConfig} 
+                        onClose={() => navigateTo({ type: 'dashboard' })}
+                      />
+                  </div>
+              )}
+
+              {activeView.type === 'statistics' && (
+                  <div className="relative z-10 min-h-screen bg-black">
+                      <button 
+                          onClick={() => navigateTo({ type: 'dashboard' })}
+                          className="absolute top-4 left-4 z-50 px-4 py-2 bg-black/50 text-white rounded-sm hover:bg-black transition-colors text-xs font-bold uppercase tracking-widest border border-white/20"
+                      >
+                          ← Back
+                      </button>
+                      <div className="pt-16 px-4">
+                        <StatisticsMode 
+                          data={currentDisplayData}
+                          onOpenStudio={(mode, focusId) => {
+                            if (mode === 'mvp') {
+                                handleOpenStudio('mvp', { playerName: focusId });
+                            } else if (mode === 'team_profile') {
+                                handleOpenStudio('team_profile', { teamId: focusId });
+                            }
+                          }}
+                        />
+                      </div>
                   </div>
               )}
 
@@ -854,8 +938,26 @@ const App: React.FC = () => {
                       />
                   </div>
               )}
+              
+              {activeView.type === 'groups' && (
+                  <div className="relative z-10 min-h-screen bg-black">
+                      <button 
+                          onClick={() => navigateTo({ type: 'dashboard' })}
+                          className="absolute top-4 left-4 z-50 px-4 py-2 bg-black/50 text-white rounded-sm hover:bg-black transition-colors text-xs font-bold uppercase tracking-widest border border-white/20"
+                      >
+                          ← Back
+                      </button>
+                      <GroupsView 
+                        branding={brandingConfig}
+                        teams={currentDisplayData}
+                      />
+                  </div>
+              )}
           </div>
         )}
+        
+        {/* AI Analyst Chatbot */}
+        <AnalystChat teams={currentDisplayData} matches={currentFilteredMatches} />
       </Layout>
     </div>
   );

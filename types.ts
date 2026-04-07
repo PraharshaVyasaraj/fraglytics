@@ -35,6 +35,51 @@ export interface PlayerDerived extends PlayerAtomic {
   supportRating: number;
   performanceTrend: number[]; // Impact scores over time
   
+  // --- 70-METRIC SUITE FIELDS ---
+  // Individual Level - Two Fields Combined
+  assistsPerMinute?: number;
+  damagePerKill?: number;
+  killAssistCombined?: number;
+  survivalPercentile?: number;
+  pointsPerMatch?: number;
+  killPointsPerMatch?: number;
+  placementPointsPerMatch?: number;
+  avgKillsPerMatch?: number;
+  avgDamagePerMatch?: number;
+  avgAssistsPerMatch?: number;
+  killToAssistRatio?: number;
+  survivedToEndFlag?: number;
+  earlyEliminationFlag?: number;
+
+  // Individual Level - Three or More Fields Combined
+  combatScore?: number;
+  efficiencyScore?: number;
+  survivalQuality?: number;
+  aggressionIndex?: number;
+  killEfficiencyRating?: number;
+  contributionRate?: number;
+  impactPerMinute?: number;
+  damageSurvivalIndex?: number;
+  killSurvivalIndex?: number;
+  pointsEfficiency?: number;
+  placementConsistency?: number;
+  scoreConsistency?: number;
+  boomOrBustIndex?: number;
+  avgPlacement?: number;
+  activeContributionFlag?: number;
+  deadWeightFlag?: number;
+
+  // Solo Carry / Individual vs Team
+  killShare?: number;
+  killAboveTeamAvg?: number;
+  damageAboveTeamAvg?: number;
+  soloCarryProxy?: number;
+  carryPlacementBonus?: number;
+  survivalLead?: number;
+  survivedLongestFlag?: number;
+  survivedToEndVsTeam?: number;
+  // ------------------------------
+
   // Tactical Classification
   carryClass: CarryClass;
   isOutlier: boolean;
@@ -57,6 +102,7 @@ export interface PlayerDerived extends PlayerAtomic {
   finishes: number;
   playTimeMinutes: number;
   matchesPlayed: number; // Number of matches participated in
+  dpk: number;
 }
 
 // 3️⃣ TEAM STATS (Per Match Context)
@@ -83,6 +129,15 @@ export interface TeamMatchStats {
   
   // Match-Specific Flags
   flags: string[]; 
+  
+  // --- 70-METRIC SUITE FIELDS ---
+  teamKillDistribution?: number;
+  teamDamageDistribution?: number;
+  teamActivePlayerCount?: number;
+  teamDeadWeightCount?: number;
+  teamDamagePerMinute?: number;
+  teamKillsPerMinute?: number;
+  // ------------------------------
 }
 
 // 4️⃣ MATCH OBJECT
@@ -122,6 +177,19 @@ export interface TeamData {
   // NEW: Advanced Team Metrics
   teamClutchScore: number;
   teamSupportScore: number;
+  
+  // --- 70-METRIC SUITE FIELDS ---
+  pointsPerMatch?: number;
+  placementConsistency?: number;
+  pointsConsistency?: number;
+  boomOrBustIndex?: number;
+  winRate?: number;
+  top3Rate?: number;
+  top5Rate?: number;
+  avgKillPointsPerMatch?: number;
+  avgPlacementPointsPerMatch?: number;
+  winProbability?: number;
+  // ------------------------------
   
   // Meta
   damageVariance: number; // Consistency metric
@@ -214,6 +282,28 @@ export interface Snapshot {
     analysis: {
       insights: Insight[];
     }
+}
+
+export interface Tournament {
+  id: string;
+  metadata: {
+    name: string;
+    createdAt: number;
+    lastModified: number;
+  };
+  rawMatches: MatchData[];
+  scoringRules: ScoringRules;
+  brandingConfig: BrandingConfig;
+  insights: Insight[];
+  workflowStep: 'ingestion' | 'analysis';
+  operationMode: 'manual' | 'auto';
+  isAutoInsightsEnabled: boolean;
+}
+
+export interface Workspace {
+  version: string;
+  tournaments: Tournament[];
+  activeTournamentId: string | null;
 }
 
 // Compatibility Types for UI Components

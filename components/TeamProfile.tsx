@@ -1,8 +1,11 @@
 
 import React, { useRef, useState } from 'react';
 import { TeamData, PlayerDerived } from '../types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { generateTeamProfileJSON, generateTeamHistoryCSV } from '../services/exportEngine';
-import { ArrowLeft, Trophy, Crosshair, Target, Activity, Shield, Users, TrendingUp, TrendingDown, Minus, GitGraph, MonitorPlay, Download, Loader2, Check, X, Skull, Zap, Clock, ExternalLink, FileJson, FileSpreadsheet } from 'lucide-react';
+import { generateScoutingReport } from '../services/gemini';
+import { ArrowLeft, Trophy, Crosshair, Target, Activity, Shield, Users, TrendingUp, TrendingDown, Minus, GitGraph, MonitorPlay, Download, Loader2, Check, X, Skull, Zap, Clock, ExternalLink, FileJson, FileSpreadsheet, BrainCircuit } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { toPng } from 'html-to-image';
 
@@ -52,7 +55,6 @@ const PlayerCardModal: React.FC<{ player: PlayerDerived, team: TeamData, onClose
                     </div>
                 </div>
 
-                {/* Stats Grid */}
                 <div className="p-6 grid grid-cols-2 gap-4">
                     <div className="bg-black/30 p-3 rounded-sm border border-tactical-gray/50">
                         <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-tactical-light mb-1">
@@ -107,6 +109,8 @@ const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, 
   const [snapDone, setSnapDone] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDerived | null>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [scoutingReport, setScoutingReport] = useState<string | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const historyData = team.history.map((h, i) => {
     // Parse matchId to get friendly label if possible
@@ -179,6 +183,34 @@ const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, 
       setIsExportMenuOpen(false);
   };
 
+  const handleGenerateReport = async () => {
+      setIsGeneratingReport(true);
+      const statsJson = JSON.stringify({
+          name: team.name,
+          rank: team.rank,
+          points: team.totalPoints,
+          kills: team.totalFinishes,
+          damage: team.totalDamage,
+          matches: team.matchesPlayed,
+          consistency: consistencyLabel,
+          cv: cv.toFixed(1),
+          efficiency: team.efficiencyRating.toFixed(1),
+          aggression: team.aggressionIndex.toFixed(1),
+          trend: team.trend,
+          players: team.players.map(p => ({
+              name: p.playerName,
+              kills: p.finishes,
+              damage: p.damage,
+              dpk: p.dpk.toFixed(0),
+              impact: p.impactScore.toFixed(1),
+              carryClass: p.carryClass
+          }))
+      });
+      const report = await generateScoutingReport(team.name, 'team', statsJson);
+      setScoutingReport(report);
+      setIsGeneratingReport(false);
+  };
+
   return (
     <div ref={containerRef} className="animate-in slide-in-from-right-8 duration-500 bg-tactical-black p-4 sm:p-6 rounded-lg relative">
       {/* Player Modal */}
@@ -221,6 +253,13 @@ const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, 
         </div>
         
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
+            <button 
+              onClick={handleGenerateReport}
+              disabled={isGeneratingReport}
+              className="flex items-center gap-2 px-4 py-2 bg-tactical-dark border border-tactical-gray text-white font-bold uppercase text-xs tracking-wider hover:border-red-500 rounded-sm transition-colors disabled:opacity-50"
+            >
+              {isGeneratingReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4 text-red-500" />} AI Report
+            </button>
             {onOpenStudio && (
                 <button 
                     onClick={onOpenStudio}
@@ -258,6 +297,29 @@ const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, 
             </div>
         </div>
       </div>
+
+      {/* AI Scouting Report */}
+      {scoutingReport && (
+          <div className="mb-8 bg-black/50 border border-red-500/30 rounded-lg p-6 relative">
+              <button 
+                  onClick={() => setScoutingReport(null)}
+                  className="absolute top-4 right-4 text-tactical-light hover:text-white"
+              >
+                  <X className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-2 mb-4">
+                  <BrainCircuit className="w-5 h-5 text-red-500" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">AI Scouting Report</h3>
+              </div>
+              <div className="text-tactical-light text-sm leading-relaxed">
+                  <div className="markdown-body">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {scoutingReport}
+                      </ReactMarkdown>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">

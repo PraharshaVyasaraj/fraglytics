@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Crosshair, Settings, ChevronRight, RotateCcw, ShieldCheck, Terminal, Wifi, WifiOff, Download, ChevronDown, Image as ImageIcon, FileText, Layout as LayoutIcon, Maximize, PenTool, Braces, MonitorPlay, Users } from 'lucide-react';
+import { Crosshair, Settings, ChevronRight, RotateCcw, ShieldCheck, Terminal, Wifi, WifiOff, Download, ChevronDown, Image as ImageIcon, FileText, Layout as LayoutIcon, Maximize, PenTool, Braces, MonitorPlay, Users, Trash2 } from 'lucide-react';
+import { Workspace } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface LayoutProps {
   onNavigate?: (view: any) => void;
   onOpenStudio?: () => void;
   onOpenSettings?: () => void;
+  onBackToHub?: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -24,7 +26,8 @@ const Layout: React.FC<LayoutProps> = ({
   activeView,
   onNavigate,
   onOpenStudio,
-  onOpenSettings
+  onOpenSettings,
+  onBackToHub
 }) => {
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
@@ -126,9 +129,14 @@ const Layout: React.FC<LayoutProps> = ({
           
           {/* Logo Section */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className={`p-1.5 sm:p-2 rounded-sm transition-colors ${step === 'analysis' ? 'bg-tactical-red' : 'bg-tactical-dark border border-tactical-gray'}`}>
+            <button 
+              onClick={onBackToHub} 
+              className={`p-1.5 sm:p-2 rounded-sm transition-colors hover:bg-tactical-gray ${step === 'analysis' ? 'bg-tactical-red' : 'bg-tactical-dark border border-tactical-gray'}`}
+              title="Back to Hub"
+            >
               <Crosshair className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
+            </button>
+            
             <h1 className="font-serif text-lg sm:text-xl font-bold tracking-tight text-white hidden sm:block">
               FragLab <span className="text-tactical-light font-normal hidden lg:inline">Analytics</span>
             </h1>

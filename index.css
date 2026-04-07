@@ -5,6 +5,15 @@
   --report-accent: #C5A073;
   --report-ink: #1A1A1A;
   --report-red: #E11D48;
+  --report-green: #00FF00;
+}
+
+@theme {
+  --color-tactical-green: #00FF00;
+  --color-tactical-red: #E11D48;
+  --color-tactical-dark: #050505;
+  --color-tactical-gray: #27272A;
+  --color-tactical-light: #A1A1AA;
 }
 
 /* Outlined Typography (The "Big Win" Look) */
@@ -28,4 +37,152 @@
 }
 .trend-stable {
   border-left: 4px solid #71717a;
+}
+
+/* Markdown Styles */
+.markdown-body {
+  line-height: 1.6;
+}
+
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.markdown-body ul, .markdown-body ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-body ul {
+  list-style-type: disc;
+}
+
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
+.markdown-body li {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.markdown-body h1 { font-size: 1.25rem; }
+.markdown-body h2 { font-size: 1.1rem; }
+.markdown-body h3 { font-size: 1rem; }
+
+/* Cyber Glitch Animations */
+@keyframes glitch-flicker {
+  0% { opacity: 0.1; transform: translateX(-2px); }
+  5% { opacity: 0.8; transform: translateX(2px); }
+  10% { opacity: 0.4; transform: translateX(-1px); }
+  15% { opacity: 0.9; transform: translateX(1px); }
+  20% { opacity: 0.2; transform: translateX(0); }
+  25% { opacity: 1; transform: translateX(0); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes glitch-skew {
+  0% { transform: skew(0deg); }
+  2% { transform: skew(10deg); }
+  4% { transform: skew(-10deg); }
+  6% { transform: skew(0deg); }
+  100% { transform: skew(0deg); }
+}
+
+@keyframes glitch-color {
+  0% { text-shadow: 2px 0 #0ff, -2px 0 #f0f; }
+  2% { text-shadow: -2px 0 #0ff, 2px 0 #f0f; }
+  4% { text-shadow: 2px 0 #0ff, -2px 0 #f0f; }
+  6% { text-shadow: 0 0 #0ff, 0 0 #f0f; }
+  100% { text-shadow: 0 0 #0ff, 0 0 #f0f; }
+}
+
+.animate-glitch-flicker {
+  animation: glitch-flicker 3s infinite linear alternate-reverse;
+}
+
+.animate-glitch-skew {
+  animation: glitch-skew 4s infinite linear alternate-reverse;
+}
+
+.animate-glitch-color {
+  animation: glitch-color 5s infinite linear alternate-reverse;
+}
+
+/* Tactical Workbench Utilities */
+.tactical-panel {
+  background: linear-gradient(135deg, rgba(10, 10, 10, 0.95) 0%, rgba(20, 20, 20, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.scanline {
+  width: 100%;
+  height: 100px;
+  z-index: 5;
+  background: linear-gradient(0deg, rgba(0, 255, 0, 0) 0%, rgba(0, 255, 0, 0.05) 50%, rgba(0, 255, 0, 0) 100%);
+  opacity: 0.1;
+  position: absolute;
+  bottom: 100%;
+  animation: scanline 8s linear infinite;
+}
+
+@keyframes scanline {
+  0% { bottom: 100%; }
+  100% { bottom: -100px; }
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+.glow-text-green {
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.glow-text-red {
+  text-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
+}
+
+.glow-border-cyan {
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+  border-color: rgba(0, 255, 204, 0.4);
+}
+
+.glow-border-green {
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+  border-color: rgba(0, 255, 0, 0.4);
+}
+
+.glow-border-red {
+  box-shadow: 0 0 15px rgba(255, 51, 51, 0.2);
+  border-color: rgba(255, 51, 51, 0.4);
+}
+
+.cyber-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.data-row-hover:hover {
+  background: linear-gradient(90deg, rgba(0, 255, 204, 0.05) 0%, transparent 100%);
 }

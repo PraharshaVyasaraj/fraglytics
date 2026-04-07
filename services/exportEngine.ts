@@ -1,6 +1,7 @@
 
 import { utils, writeFile } from 'xlsx';
 import { TeamData, MatchData, PlayerDerived, BrandingConfig, Snapshot, ScoringRules, Insight } from '../types';
+import { getGlobalPlayerRegistry } from './analyticsEngine';
 
 interface ExportConfig {
     includeZScores: boolean;
@@ -385,4 +386,66 @@ export const generatePlayerHistoryCSV = (player: PlayerDerived) => {
         h.zScoreKills?.toFixed(2) || '0.00'
     ].join(','));
     return [headers.join(','), ...rows].join('\n');
+};
+
+const getMetricLabel = (id: string) => {
+    const labels: Record<string, string> = {
+        impactScore: 'Impact Score',
+        kpm: 'Kills Per Match',
+        killEfficiencyRating: 'Kill Efficiency',
+        killShare: 'Kill Share %',
+        clutchRating: 'Clutch Rating',
+        survivalPercentile: 'Survival %',
+        survivalLead: 'Survival Lead',
+        avgPlacement: 'Avg Placement',
+        damageShare: 'Damage Share %',
+        dpm: 'Damage Per Minute',
+        efficiencyScore: 'Efficiency Score',
+        contributionRate: 'Contribution Rate',
+        soloCarryProxy: 'Solo Carry Proxy',
+        aggressionIndex: 'Aggression Index',
+        boomOrBustIndex: 'Boom/Bust Index',
+        combatScore: 'Combat Score'
+    };
+    return labels[id] || id;
+};
+
+const extractAdvancedMetrics = (p: any, slots: string[]) => {
+    const base = [
+        `"${p.playerName}"`, 
+        `"${p.teamName}"`, 
+        p.matchesPlayed, 
+        p.kills, 
+        p.damage, 
+        p.assists, 
+        p.playTimeMinutes?.toFixed(2) || 0
+    ];
+    
+    const dynamic = slots.map(slot => {
+        const val = p[slot];
+        if (val === undefined || val === null) return 'N/A';
+        return typeof val === 'number' ? val.toFixed(2) : val;
+    });
+
+    return [...base, ...dynamic];
+};
+
+export const generateAdvancedAnalyticsCSV = (teams: TeamData[], slots: string[]) => {
+    const players = getGlobalPlayerRegistry(teams);
+    const headers = [
+        'Player Name', 'Team Name', 'Matches Played', 'Kills', 'Damage', 'Assists', 'Play Time (Mins)',
+        ...slots.map(getMetricLabel)
+    ];
+    const rows = players.map(p => extractAdvancedMetrics(p, slots).join(','));
+    return [headers.join(','), ...rows].join('\n');
+};
+
+export const generateAdvancedAnalyticsClipboard = (teams: TeamData[], slots: string[]) => {
+    const players = getGlobalPlayerRegistry(teams);
+    const headers = [
+        'Player Name', 'Team Name', 'Matches Played', 'Kills', 'Damage', 'Assists', 'Play Time (Mins)',
+        ...slots.map(getMetricLabel)
+    ];
+    const rows = players.map(p => extractAdvancedMetrics(p, slots).join('\t'));
+    return [headers.join('\t'), ...rows].join('\n');
 };

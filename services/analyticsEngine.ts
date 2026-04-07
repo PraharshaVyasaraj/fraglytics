@@ -18,6 +18,10 @@ export const DEFAULT_SCORING_RULES: ScoringRules = {
 
 // --- MATH HELPERS ---
 
+const safeDivide = (num: number, den: number): number => {
+    return den === 0 ? 0 : num / den;
+};
+
 const calculateStdDev = (values: number[]): number => {
     if (values.length === 0) return 0;
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -122,6 +126,16 @@ export const calculateMatchStats = (rawPlayers: PlayerAtomic[], rules: ScoringRu
       // Support Rating: High assists + high survival time (staying alive to help)
       const supportRating = (p.assists * 3) + (minutes * 0.3);
 
+      const totalPlayers = rawPlayers.length || 64; // Fallback to 64 if not available
+      const playerRank = p.individualRank || rank; // Fallback to team rank
+      const survivalPercentile = safeDivide(totalPlayers - playerRank, totalPlayers);
+      const teamAvgKills = safeDivide(totalKills, players.length);
+      const teamAvgDamage = safeDivide(totalDamage, players.length);
+      const teamAvgPlayerRank = players.reduce((sum, pl) => sum + (pl.individualRank || rank), 0) / players.length;
+      
+      const killAboveTeamAvg = p.kills - teamAvgKills;
+      const soloCarryProxy = killAboveTeamAvg * survivalPercentile;
+
       return {
         ...p,
         playerName: normalizedName, 
@@ -150,7 +164,46 @@ export const calculateMatchStats = (rawPlayers: PlayerAtomic[], rules: ScoringRu
         finishes: p.kills,
         playTimeMinutes: minutes,
         individualRank: p.individualRank,
-        matchesPlayed: 1
+        matchesPlayed: 1,
+        dpk: p.kills > 0 ? p.damage / p.kills : p.damage,
+
+        // --- 70-METRIC SUITE FIELDS (Match Level) ---
+        assistsPerMinute: safeDivide(p.assists, minutes),
+        damagePerKill: safeDivide(p.damage, Math.max(p.kills, 1)),
+        killAssistCombined: p.kills + p.assists,
+        survivalPercentile,
+        pointsPerMatch: totalPoints, // Since matchesPlayed is 1 here
+        killPointsPerMatch: killPts,
+        placementPointsPerMatch: placementPts,
+        avgKillsPerMatch: p.kills,
+        avgDamagePerMatch: p.damage,
+        avgAssistsPerMatch: p.assists,
+        killToAssistRatio: safeDivide(p.kills, Math.max(p.assists, 1)),
+        survivedToEndFlag: playerRank === 1 ? 1 : 0,
+        earlyEliminationFlag: playerRank > (totalPlayers * 0.75) ? 1 : 0,
+
+        combatScore: impactScore,
+        efficiencyScore: safeDivide(impactScore, minutes),
+        survivalQuality: survivalPercentile * minutes,
+        aggressionIndex: safeDivide(p.damage + (p.kills * 50), minutes),
+        killEfficiencyRating: safeDivide(p.kills, Math.max(p.damage, 1)) * 1000,
+        contributionRate: safeDivide(p.kills + p.assists + (p.damage / 200), minutes),
+        impactPerMinute: safeDivide(impactScore, minutes),
+        damageSurvivalIndex: p.damage * survivalPercentile,
+        killSurvivalIndex: p.kills * survivalPercentile,
+        pointsEfficiency: safeDivide(totalPoints, Math.max(minutes, 1)),
+        activeContributionFlag: (p.damage > 0 || p.kills > 0 || p.assists > 0) ? 1 : 0,
+        deadWeightFlag: (p.damage === 0 && p.kills === 0 && p.assists === 0) ? 1 : 0,
+
+        killShare: safeDivide(p.kills, Math.max(totalKills, 1)),
+        killAboveTeamAvg,
+        damageAboveTeamAvg: p.damage - teamAvgDamage,
+        soloCarryProxy,
+        carryPlacementBonus: soloCarryProxy * (1 + placementPts),
+        survivalLead: teamAvgPlayerRank - playerRank,
+        survivedLongestFlag: playerRank === Math.min(...players.map(pl => pl.individualRank || rank)) ? 1 : 0,
+        survivedToEndVsTeam: (playerRank === 1 && rank === 1) ? 1 : 0,
+        // --------------------------------------------
       };
     });
 
@@ -161,6 +214,7 @@ export const calculateMatchStats = (rawPlayers: PlayerAtomic[], rules: ScoringRu
     if (totalDamage > 3000 && rank > 5) flags.push("UNLUCKY");
 
     const avgSurvival = players.reduce((s, p) => s + p.survivalTimeSeconds, 0) / Math.max(1, players.length);
+    const avgSurvivalMinutes = avgSurvival / 60;
 
     matchTeams.push({
       matchId,
@@ -176,7 +230,16 @@ export const calculateMatchStats = (rawPlayers: PlayerAtomic[], rules: ScoringRu
       totalAssists,
       avgSurvivalSeconds: avgSurvival,
       players: derivedPlayers.sort((a,b) => b.damage - a.damage),
-      flags
+      flags,
+      
+      // --- 70-METRIC SUITE FIELDS (Team Match Level) ---
+      teamKillDistribution: calculateStdDev(players.map(p => p.kills)),
+      teamDamageDistribution: calculateStdDev(players.map(p => p.damage)),
+      teamActivePlayerCount: derivedPlayers.filter(p => p.activeContributionFlag === 1).length,
+      teamDeadWeightCount: derivedPlayers.filter(p => p.deadWeightFlag === 1).length,
+      teamDamagePerMinute: safeDivide(totalDamage, avgSurvivalMinutes),
+      teamKillsPerMinute: safeDivide(totalKills, avgSurvivalMinutes),
+      // -------------------------------------------------
     });
   });
 
@@ -192,7 +255,21 @@ export const calculateMatchStats = (rawPlayers: PlayerAtomic[], rules: ScoringRu
 
 export const aggregateTournamentStats = (matches: MatchData[], registry?: RegistryConfig): TeamData[] => {
   const teamMap = new Map<string, TeamData>();
-  const globalPlayerMap = new Map<string, { raw: PlayerDerived, matches: number, totalDmg: number, totalKills: number, history: any[] }>();
+  const globalPlayerMap = new Map<string, { 
+    raw: PlayerDerived, 
+    matches: number, 
+    totalDmg: number, 
+    totalKills: number, 
+    totalAssists: number, 
+    totalSurvival: number, 
+    totalImpact: number, 
+    totalClutch: number,
+    totalSupport: number,
+    totalSurvivalPercentile: number,
+    totalSoloCarryProxy: number,
+    totalSurvivalLead: number,
+    history: any[] 
+  }>();
 
   // 1. Accumulate
   matches.forEach(match => {
@@ -265,6 +342,14 @@ export const aggregateTournamentStats = (matches: MatchData[], registry?: Regist
                     matches: 0,
                     totalDmg: 0,
                     totalKills: 0,
+                    totalAssists: 0,
+                    totalSurvival: 0,
+                    totalImpact: 0,
+                    totalClutch: 0,
+                    totalSupport: 0,
+                    totalSurvivalPercentile: 0,
+                    totalSoloCarryProxy: 0,
+                    totalSurvivalLead: 0,
                     history: []
                 });
             }
@@ -272,6 +357,14 @@ export const aggregateTournamentStats = (matches: MatchData[], registry?: Regist
             pAgg.matches++;
             pAgg.totalDmg += p.damage;
             pAgg.totalKills += p.kills;
+            pAgg.totalAssists += p.assists;
+            pAgg.totalSurvival += p.survivalTimeSeconds;
+            pAgg.totalImpact += p.impactScore;
+            pAgg.totalClutch += (p.clutchRating || 0);
+            pAgg.totalSupport += (p.supportRating || 0);
+            pAgg.totalSurvivalPercentile += (p.survivalPercentile || 0);
+            pAgg.totalSoloCarryProxy += (p.soloCarryProxy || 0);
+            pAgg.totalSurvivalLead += (p.survivalLead || 0);
             pAgg.history.push(p.history[0]);
         });
       }
@@ -288,12 +381,52 @@ export const aggregateTournamentStats = (matches: MatchData[], registry?: Regist
         if (pKey.startsWith((team.name || '').toLowerCase().trim() + '-')) {
             const p = pData.raw;
             p.damage = pData.totalDmg;
+            p.kills = pData.totalKills;
             p.finishes = pData.totalKills;
-            p.playTimeMinutes = team.matchesPlayed > 0 ? (team.avgSurvivalTime / team.matchesPlayed) : 0;
+            p.assists = pData.totalAssists;
+            p.survivalTimeSeconds = pData.totalSurvival;
+            p.impactScore = pData.totalImpact;
+            p.playTimeMinutes = pData.totalSurvival / 60;
             p.damageShare = team.totalDamage > 0 ? (p.damage / team.totalDamage) * 100 : 0;
             p.history = pData.history.sort((a,b) => a.day - b.day);
             p.matchesPlayed = pData.matches;
             p.kpm = pData.matches > 0 ? p.finishes / pData.matches : 0;
+            p.dpk = p.finishes > 0 ? p.damage / p.finishes : p.damage;
+            
+            p.clutchRating = safeDivide(pData.totalClutch, pData.matches);
+            p.supportRating = safeDivide(pData.totalSupport, pData.matches);
+            p.survivalPercentile = safeDivide(pData.totalSurvivalPercentile, pData.matches);
+            p.soloCarryProxy = safeDivide(pData.totalSoloCarryProxy, pData.matches);
+            p.survivalLead = safeDivide(pData.totalSurvivalLead, pData.matches);
+            p.avgPlacement = team.avgPlacement / team.matchesPlayed;
+
+            // Recalculate 70 metrics for aggregated player
+            const minutes = p.playTimeMinutes;
+            p.assistsPerMinute = safeDivide(p.assists, minutes);
+            p.damagePerKill = safeDivide(p.damage, Math.max(p.kills, 1));
+            p.killAssistCombined = p.kills + p.assists;
+            p.avgKillsPerMatch = safeDivide(p.kills, p.matchesPlayed);
+            p.avgDamagePerMatch = safeDivide(p.damage, p.matchesPlayed);
+            p.avgAssistsPerMatch = safeDivide(p.assists, p.matchesPlayed);
+            p.killToAssistRatio = safeDivide(p.kills, Math.max(p.assists, 1));
+            
+            p.combatScore = p.impactScore;
+            p.efficiencyScore = safeDivide(p.impactScore, minutes);
+            p.aggressionIndex = safeDivide(p.damage + (p.kills * 50), minutes);
+            p.killEfficiencyRating = safeDivide(p.kills, Math.max(p.damage, 1)) * 1000;
+            p.contributionRate = safeDivide(p.kills + p.assists + (p.damage / 200), minutes);
+            p.impactPerMinute = safeDivide(p.impactScore, minutes);
+            
+            p.killShare = safeDivide(p.kills, Math.max(team.totalFinishes, 1));
+            p.killAboveTeamAvg = p.kills - safeDivide(team.totalFinishes, 4); 
+            p.damageAboveTeamAvg = p.damage - safeDivide(team.totalDamage, 4);
+            
+            // Boom or Bust: High variance in points/impact
+            const impacts = p.history.map(h => h.impact);
+            const avgImpact = safeDivide(p.impactScore, p.matchesPlayed);
+            const variance = impacts.reduce((s, i) => s + Math.pow(i - avgImpact, 2), 0) / Math.max(1, impacts.length);
+            p.boomOrBustIndex = Math.sqrt(variance);
+            
             roster.push(p);
         }
     });
@@ -336,6 +469,10 @@ export const aggregateTournamentStats = (matches: MatchData[], registry?: Regist
     if (team.history.some(h => h.rank === 1)) flags.push("WINNER");
     if (adjustment !== 0) flags.push("ADMIN_ADJUST");
 
+    const pointsHistory = team.history.map(h => h.points);
+    const rankHistory = team.history.map(h => h.rank);
+    const avgPoints = safeDivide(team.totalPoints, team.matchesPlayed);
+
     return {
       ...team,
       avgSurvivalTime: avgSurvival,
@@ -348,7 +485,21 @@ export const aggregateTournamentStats = (matches: MatchData[], registry?: Regist
       rollingAvgPoints: rollingAvg,
       trend,
       players: roster.sort((a,b) => b.damage - a.damage),
-      flags
+      flags,
+
+      // --- 70-METRIC SUITE FIELDS (Tournament Level) ---
+      pointsPerMatch: avgPoints,
+      avgPlacement: safeDivide(team.avgPlacement, team.matchesPlayed),
+      placementConsistency: calculateStdDev(rankHistory),
+      pointsConsistency: calculateStdDev(pointsHistory),
+      boomOrBustIndex: safeDivide(Math.max(...pointsHistory, 0) - Math.min(...pointsHistory, 0), Math.max(avgPoints, 1)),
+      winRate: safeDivide(rankHistory.filter(r => r === 1).length, team.matchesPlayed),
+      top3Rate: safeDivide(rankHistory.filter(r => r <= 3).length, team.matchesPlayed),
+      top5Rate: safeDivide(rankHistory.filter(r => r <= 5).length, team.matchesPlayed),
+      avgKillPointsPerMatch: safeDivide(team.killPoints, team.matchesPlayed),
+      avgPlacementPointsPerMatch: safeDivide(team.placementPoints, team.matchesPlayed),
+      // winProbability is calculated separately via Monte Carlo
+      // -------------------------------------------------
     };
   });
 
@@ -377,9 +528,8 @@ export const getGlobalPlayerRegistry = (teams: TeamData[]): PlayerDerived[] => {
     
     teams.forEach(team => {
         team.players.forEach(p => {
-            const parts = p.playerName.split(/x/i);
-            const identity = parts.length > 1 ? parts[parts.length - 1].toUpperCase() : p.playerName.toUpperCase();
-            const key = identity; 
+            // Treat players as separate if they have different tags or teams
+            const key = `${team.name.toUpperCase()}|${p.playerName.toUpperCase()}`; 
             
             if (!registry.has(key)) {
                 registry.set(key, { 
@@ -391,9 +541,17 @@ export const getGlobalPlayerRegistry = (teams: TeamData[]): PlayerDerived[] => {
                 const entry = registry.get(key)!;
                 entry.damage += p.damage;
                 entry.finishes += p.finishes;
+                entry.kills = entry.finishes;
+                entry.assists = (entry.assists || 0) + (p.assists || 0);
                 entry.matchesPlayed += p.matchesPlayed;
                 entry.impactScore += p.impactScore; 
                 entry.playTimeMinutes += p.playTimeMinutes;
+                entry.clutchRating = (entry.clutchRating || 0) + (p.clutchRating || 0);
+                entry.supportRating = (entry.supportRating || 0) + (p.supportRating || 0);
+                entry.survivalPercentile = (entry.survivalPercentile || 0) + (p.survivalPercentile || 0);
+                entry.soloCarryProxy = (entry.soloCarryProxy || 0) + (p.soloCarryProxy || 0);
+                entry.survivalLead = (entry.survivalLead || 0) + (p.survivalLead || 0);
+                
                 if (p.history) {
                     entry.history = [...entry.history, ...p.history].sort((a: any, b: any) => a.day - b.day);
                 }
@@ -405,14 +563,41 @@ export const getGlobalPlayerRegistry = (teams: TeamData[]): PlayerDerived[] => {
         });
     });
     
-    const globalPlayers = Array.from(registry.values()).map(p => ({
-        ...p,
-        damagePerMinute: p.playTimeMinutes > 0 ? p.damage / p.playTimeMinutes : 0,
-        kpm: p.matchesPlayed > 0 ? p.finishes / p.matchesPlayed : 0,
-        dpk: p.finishes > 0 ? p.damage / p.finishes : p.damage,
-        zScoreDamage: 0, 
-        zScoreKills: 0
-    }));
+    const globalPlayers = Array.from(registry.values()).map(p => {
+        const minutes = p.playTimeMinutes;
+        const matches = p.matchesPlayed || 1;
+        
+        return {
+            ...p,
+            damagePerMinute: minutes > 0 ? p.damage / minutes : 0,
+            kpm: matches > 0 ? p.finishes / matches : 0,
+            dpk: p.finishes > 0 ? p.damage / p.finishes : p.damage,
+            zScoreDamage: 0, 
+            zScoreKills: 0,
+            
+            clutchRating: p.clutchRating / matches,
+            supportRating: p.supportRating / matches,
+            survivalPercentile: p.survivalPercentile / matches,
+            soloCarryProxy: p.soloCarryProxy / matches,
+            survivalLead: p.survivalLead / matches,
+            
+            // Recalculate 70 metrics for global player
+            assistsPerMinute: safeDivide(p.assists, minutes),
+            damagePerKill: safeDivide(p.damage, Math.max(p.kills, 1)),
+            killAssistCombined: p.kills + p.assists,
+            avgKillsPerMatch: safeDivide(p.kills, matches),
+            avgDamagePerMatch: safeDivide(p.damage, matches),
+            avgAssistsPerMatch: safeDivide(p.assists, matches),
+            killToAssistRatio: safeDivide(p.kills, Math.max(p.assists, 1)),
+            
+            combatScore: p.impactScore,
+            efficiencyScore: safeDivide(p.impactScore, minutes),
+            aggressionIndex: safeDivide(p.damage + (p.kills * 50), minutes),
+            killEfficiencyRating: safeDivide(p.kills, Math.max(p.damage, 1)) * 1000,
+            contributionRate: safeDivide(p.kills + p.assists + (p.damage / 200), minutes),
+            impactPerMinute: safeDivide(p.impactScore, minutes),
+        };
+    });
 
     // Calculate Global Averages for Outlier Detection
     const avgImpact = globalPlayers.reduce((sum, p) => sum + p.impactScore, 0) / Math.max(1, globalPlayers.length);
