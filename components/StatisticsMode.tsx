@@ -112,7 +112,11 @@ export const StatisticsMode: React.FC<StatisticsModeProps> = ({ data, onOpenStud
       });
     } else {
       // Default sort
-      baseData = [...baseData].sort((a: any, b: any) => (b.totalPoints || b.impactScore || 0) - (a.totalPoints || a.impactScore || 0));
+      if (entityType === 'teams') {
+        baseData = [...baseData].sort((a: any, b: any) => (a.rank || 0) - (b.rank || 0));
+      } else {
+        baseData = [...baseData].sort((a: any, b: any) => (b.impactScore || 0) - (a.impactScore || 0));
+      }
     }
     
     return baseData;

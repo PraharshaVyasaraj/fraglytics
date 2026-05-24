@@ -92,6 +92,21 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   const [imageQueue, setImageQueue] = useState<QueuedImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Virtual Scrolling State for Tactical Grid
+  const [scrollTop, setScrollTop] = useState(0);
+  const gridScrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  };
+
+  useEffect(() => {
+    setScrollTop(0);
+    if (gridScrollContainerRef.current) {
+      gridScrollContainerRef.current.scrollTop = 0;
+    }
+  }, [activeDay, activeMatch]);
+
   // --- HYDRATION LOGIC ---
   useEffect(() => {
     if (initialData && initialData.length > 0) {
@@ -168,8 +183,15 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   
   const currentAiText = inputCache[currentMatchId]?.aiText || '';
   const currentCsvText = inputCache[currentMatchId]?.csvText || '';
-  const currentGridRows = inputCache[currentMatchId]?.gridRows || Array(16).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
+  const currentGridRows = inputCache[currentMatchId]?.gridRows || Array(25).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
   const currentSlotListText = inputCache[currentMatchId]?.slotListText || '';
+
+  // Virtual calculation for Staging Grid
+  const ROW_HEIGHT = 38;
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 10);
+  const endIndex = Math.min(currentGridRows.length, Math.ceil((scrollTop + 610) / ROW_HEIGHT) + 10);
+  const paddingTop = startIndex * ROW_HEIGHT;
+  const paddingBottom = (currentGridRows.length - endIndex) * ROW_HEIGHT;
 
   const currentSlotMap = useMemo(() => {
     const map: Record<number, string> = {};
@@ -250,7 +272,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
       setInputCache(prev => ({
           ...prev,
           [currentMatchId]: {
-              ...(prev[currentMatchId] || { aiText: '', csvText: '', gridRows: Array(16).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' }), slotListText: '' }),
+              ...(prev[currentMatchId] || { aiText: '', csvText: '', gridRows: Array(25).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' }), slotListText: '' }),
               [type]: value
           }
       }));
@@ -546,7 +568,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
             });
         });
     });
-    while(newRows.length < 16) newRows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
+    while(newRows.length < 25) newRows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
     updateCache('gridRows', newRows);
   };
 
@@ -573,7 +595,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
         }
       });
       const mergedRows = Array.from(map.values());
-      while(mergedRows.length < 16) mergedRows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
+      while(mergedRows.length < 25) mergedRows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
       updateCache('gridRows', mergedRows);
   };
 
@@ -634,7 +656,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
       if (readOnly) return;
       if (confirm("Clear all grid data?")) {
         pushToHistory();
-        updateCache('gridRows', Array(16).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' }));
+        updateCache('gridRows', Array(25).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' }));
       }
   };
 
@@ -727,21 +749,34 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   
   const stageDataToGrid = (teams: TeamMatchStats[], append: boolean = true) => {
       if (readOnly) return;
-      const incomingRows: GridRow[] = teams.flatMap(t => t.players.map(p => ({
-          rank: t.rank.toString(),
-          team: t.teamName,
-          playerRank: p.individualRank ? p.individualRank.toString() : '',
-          player: p.playerName,
-          kills: p.kills.toString(),
-          assists: p.assists.toString(),
-          damage: p.damage.toString(),
-          time: formatSecondsToMMSS(p.survivalTimeSeconds),
-          adjustment: (p.manualPoints || 0).toString()
-      })));
+      
+      // Sort teams in ascending order of rank (e.g. 1st, 2nd, 3rd...)
+      const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
+      
+      const incomingRows: GridRow[] = sortedTeams.flatMap(t => {
+          // Sort players within each team in ascending order of individual player rank
+          const sortedPlayers = [...t.players].sort((a, b) => {
+              const aRank = a.individualRank !== undefined ? a.individualRank : 999;
+              const bRank = b.individualRank !== undefined ? b.individualRank : 999;
+              return aRank - bRank;
+          });
+          
+          return sortedPlayers.map(p => ({
+              rank: t.rank.toString(),
+              team: t.teamName,
+              playerRank: p.individualRank ? p.individualRank.toString() : '',
+              player: p.playerName,
+              kills: p.kills.toString(),
+              assists: p.assists.toString(),
+              damage: p.damage.toString(),
+              time: formatSecondsToMMSS(p.survivalTimeSeconds),
+              adjustment: (p.manualPoints || 0).toString()
+          }));
+      });
       
       const existingRows = append ? currentGridRows.filter(r => (r.team && r.team.trim()) || (r.player && r.player.trim())) : [];
       const combined = [...existingRows, ...incomingRows];
-      while(combined.length < 16) combined.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
+      while(combined.length < 25) combined.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
       
       pushToHistory();
       updateCache('gridRows', combined);
@@ -767,40 +802,59 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
         const lines = currentCsvText.trim().split('\n');
         const parsedPlayers: PlayerAtomic[] = [];
         const delimiter = lines[0].includes('\t') ? '\t' : ',';
-        const hasHeader = (lines[0] || '').toLowerCase().includes('rank') || (lines[0] || '').toLowerCase().includes('team');
+        const headerCols = lines[0].split(delimiter).map(c => c.trim().toLowerCase().replace(/^"|"$/g, ''));
+        const hasHeader = headerCols.some(h => h.includes('rank') || h.includes('team') || h.includes('player'));
         const startIdx = hasHeader ? 1 : 0;
+
+        let colIdx = {
+            teamRank: 0, teamName: 1, playerRank: 2, playerName: 3, 
+            damage: 4, assists: 5, kills: 6, time: 7, points: 8
+        };
+
+        if (hasHeader) {
+            headerCols.forEach((col, idx) => {
+                if (col.includes('team rank') || col.includes('team pos') || col === 'team_rank') colIdx.teamRank = idx;
+                else if (col.includes('team name') || col === 'team_name' || col === 'team') colIdx.teamName = idx;
+                else if (col.includes('player rank') || col.includes('player pos') || col === 'player_rank') colIdx.playerRank = idx;
+                else if (col === 'player name' || col === 'player_name' || col === 'player' || col.includes('name')) colIdx.playerName = idx;
+                else if (col.includes('damage') || col.includes('dmg')) colIdx.damage = idx;
+                else if (col.includes('assist') || col.includes('ast')) colIdx.assists = idx;
+                else if (col.includes('finish') || col.includes('kill') || col.includes('elim')) colIdx.kills = idx;
+                else if (col.includes('time') || col.includes('survival') || col.includes('play')) colIdx.time = idx;
+                else if (col.includes('manual') || col.includes('pts') || col.includes('points')) colIdx.points = idx;
+                else if (col === 'rank') {
+                    if (idx < headerCols.length / 2) colIdx.teamRank = idx; else colIdx.playerRank = idx;
+                }
+            });
+        }
 
         for (let i = startIdx; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
             const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
             if (cols.length < 4) continue; 
-
-            // Format: Team Pos, Team Name, Player Pos, Player Name, Damage, Assist, Finishes, Play Time
-            // Indices: 0, 1, 2, 3, 4, 5, 6, 7
             
-            // Safe parse for ranks
             const safeParseRank = (val: string) => parseInt((val||'').replace(/[^0-9]/g, '')) || 0;
 
-            const rank = safeParseRank(cols[0]) || 99;
-            const teamName = cols[1] || 'Unknown Team';
-            const individualRank = safeParseRank(cols[2]); 
-            const playerName = cols[3] || 'Unknown Player';
-            const damage = parseInt(cols[4]) || 0;
-            const assists = parseInt(cols[5]) || 0;
-            const kills = parseInt(cols[6]) || 0;
+            const rank = safeParseRank(cols[colIdx.teamRank]) || 99;
+            const teamName = cols[colIdx.teamName] || 'Unknown Team';
+            const individualRank = safeParseRank(cols[colIdx.playerRank]); 
+            const playerName = cols[colIdx.playerName] || 'Unknown Player';
+            const damage = parseInt(cols[colIdx.damage]) || 0;
+            const assists = parseInt(cols[colIdx.assists]) || 0;
+            const kills = parseInt(cols[colIdx.kills]) || 0;
             
-            let timeStr = cols[7] || '0';
+            let timeStr = cols[colIdx.time] || '0';
             let seconds = 0;
             if (timeStr.includes(':')) {
                 const parts = timeStr.split(':');
                 seconds = (parseInt(parts[0]) * 60) + (parseInt(parts[1] || '0'));
             } else {
-                seconds = (parseFloat(timeStr) || 0) * 60;
+                const numericPart = timeStr.replace(/[^\d.]/g, '');
+                seconds = (parseFloat(numericPart) || 0) * 60;
             }
 
-            // Check for manual points in 9th column (index 8), default to 0
-            const manualPoints = cols[8] ? (parseInt(cols[8]) || 0) : 0;
+            const manualPoints = cols[colIdx.points] ? parseInt(cols[colIdx.points]) || 0 : 0;
 
             parsedPlayers.push({
                 teamRank: rank,
@@ -822,7 +876,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
              stageDataToGrid(derived);
              updateCache('csvText', ''); 
         } else {
-            alert("Could not parse any valid rows. Please check format: Team Rank, Team, P.Rank, Player, Dmg, Ast, Kills, Time");
+            alert("Could not parse any valid rows. Please check format: Team Rank, Team Name, Player Rank, Player Name, Damage, Assist, Finishes, Play Time (Mins)");
         }
     } catch (e) {
         console.error("CSV Parse Error", e);
@@ -840,14 +894,46 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
     try {
         const lines = masterCsvText.trim().split('\n');
         const delimiter = lines[0].includes('\t') ? '\t' : ',';
-        const header = (lines[0] || '').toLowerCase();
-        const hasHeader = header.includes('day') || header.includes('match') || header.includes('rank');
+        const headerCols = lines[0].split(delimiter).map(c => c.trim().toLowerCase().replace(/^"|"$/g, ''));
+        const hasHeader = headerCols.some(h => h.includes('day') || h.includes('match') || h.includes('rank') || h.includes('team'));
         const startIdx = hasHeader ? 1 : 0;
 
-        // Detect format: Master (11 cols) vs Sheets/Impact (10+ cols)
-        const isImpactFormat = header.includes('match id') || lines[startIdx].split(delimiter).length >= 10;
+        let colIdx = {
+            day: -1, matchCode: -1, matchNum: -1,
+            teamRank: -1, teamName: -1, playerRank: -1, playerName: -1,
+            damage: -1, assists: -1, kills: -1, time: -1, points: -1
+        };
 
-        // Group atoms by Day and Match
+        if (hasHeader) {
+            headerCols.forEach((col, idx) => {
+                if (col === 'day') colIdx.day = idx;
+                else if (col === 'match id' || col === 'match code') colIdx.matchCode = idx;
+                else if (col === 'match' || col === 'match num') colIdx.matchNum = idx;
+                else if (col.includes('team rank') || col.includes('team pos')) colIdx.teamRank = idx;
+                else if (col.includes('team name') || col === 'team') colIdx.teamName = idx;
+                else if (col.includes('player rank') || col.includes('player pos')) colIdx.playerRank = idx;
+                else if (col === 'player name' || col === 'player' || col.includes('name')) colIdx.playerName = idx;
+                else if (col.includes('damage') || col.includes('dmg')) colIdx.damage = idx;
+                else if (col.includes('assist') || col.includes('ast')) colIdx.assists = idx;
+                else if (col.includes('finish') || col.includes('kill') || col.includes('elim')) colIdx.kills = idx;
+                else if (col.includes('time') || col.includes('survival') || col.includes('play')) colIdx.time = idx;
+                else if (col.includes('manual') || col.includes('pts') || col.includes('points')) colIdx.points = idx;
+                else if (col === 'rank') {
+                    if (colIdx.teamRank === -1) colIdx.teamRank = idx; else colIdx.playerRank = idx;
+                }
+            });
+        }
+        
+        // Fallbacks if not detected by header:
+        if (colIdx.teamRank === -1) colIdx.teamRank = colIdx.matchCode !== -1 ? 2 : 2; 
+        if (colIdx.teamName === -1) colIdx.teamName = colIdx.teamRank + 1;
+        if (colIdx.playerRank === -1) colIdx.playerRank = colIdx.teamName + 1;
+        if (colIdx.playerName === -1) colIdx.playerName = colIdx.playerRank + 1;
+        if (colIdx.damage === -1) colIdx.damage = colIdx.matchCode !== -1 ? 6 : 8;
+        if (colIdx.assists === -1) colIdx.assists = colIdx.matchCode !== -1 ? 7 : 7;
+        if (colIdx.kills === -1) colIdx.kills = colIdx.matchCode !== -1 ? 8 : 6;
+        if (colIdx.time === -1) colIdx.time = 9;
+
         const groups: Record<string, PlayerAtomic[]> = {}; // Key: "dX-mY"
 
         for (let i = startIdx; i < lines.length; i++) {
@@ -855,73 +941,42 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
             if (!line) continue;
             const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
             
-            if (cols.length < 6) continue;
+            if (cols.length < 4) continue;
 
-            let day = 1;
-            let match = 1;
-            let teamRank = 99;
-            let teamName = 'Unknown Team';
-            let individualRank = 0;
-            let playerName = 'Unknown Player';
-            let kills = 0;
-            let assists = 0;
-            let damage = 0;
-            let seconds = 0;
-            let manualPoints = 0;
+            let day = activeDay;
+            let match = activeMatch;
 
-            if (isImpactFormat) {
-                // Format: Match ID, Day, Team Rank, Team Name, Player Rank, Player Name, Damage, Assist, Finishes, Play Time (Mins)...
-                const matchIdRaw = cols[0] || '';
-                const dayRaw = parseInt(cols[1]);
-                
-                day = dayRaw;
-                const matchIdMatch = matchIdRaw.match(/D(\d+)-M(\d+)/i);
+            if (colIdx.matchCode !== -1 && cols[colIdx.matchCode]) {
+                const matchIdMatch = cols[colIdx.matchCode].match(/D(\d+)-M(\d+)/i);
                 if (matchIdMatch) {
                     day = parseInt(matchIdMatch[1]);
                     match = parseInt(matchIdMatch[2]);
-                } else if (!isNaN(dayRaw)) {
-                    day = dayRaw;
-                    match = 1; 
-                }
-
-                teamRank = parseInt(cols[2]) || 99;
-                teamName = cols[3] || 'Unknown Team';
-                individualRank = parseInt(cols[4]) || 0;
-                playerName = cols[5] || 'Unknown Player';
-                damage = parseInt(cols[6]) || 0;
-                assists = parseInt(cols[7]) || 0;
-                kills = parseInt(cols[8]) || 0;
-                
-                const timeStr = cols[9] || '0';
-                if (timeStr.includes(':')) {
-                    const parts = timeStr.split(':');
-                    seconds = (parseInt(parts[0]) * 60) + (parseInt(parts[1] || '0'));
-                } else {
-                    seconds = (parseFloat(timeStr) || 0) * 60;
                 }
             } else {
-                // Standard Master Format:
-                // 0: Day, 1: Match, 2: Team Rank, 3: Team Name, 4: Player Rank, 5: Player Name, 
-                // 6: Kills, 7: Assists, 8: Damage, 9: Time, 10: Manual Pts
-                day = parseInt(cols[0]) || 1;
-                match = parseInt(cols[1]) || 1;
-                teamRank = parseInt(cols[2]) || 99;
-                teamName = cols[3] || 'Unknown Team';
-                individualRank = parseInt(cols[4]) || 0;
-                playerName = cols[5] || 'Unknown Player';
-                kills = parseInt(cols[6]) || 0;
-                assists = parseInt(cols[7]) || 0;
-                damage = parseInt(cols[8]) || 0;
-                
-                const timeStr = cols[9] || '0';
-                if (timeStr.includes(':')) {
-                    const parts = timeStr.split(':');
-                    seconds = (parseInt(parts[0]) * 60) + (parseInt(parts[1] || '0'));
-                } else {
-                    seconds = (parseFloat(timeStr) || 0) * 60;
-                }
-                manualPoints = parseInt(cols[10]) || 0;
+                if (colIdx.day !== -1 && cols[colIdx.day]) day = parseInt(cols[colIdx.day]) || day;
+                if (colIdx.matchNum !== -1 && cols[colIdx.matchNum]) match = parseInt(cols[colIdx.matchNum]) || match;
             }
+
+            const safeParseRank = (val: string) => parseInt((val||'').replace(/[^0-9]/g, '')) || 0;
+
+            const teamRank = safeParseRank(cols[colIdx.teamRank]) || 99;
+            const teamName = cols[colIdx.teamName] || 'Unknown Team';
+            const individualRank = safeParseRank(cols[colIdx.playerRank]);
+            const playerName = cols[colIdx.playerName] || 'Unknown Player';
+            const damage = parseInt(cols[colIdx.damage]) || 0;
+            const assists = parseInt(cols[colIdx.assists]) || 0;
+            const kills = parseInt(cols[colIdx.kills]) || 0;
+            
+            let timeStr = cols[colIdx.time] || '0';
+            let seconds = 0;
+            if (timeStr.includes(':')) {
+                const parts = timeStr.split(':');
+                seconds = (parseInt(parts[0]) * 60) + (parseInt(parts[1] || '0'));
+            } else {
+                seconds = (parseFloat(timeStr) || 0) * 60;
+            }
+            
+            const manualPoints = colIdx.points !== -1 ? (parseInt(cols[colIdx.points]) || 0) : 0;
 
             const matchId = getMatchId(day, match);
             const p: PlayerAtomic = {
@@ -985,7 +1040,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                 });
             });
             // Pad
-            while(rows.length < 16) rows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
+            while(rows.length < 25) rows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
             
             newCacheUpdates[mId] = { gridRows: rows };
         });
@@ -1037,13 +1092,45 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
     try {
         const lines = sheetsText.trim().split('\n');
         const delimiter = lines[0].includes('\t') ? '\t' : ',';
-        
-        // Check if first line is header
-        const firstLine = (lines[0] || '').toLowerCase();
-        const hasHeader = firstLine.includes('match') || firstLine.includes('team') || firstLine.includes('player');
+        const headerCols = lines[0].split(delimiter).map(c => c.trim().toLowerCase().replace(/^"|"$/g, ''));
+        const hasHeader = headerCols.some(h => h.includes('match') || h.includes('team') || h.includes('player'));
         const startIdx = hasHeader ? 1 : 0;
 
-        // Group atoms by Day and Match
+        let colIdx = {
+            matchCode: -1, day: -1, teamRank: -1, teamName: -1, playerRank: -1, playerName: -1,
+            damage: -1, assists: -1, kills: -1, time: -1
+        };
+
+        if (hasHeader) {
+            headerCols.forEach((col, idx) => {
+                if (col === 'match id' || col === 'match code' || col === 'match') colIdx.matchCode = idx;
+                else if (col === 'day') colIdx.day = idx;
+                else if (col.includes('team rank') || col.includes('team pos')) colIdx.teamRank = idx;
+                else if (col.includes('team name') || col === 'team') colIdx.teamName = idx;
+                else if (col.includes('player rank') || col.includes('player pos')) colIdx.playerRank = idx;
+                else if (col === 'player name' || col === 'player' || col.includes('name')) colIdx.playerName = idx;
+                else if (col.includes('damage') || col.includes('dmg')) colIdx.damage = idx;
+                else if (col.includes('assist') || col.includes('ast')) colIdx.assists = idx;
+                else if (col.includes('finish') || col.includes('kill') || col.includes('elim')) colIdx.kills = idx;
+                else if (col.includes('time') || col.includes('survival') || col.includes('play')) colIdx.time = idx;
+                else if (col === 'rank') {
+                    if (colIdx.teamRank === -1) colIdx.teamRank = idx; else colIdx.playerRank = idx;
+                }
+            });
+        }
+        
+        // Fallbacks
+        if (colIdx.matchCode === -1) colIdx.matchCode = 0;
+        if (colIdx.day === -1) colIdx.day = 1;
+        if (colIdx.teamRank === -1) colIdx.teamRank = 2;
+        if (colIdx.teamName === -1) colIdx.teamName = 3;
+        if (colIdx.playerRank === -1) colIdx.playerRank = 4;
+        if (colIdx.playerName === -1) colIdx.playerName = 5;
+        if (colIdx.damage === -1) colIdx.damage = 6;
+        if (colIdx.assists === -1) colIdx.assists = 7;
+        if (colIdx.kills === -1) colIdx.kills = 8;
+        if (colIdx.time === -1) colIdx.time = 9;
+
         const groups: Record<string, PlayerAtomic[]> = {}; // Key: "dX-mY"
 
         for (let i = startIdx; i < lines.length; i++) {
@@ -1051,33 +1138,25 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
             if (!line) continue;
             const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
             
-            // Expected Sheets Format:
-            // 0: Match ID (D1-M1), 1: Day, 2: Team Rank, 3: Team Name, 4: Player Rank, 5: Player Name, 
-            // 6: Damage, 7: Assist, 8: Finishes, 9: Play Time (Mins)
-            
-            if (cols.length < 6) continue;
+            if (cols.length < 4) continue;
 
-            const matchIdRaw = cols[0] || '';
-            const dayRaw = parseInt(cols[1]);
-            
-            let day = dayRaw;
-            let match = 1;
+            let day = activeDay;
+            let match = activeMatch;
 
-            // Try to extract from Match ID if Day is missing or to be sure
+            const matchIdRaw = cols[colIdx.matchCode] || '';
+            const dayRaw = parseInt(cols[colIdx.day]);
+            
             const matchIdMatch = matchIdRaw.match(/D(\d+)-M(\d+)/i);
             if (matchIdMatch) {
                 day = parseInt(matchIdMatch[1]);
                 match = parseInt(matchIdMatch[2]);
             } else if (!isNaN(dayRaw)) {
-                // If Match ID doesn't match pattern, use Day col and try to find match number elsewhere or default
                 day = dayRaw;
-                // We might need a way to track match number if not in ID
-                match = 1; 
             }
 
             const matchId = getMatchId(day, match);
-
-            let timeStr = cols[9] || '0';
+            
+            let timeStr = cols[colIdx.time] || '0';
             let seconds = 0;
             if (timeStr.includes(':')) {
                 const parts = timeStr.split(':');
@@ -1086,18 +1165,20 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                 seconds = (parseFloat(timeStr) || 0) * 60;
             }
 
+            const safeParseRank = (val: string) => parseInt((val||'').replace(/[^0-9]/g, '')) || 0;
+
             const p: PlayerAtomic = {
                 dayId: day,
                 matchId: matchId,
-                teamRank: parseInt(cols[2]) || 99,
-                teamName: cols[3] || 'Unknown Team',
-                individualRank: parseInt(cols[4]) || 0,
-                playerName: cols[5] || 'Unknown Player',
-                damage: parseInt(cols[6]) || 0,
-                assists: parseInt(cols[7]) || 0,
-                kills: parseInt(cols[8]) || 0,
+                teamRank: safeParseRank(cols[colIdx.teamRank]) || 99,
+                teamName: cols[colIdx.teamName] || 'Unknown Team',
+                individualRank: safeParseRank(cols[colIdx.playerRank]) || 0,
+                playerName: cols[colIdx.playerName] || 'Unknown Player',
+                damage: parseInt(cols[colIdx.damage]) || 0,
+                assists: parseInt(cols[colIdx.assists]) || 0,
+                kills: parseInt(cols[colIdx.kills]) || 0,
                 survivalTimeSeconds: seconds,
-                manualPoints: 0 // Not in this specific format
+                manualPoints: 0 // Not in this specific format typically
             };
 
             if (!groups[matchId]) groups[matchId] = [];
@@ -1147,7 +1228,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                 });
             });
             // Pad
-            while(rows.length < 16) rows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
+            while(rows.length < 25) rows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
             
             newCacheUpdates[mId] = { gridRows: rows };
         });
@@ -1207,11 +1288,11 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
           filename = "google_sheets_template.txt";
       } else {
           headers = type === 'excel' 
-             ? "Team Rank\tTeam Name\tPlayer Rank\tPlayer Name\tDamage\tAssist\tFinishes\tPlay Time\tManual Points" 
-             : "Team Rank,Team Name,Player Rank,Player Name,Damage,Assist,Finishes,Play Time,Manual Points";
+             ? "Team Rank\tTeam Name\tPlayer Rank\tPlayer Name\tDamage\tAssist\tFinishes\tPlay Time (Mins)" 
+             : "Team Rank,Team Name,Player Rank,Player Name,Damage,Assist,Finishes,Play Time (Mins)";
           
           const sep = type === 'excel' ? '\t' : ',';
-          example = `#1${sep}Team NXT${sep}1${sep}NXTxPREDATOR${sep}736${sep}0${sep}3${sep}23 Mins${sep}0`;
+          example = `1${sep}Team NXT${sep}1${sep}NXTxPREDATOR${sep}736${sep}0${sep}3${sep}23`;
           filename = type === 'excel' ? "scarfall_excel_template.xls" : "scarfall_data_template.csv";
       }
       
@@ -1608,7 +1689,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                     </div>
                 )}
 
-                <div className="overflow-x-auto border border-tactical-gray rounded-sm bg-black max-h-[600px] overflow-y-auto">
+                <div ref={gridScrollContainerRef} onScroll={handleScroll} className="overflow-x-auto border border-tactical-gray rounded-sm bg-black max-h-[600px] overflow-y-auto tactical-panel">
                     <table className="w-full text-left text-xs font-mono border-collapse relative">
                         <thead className="sticky top-0 z-10">
                             <tr className="bg-tactical-dark text-tactical-light border-b border-tactical-gray">
@@ -1630,27 +1711,40 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                             </tr>
                         </thead>
                         <tbody>
-                            {currentGridRows.map((row, idx) => (
-                                <tr key={idx} className={`border-b border-tactical-gray/20 group ${selectedIndices.has(idx) ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-                                    <td className="p-0 border-r border-tactical-gray/30 text-center sticky left-0 z-10 bg-black group-hover:bg-tactical-dark/50">
-                                        <div onClick={() => toggleRowSelection(idx)} className="cursor-pointer h-full flex items-center justify-center py-2">
-                                            {selectedIndices.has(idx) ? <CheckSquare className="w-3.5 h-3.5 text-tactical-green" /> : <Square className="w-3.5 h-3.5 text-tactical-gray" />}
-                                        </div>
-                                    </td>
-                                    <td className="p-0 border-r border-tactical-gray/30 text-center text-tactical-gray">{idx+1}</td>
-                                    <td className="p-0 border-r border-tactical-gray/30"><input value={row.rank} onChange={(e) => handleGridChange(idx, 'rank', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'rank')} className="w-full bg-transparent p-2 text-white text-center focus:outline-none focus:bg-white/10" placeholder="-" /></td>
-                                    <td className="p-0 border-r border-tactical-gray/30 relative">
-                                        <input value={row.team} onChange={(e) => handleGridChange(idx, 'team', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'team')} list="team-suggestions" className="w-full bg-transparent p-2 text-white font-bold focus:outline-none focus:bg-white/10" placeholder="Team" />
-                                    </td>
-                                    <td className="p-0 border-r border-tactical-gray/30"><input value={row.playerRank} onChange={(e) => handleGridChange(idx, 'playerRank', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'playerRank')} className="w-full bg-transparent p-2 text-tactical-green text-center focus:outline-none focus:bg-white/10" placeholder="#" /></td>
-                                    <td className="p-0 border-r border-tactical-gray/30"><input value={row.player} onChange={(e) => handleGridChange(idx, 'player', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'player')} list="player-suggestions" className="w-full bg-transparent p-2 text-white focus:outline-none focus:bg-white/10" placeholder="Player" /></td>
-                                    <td className="p-0 border-r border-tactical-gray/30"><input value={row.kills} onChange={(e) => handleGridChange(idx, 'kills', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'kills')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                    <td className="p-0 border-r border-tactical-gray/30"><input value={row.assists} onChange={(e) => handleGridChange(idx, 'assists', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'assists')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                    <td className="p-0 border-r border-tactical-gray/30"><input value={row.damage} onChange={(e) => handleGridChange(idx, 'damage', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'damage')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                    <td className="p-0 border-r border-tactical-gray/30"><input value={row.time} onChange={(e) => handleGridChange(idx, 'time', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'time')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="00:00" /></td>
-                                    <td className="p-0"><input value={row.adjustment} onChange={(e) => handleGridChange(idx, 'adjustment', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'adjustment')} className="w-full bg-transparent p-2 text-center text-yellow-500 font-bold focus:outline-none focus:bg-white/10" placeholder="+/-" /></td>
+                            {paddingTop > 0 && (
+                                <tr>
+                                    <td style={{ height: `${paddingTop}px` }} colSpan={11}></td>
                                 </tr>
-                            ))}
+                            )}
+                            {currentGridRows.slice(startIndex, endIndex).map((row, index) => {
+                                const idx = startIndex + index;
+                                return (
+                                    <tr key={idx} className={`border-b border-tactical-gray/20 group data-row-hover ${selectedIndices.has(idx) ? 'bg-white/10' : ''}`}>
+                                        <td className="p-0 border-r border-tactical-gray/30 text-center sticky left-0 z-10 bg-black group-hover:bg-tactical-dark/50">
+                                            <div onClick={() => toggleRowSelection(idx)} className="cursor-pointer h-full flex items-center justify-center py-2">
+                                                {selectedIndices.has(idx) ? <CheckSquare className="w-3.5 h-3.5 text-tactical-green" /> : <Square className="w-3.5 h-3.5 text-tactical-gray" />}
+                                            </div>
+                                        </td>
+                                        <td className="p-0 border-r border-tactical-gray/30 text-center text-tactical-gray">{idx+1}</td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.rank} onChange={(e) => handleGridChange(idx, 'rank', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'rank')} className="w-full bg-transparent p-2 text-white text-center focus:outline-none focus:bg-white/10" placeholder="-" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30 relative">
+                                            <input value={row.team} onChange={(e) => handleGridChange(idx, 'team', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'team')} list="team-suggestions" className="w-full bg-transparent p-2 text-white font-bold focus:outline-none focus:bg-white/10" placeholder="Team" />
+                                        </td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.playerRank} onChange={(e) => handleGridChange(idx, 'playerRank', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'playerRank')} className="w-full bg-transparent p-2 text-tactical-green text-center focus:outline-none focus:bg-white/10" placeholder="#" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.player} onChange={(e) => handleGridChange(idx, 'player', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'player')} list="player-suggestions" className="w-full bg-transparent p-2 text-white focus:outline-none focus:bg-white/10" placeholder="Player" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.kills} onChange={(e) => handleGridChange(idx, 'kills', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'kills')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.assists} onChange={(e) => handleGridChange(idx, 'assists', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'assists')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.damage} onChange={(e) => handleGridChange(idx, 'damage', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'damage')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.time} onChange={(e) => handleGridChange(idx, 'time', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'time')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="00:00" /></td>
+                                        <td className="p-0"><input value={row.adjustment} onChange={(e) => handleGridChange(idx, 'adjustment', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'adjustment')} className="w-full bg-transparent p-2 text-center text-yellow-500 font-bold focus:outline-none focus:bg-white/10" placeholder="+/-" /></td>
+                                    </tr>
+                                );
+                            })}
+                            {paddingBottom > 0 && (
+                                <tr>
+                                    <td style={{ height: `${paddingBottom}px` }} colSpan={11}></td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                     <button onClick={() => updateCache('gridRows', [...currentGridRows, ...Array(4).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' })])} className="w-full py-2 bg-tactical-dark text-tactical-light text-[10px] font-bold uppercase tracking-widest hover:bg-white/5">+ Add Rows</button>
@@ -1696,7 +1790,10 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                    </div>
                    <button onClick={() => downloadTemplate('csv')} className="text-[10px] font-bold uppercase text-tactical-light hover:text-white flex items-center gap-2"><Download className="w-3 h-3"/> Template</button>
                 </div>
-                <textarea placeholder="Rank, Team, Player, Kills..." className="w-full flex-1 p-4 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none min-h-[200px] focus:outline-none" value={currentCsvText} onChange={(e) => updateCache('csvText', e.target.value)} />
+                <div className="bg-white/10 border border-white/20 p-2 text-[10px] text-tactical-light font-mono">
+                    EXPECTED FORMAT: Team Rank, Team Name, Player Rank, Player Name, Damage, Assist, Finishes, Play Time (Mins)
+                </div>
+                <textarea placeholder="Team Rank,Team Name,Player Rank,Player Name,Damage,Assist,Finishes,Play Time (Mins)" className="w-full flex-1 p-4 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none min-h-[200px] focus:outline-none" value={currentCsvText} onChange={(e) => updateCache('csvText', e.target.value)} />
                 <button onClick={handleParseCSV} disabled={isProcessing || !currentCsvText} className="w-full py-3 bg-white text-black rounded-sm font-bold uppercase text-sm hover:bg-gray-200 flex justify-center items-center gap-2">{isProcessing && <Loader2 className="w-4 h-4 animate-spin"/>} Import to Grid</button>
              </div>
           )}

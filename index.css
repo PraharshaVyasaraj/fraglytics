@@ -8,6 +8,12 @@
   --report-green: #00FF00;
 }
 
+/* Export Performance Fix */
+.disable-blurs, .disable-blurs * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 @theme {
   --color-tactical-green: #00FF00;
   --color-tactical-red: #E11D48;
@@ -124,6 +130,67 @@
 
 .animate-glitch-color {
   animation: glitch-color 5s infinite linear alternate-reverse;
+}
+
+/* Tactical Workbench Utilities */
+.tactical-panel {
+  background: linear-gradient(135deg, rgba(10, 10, 10, 0.95) 0%, rgba(20, 20, 20, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.scanline {
+  width: 100%;
+  height: 100px;
+  z-index: 5;
+  background: linear-gradient(0deg, rgba(0, 255, 0, 0) 0%, rgba(0, 255, 0, 0.05) 50%, rgba(0, 255, 0, 0) 100%);
+  opacity: 0.1;
+  position: absolute;
+  bottom: 100%;
+  animation: scanline 8s linear infinite;
+}
+
+@keyframes scanline {
+  0% { bottom: 100%; }
+  100% { bottom: -100px; }
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+.glow-text-green {
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.glow-text-red {
+  text-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
+}
+
+.glow-border-cyan {
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+  border-color: rgba(0, 255, 204, 0.4);
+}
+
+.glow-border-green {
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+  border-color: rgba(0, 255, 0, 0.4);
+}
+
+.glow-border-red {
+  box-shadow: 0 0 15px rgba(255, 51, 51, 0.2);
+  border-color: rgba(255, 51, 51, 0.4);
+}
+
+.cyber-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.data-row-hover:hover {
+  background: linear-gradient(90deg, rgba(0, 255, 204, 0.05) 0%, transparent 100%);
 }
 
 /* Tactical Workbench Utilities */

@@ -115,14 +115,19 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
   const ROWS_PER_PAGE_PLAYERS = 8; 
 
   const getRowsPerPage = () => {
-      if (mode === 'standings') return ROWS_PER_PAGE_STANDINGS;
+      if (mode === 'standings') {
+          if (theme === 'intelligence') {
+              return aspectRatio === '9:16' ? 12 : 8;
+          }
+          return ROWS_PER_PAGE_STANDINGS;
+      }
       if (mode === 'player_leaderboard') return ROWS_PER_PAGE_PLAYERS;
       if (mode === 'team_grid') return 16;
       return 100; 
   };
 
   const getTotalPages = () => {
-      if (mode === 'standings') return Math.ceil(data.length / ROWS_PER_PAGE_STANDINGS);
+      if (mode === 'standings') return Math.ceil(data.length / getRowsPerPage());
       if (mode === 'team_grid') return Math.ceil(data.length / 16);
       if (mode === 'player_leaderboard') {
           const playerCount = data.reduce((sum, t) => sum + t.players.length, 0);

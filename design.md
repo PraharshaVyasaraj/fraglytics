@@ -1,96 +1,74 @@
-# FragLab - Design Document
+# FragLab - Design & Architecture Document
 
 ## 1. Overview
-**FragLab** is a professional-grade eSports analytics platform designed specifically for Battle Royale tournaments. It allows tournament organizers, commissioners, and analysts to ingest raw match telemetry (via manual CSV or AI-powered image/text parsing), aggregate statistics, and generate deep tactical insights.
+**FragLab** is a professional-grade eSports analytics platform designed for competitive Battle Royale tournaments. It handles raw telemetry ingestion (via CSV or AI vision), computes advanced analytics, and features a specialized broadcast graphics generator (PNG/Creative Studio) to produce live-ready aesthetic assets.
 
-The application is built to handle complex scoring rules, provide advanced player/team metrics (like Clutch Rating, Support Rating, and Z-Scores), and generate broadcast-ready assets and comprehensive data exports.
+---
 
-## 2. Architecture
-The application follows a full-stack architecture optimized for deployment in a containerized environment (like Google Cloud Run).
+## 2. Image Export Architecture (PNG / Creative Studio)
 
-### Frontend
-- **Framework**: React 19 with Vite.
-- **Styling**: Tailwind CSS for a tactical, dark-mode aesthetic.
-- **Icons**: Lucide React.
-- **Charts**: Recharts for data visualization.
-- **Routing**: Custom state-based routing utilizing the browser's History API (`popstate`) to manage views without a heavy router library.
+The "PNG Studio" (internally encompassing `BroadcastStudio`, `BatchExportManager`, and `ExportRenderer`) is the core engine for generating deployable social and broadcast graphics.
 
-### Backend
-- **Server**: Express.js (`server.ts`) running on Node.js.
-- **Authentication**: Google OAuth 2.0 flow. The backend handles the OAuth callback, fetches user info, and issues a JWT stored in an HTTP-only, secure cookie. Access is restricted to a specific allowed email address.
-- **Static Serving**: In production, the Express server serves the built Vite SPA from the `dist/` directory.
+### 2.1 The Rendering Pipeline (`html2canvas`)
+The platform uses `html2canvas` to serialize live React DOM nodes into a binary Canvas representation, which is then converted to a downloadable PNG.
 
-### AI Integration
-- **Provider**: Google Gemini (`@google/genai`).
-- **Usage**: The Gemini API is used to parse raw scoreboard images, PDFs, or unstructured text into structured atomic player statistics.
+**Crucial Constraints & Efficiency Rules:**
+1. **DOM Determinism**: Elements to be exported must be rendered in the exact dimensions they will appear. `html2canvas` calculates styles linearly; therefore, using `window.innerWidth` or fluid `%` heights in the export payload can cause visual drift.
+2. **Animation Suspension (`isExporting` Flag)**: When an export is triggered, the `isExporting` flag MUST be propagated down the tree. This disables Framer Motion, Recharts animations (e.g., `<Radar isAnimationActive={!isExporting} />`), and CSS transitions. Failure to do so captures intermediate animation frames (e.g., half-drawn charts).
+3. **CSS Property Caveats**:
+   - `backdrop-filter: blur()` forces heavy CPU/GPU compositing and is historically slow/buggy in `html2canvas`. Where an export is stalling, transparent alpha hexes (e.g., `bg-black/90`) should replace heavy backdrop blurs.
+   - SVGs with `filter: drop-shadow()` can cause coordinate offset bugs across devices. Prefer standard CSS `drop-shadow` on a wrapper `div` or SVG native glow definitions `<filter>`.
+4. **Font Loading State**: Ensure `document.fonts.ready` is verified before triggering the canvas snap. Attempting to export before web fonts (e.g., Space Grotesk) render will trigger a layout shift mid-capture or result in standard Arial fallbacks.
+5. **Image Queuing**: Base64 encoded SVGs and external cross-origin images must be allowed to load via `useCORS: true` internally in the html2canvas payload.
+
+### 2.2 Studio Component Hierarchy
+- **Control Panel (`BroadcastStudio.tsx` / `CreativeStudio`)**: The interactive studio bay. Manages the visual composition state (Theme, Layout, Aspect Ratio, Selected Entities) and acts as the orchestrator. Contains the canvas extraction logic.
+- **The Orchestrator (`BatchExportManager.tsx`)**: Handles mass-rendering (e.g., exporting 16 team cards sequentially). It enforces a strict `await` cycle (minimum 500ms delay) between generating images to prevent memory heap exhaustion and allow the React reconciler to flush DOM updates.
+- **The Payload (`ExportRenderer.tsx`)**: The execution context. This is a **pure, stateless, deterministic component**. It takes `data`, `theme`, and `visualConfig` props and builds a rigid, absolute-positioned container for `html2canvas` to target (via `id="export-container"`).
+
+### 2.3 Visual Design System
+The studio enforces strict separation of structure and style:
+
+**Aspect Ratios & Dimensions:**
+We enforce explicit discrete bounding boxes to guarantee pixel-perfect standard exports, avoiding layout shifts:
+- `16:9` (1920x1080) - Main Broadcast
+- `4:3` (1440x1080) - Standard iPad / Data Panels
+- `1:1` (1080x1080) - Instagram / Square Feed
+- `9:16` (1080x1920) - TikTok / Reels / Shorts Format
+
+**Layout Modes (The "Skeleton"):**
+- `statistics`: Dense data grids and radar charts; analytical.
+- `classic`: Standard esports broadcast style (thick borders, heavy gradients).
+- `cyber_glitch`: Neon underground wireframes, noise overlays, high-contrast typography.
+- `minimal`: Editorial design, massive negative space, strict typography alignment.
+- `paper`: Light-mode focus, monochromatic physical structures.
+- `neon`: Wireframe glow, transparent interiors.
+
+**Themes (The "Skin"):**
+- `slate`, `violet`, `tactical`.
+- A dynamic `visualConfig` layer interpolates mathematically based on the active Layout and Theme, scaling `padding`, `itemSpacing`, `fontScale`, and `headerScale` proportionally avoiding media-query breakpoint spaghetti in the static export frame.
+
+---
 
 ## 3. Data Models (`types.ts`)
-The application's data architecture is built around a progressive aggregation model:
+The application's data architecture uses a progressive aggregation model:
+1. **`PlayerAtomic`**: Rawest match data (Kills, Damage, Survival Time).
+2. **`PlayerDerived`**: Extrapolated metrics (Z-Scores, Impact Score, Clutch Rating).
+3. **`TeamMatchStats`**: Match performance aggregated by the team roster.
+4. **`TeamData`**: Cumulative tournament data (Rolling averages, DNA/Radar signatures).
+5. **`Snapshot`**: Deep-frozen state containing raw matches, rules, and aesthetic parameters.
 
-1. **`PlayerAtomic`**: The rawest form of data. Represents a single player's performance in a single match (Kills, Assists, Damage, Survival Time, Team Rank).
-2. **`PlayerDerived`**: Extends `PlayerAtomic` with calculated metrics for that match (Damage Per Minute, Damage Share, Impact Score, Clutch Rating, Support Rating, Z-Scores, Carry Class).
-3. **`TeamMatchStats`**: Aggregates `PlayerDerived` data for a specific team in a specific match. Calculates total points based on the active `ScoringRules`.
-4. **`MatchData`**: Represents a single match, containing metadata (Day, Match Number) and an array of `TeamMatchStats`.
-5. **`TeamData`**: The highest level of aggregation. Represents a team's cumulative performance across the entire tournament or a filtered scope. Includes rolling averages, trends, and aggregated player histories.
-6. **`Session` / `Snapshot`**: Represents the entire state of the tournament, including raw matches, scoring rules, and branding configuration. Can be exported and imported as a JSON file.
+---
 
 ## 4. Core Engines
 
-### Analytics Engine (`services/analyticsEngine.ts`)
-The heart of the application. It handles:
-- **Match Processing**: Converts `PlayerAtomic` to `TeamMatchStats` by applying the current `ScoringRules` (Placement Points + Kill Multiplier).
-- **Tournament Aggregation**: Rolls up `MatchData` into `TeamData`. Handles team name normalization and alias resolution.
-- **Advanced Metrics**: Calculates standard deviations, Z-Scores for damage and kills, Efficiency Ratings, Aggression Indices, and categorizes players into "Carry Classes" (e.g., `HARD_CARRY`, `SYSTEM_COLLAPSE`).
-- **Predictive Modeling**: Includes a Monte Carlo simulation engine (`runMonteCarloSimulation`) to predict tournament outcomes and win probabilities based on historical variance.
+### 4.1 Analytics Engine (`services/analyticsEngine.ts`)
+- **Metric Rolling**: Aggregates `MatchData` into `TeamData`.
+- **Advanced Taxonomy**: Calculates semantic "Carry Classes" (e.g., `HARD_CARRY`, `SYSTEM_COLLAPSE`) based on positional standard deviations vs the operational mean.
+- **Monte Carlo Predictor**: Runs 1,000+ stochastic simulations based on tournament history variance to chart real-time win probability densities.
 
-### Export Engine (`services/exportEngine.ts`)
-Handles data portability:
-- **Excel/CSV**: Generates Master Excel workbooks, Raw Telemetry CSVs, Audit CSVs, and Standings CSVs using the `xlsx` library.
-- **JSON**: Generates comprehensive JSON payloads for API integration or state backups (Snapshots).
-- **Clipboard Bridge**: Formats data for easy copy-pasting into Google Sheets or Excel.
+### 4.2 Export Engine (`services/exportEngine.ts`)
+Maintains data tabular portability. Responsible for serializing to Master Excel sheets, Raw Telemetry CSVs, and localized Clipboard buffers via `xlsx`.
 
-### Gemini Service (`services/gemini.ts`)
-Handles AI-driven data ingestion:
-- **`extractScoreboardImages`**: Sends images to Gemini with a strict JSON schema to extract player stats. Includes retry logic and exponential backoff for resilience against API limits.
-- **`parseRawData`**: Parses unstructured text into the same atomic JSON structure.
-
-## 5. UI Components & Features
-
-The UI is divided into two main workflow steps: **Ingestion** and **Analysis**.
-
-### Ingestion Step
-- **`DataInput`**: The entry point. Users can upload JSON Snapshots, paste raw text, upload images for AI parsing, or manually enter data via a grid interface.
-
-### Analysis Step (Dashboard)
-- **Scope Navigation**: Users can view data for the entire tournament, a specific day, or a single match.
-- **`WinnerShowcase` & `MVPHighlight`**: Prominent displays for the current leader and the most valuable player.
-- **`PointsTable`**: The main leaderboard, sortable by various metrics.
-- **`OperatorLeaderboard`**: A detailed table of individual player statistics.
-- **`Analytics`**: Visual charts showing team performance trends, damage distribution, and efficiency.
-- **`Faceoff`**: A tool to compare two teams head-to-head.
-- **`PredictionWidget`**: Displays the results of the Monte Carlo simulations.
-- **`MatchList`**: A timeline of all matches played.
-
-### Detail Views
-- **`TeamProfile`**: Deep dive into a specific team's roster, history, and advanced metrics.
-- **`PlayerProfile`**: Deep dive into a specific player's performance over time.
-
-### Tools & Modals
-- **`BroadcastStudio`**: A specialized view designed to generate clean, branded graphics (Standings, MVP Cards, Top Fraggers) for use in live broadcasts or social media. Uses `html-to-image`.
-- **`DataNexus`**: The central hub for triggering exports (Excel, CSV, JSON).
-- **`CommissionerModal`**: Allows admins to adjust scoring rules (points per kill, placement points) on the fly. The app instantly recalculates all standings.
-- **`AgencySettings`**: Configuration for tournament branding (Org Name, Colors, Logos).
-- **`PressKitModal`**: Generates a PDF summary of the tournament using `jspdf`.
-
-## 6. State Management & Data Flow
-The application utilizes React state heavily in `App.tsx`.
-1. **Raw Data**: `rawMatches` holds the immutable truth of what happened in the games.
-2. **Rules & Scope**: `scoringRules` and `viewScope` dictate how the data should be interpreted.
-3. **Memoized Computation**: A `useMemo` hook takes `rawMatches`, applies `scoringRules` via `recalculateMatchScores`, filters by `viewScope`, and then runs `aggregateTournamentStats`. This ensures the UI is always perfectly in sync with the rules and filters without mutating the raw data.
-4. **Snapshots**: The entire state (`rawMatches`, `scoringRules`, `brandingConfig`) can be serialized into a Snapshot JSON file and reloaded later, allowing for easy archiving and sharing.
-
-## 7. Security & Authentication
-- The app is protected by a custom Google OAuth implementation in `server.ts`.
-- It verifies the user's email against a hardcoded `ALLOWED_EMAIL`.
-- The session is managed via a secure, HTTP-only JWT cookie.
-- The Vite development server is mounted as middleware in the Express app, ensuring that both API routes and frontend assets are served from the same origin (port 3000), which is crucial for the iframe environment.
+### 4.3 AI Ingestion Service (`services/gemini.ts`)
+Implements the `@google/genai` SDK to ingest raw scoreboard photography or OCR streams, enforcing extraction into rigid `PlayerAtomic` JSON arrays via deterministic schema prompting.

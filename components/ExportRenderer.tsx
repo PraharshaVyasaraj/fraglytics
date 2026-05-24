@@ -2599,7 +2599,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   return (
     <div 
         id="export-container" 
-        className={`${styles.bg} ${styles.text} font-sans relative flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar`}
+        className={`${styles.bg} ${styles.text} font-sans relative flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar ${isExporting ? 'disable-blurs' : ''}`}
         style={{ 
             ...containerDimensions, 
             backgroundColor: themeBgHex, 

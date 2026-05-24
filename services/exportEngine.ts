@@ -21,53 +21,67 @@ const formatSecondsToMMSS = (seconds: number): string => {
 };
 
 const flattenMatchLogs = (matches: MatchData[], config: ExportConfig) => {
-    return matches.flatMap(m => m.teams.map(t => {
-        return {
-            Match_ID: m.id,
-            Day: m.day,
-            Match_Num: m.matchInDay,
-            Map: "Unknown", // Assuming map isn't in MatchData currently
-            Team: t.teamName,
-            Placement: t.rank,
-            Kills: t.totalKills,
-            Match_Total_Pts: t.totalPoints
-        };
-    }));
+    return matches.flatMap(m => {
+        const sortedMatchTeams = [...m.teams].sort((a, b) => a.rank - b.rank);
+        return sortedMatchTeams.map(t => {
+            return {
+                Match_ID: m.id,
+                Day: m.day,
+                Match_Num: m.matchInDay,
+                Map: "Unknown", // Assuming map isn't in MatchData currently
+                Team: t.teamName,
+                Placement: t.rank,
+                Kills: t.totalKills,
+                Match_Total_Pts: t.totalPoints
+            };
+        });
+    });
 };
 
 const flattenPlayerRegistry = (teams: TeamData[], config: ExportConfig) => {
-    return teams.flatMap(t => t.players.map(p => {
-        return {
-            "Team Rank": t.rank,
-            "Team Name": t.name,
-            "Player Rank": p.individualRank || '',
-            "Player Name": p.playerName,
-            "Damage": p.damage,
-            "Assist": p.assists,
-            "Finishes": p.finishes,
-            "Play Time (Mins)": p.playTimeMinutes.toFixed(2),
-            "Impact Score": p.impactScore.toFixed(2),
-            "Carry Class": p.carryClass
-        };
-    }));
+    const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
+    return sortedTeams.flatMap(t => {
+        const sortedPlayers = [...t.players].sort((a, b) => (a.individualRank || 999) - (b.individualRank || 999));
+        return sortedPlayers.map(p => {
+            return {
+                "Team Rank": t.rank,
+                "Team Name": t.name,
+                "Player Rank": p.individualRank || '',
+                "Player Name": p.playerName,
+                "Damage": p.damage,
+                "Assist": p.assists,
+                "Finishes": p.finishes,
+                "Play Time (Mins)": p.playTimeMinutes.toFixed(2),
+                "Impact Score": p.impactScore.toFixed(2),
+                "Carry Class": p.carryClass
+            };
+        });
+    });
 };
 
 const flattenAtomicTelemetry = (matches: MatchData[]) => {
-    return matches.flatMap(m => m.teams.flatMap(t => t.players.map(p => ({
-        "Match ID": m.id.toUpperCase(),
-        "Team Rank": t.rank,
-        "Team Name": t.teamName,
-        "Player Rank": p.individualRank || '',
-        "Player Name": p.playerName,
-        "Damage": p.damage,
-        "Assist": p.assists,
-        "Finishes": p.kills,
-        "Play Time (Mins)": (p.survivalTimeSeconds / 60).toFixed(2)
-    }))));
+    return matches.flatMap(m => {
+        const sortedMatchTeams = [...m.teams].sort((a, b) => a.rank - b.rank);
+        return sortedMatchTeams.flatMap(t => {
+            const sortedPlayers = [...t.players].sort((a, b) => (a.individualRank || 999) - (b.individualRank || 999));
+            return sortedPlayers.map(p => ({
+                "Match ID": m.id.toUpperCase(),
+                "Team Rank": t.rank,
+                "Team Name": t.teamName,
+                "Player Rank": p.individualRank || '',
+                "Player Name": p.playerName,
+                "Damage": p.damage,
+                "Assist": p.assists,
+                "Finishes": p.kills,
+                "Play Time (Mins)": (p.survivalTimeSeconds / 60).toFixed(2)
+            }));
+        });
+    });
 };
 
 const flattenAdvancedAnalytics = (teams: TeamData[]) => {
-    return teams.map(t => {
+    const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
+    return sortedTeams.map(t => {
         // Calculate team-level Z-Scores by averaging player Z-Scores
         const avgZScoreKills = t.players.reduce((sum, p) => sum + (p.zScoreKills || 0), 0) / (t.players.length || 1);
         const avgZScoreDamage = t.players.reduce((sum, p) => sum + (p.zScoreDamage || 0), 0) / (t.players.length || 1);
@@ -86,9 +100,10 @@ const flattenAdvancedAnalytics = (teams: TeamData[]) => {
 
 export const generateMasterExcel = (teams: TeamData[], matches: MatchData[], branding: BrandingConfig, config: ExportConfig) => {
     const wb = utils.book_new();
+    const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
 
     // 1. STANDINGS SHEET (Overall Standings)
-    const standingsData = teams.map(t => {
+    const standingsData = sortedTeams.map(t => {
         return {
             Rank: t.rank,
             Team: t.name,
@@ -113,17 +128,17 @@ export const generateMasterExcel = (teams: TeamData[], matches: MatchData[], bra
     utils.book_append_sheet(wb, wsMatches, "Match-by-Match");
 
     // 3. PLAYER REGISTRY SHEET (Player Leaderboard)
-    const playerRegistry = flattenPlayerRegistry(teams, config);
+    const playerRegistry = flattenPlayerRegistry(sortedTeams, config);
     const wsPlayers = utils.json_to_sheet(playerRegistry);
     utils.book_append_sheet(wb, wsPlayers, "Player Leaderboard");
 
-    // 4. ATOMIC TELEMETRY SHEET (Raw Player Telemetry)
+    // 4. ATOMIC TELEMET SHEET (Raw Player Telemetry)
     const telemetry = flattenAtomicTelemetry(matches);
     const wsTelemetry = utils.json_to_sheet(telemetry);
     utils.book_append_sheet(wb, wsTelemetry, "Raw Player Telemetry");
 
     // 5. ADVANCED ANALYTICS
-    const advancedAnalytics = flattenAdvancedAnalytics(teams);
+    const advancedAnalytics = flattenAdvancedAnalytics(sortedTeams);
     const wsAdvanced = utils.json_to_sheet(advancedAnalytics);
     utils.book_append_sheet(wb, wsAdvanced, "Advanced Analytics");
 
@@ -154,8 +169,10 @@ export const generateAuditCSV = (matches: MatchData[]) => {
     
     matches.forEach(m => {
         const matchLabel = `D${m.day}-M${m.matchInDay}`;
-        m.teams.forEach(t => {
-            t.players.forEach(p => {
+        const sortedMatchTeams = [...m.teams].sort((a, b) => a.rank - b.rank);
+        sortedMatchTeams.forEach(t => {
+            const sortedPlayers = [...t.players].sort((a, b) => (a.individualRank || 999) - (b.individualRank || 999));
+            sortedPlayers.forEach(p => {
                 const row = [
                     t.rank,
                     `"${t.teamName}"`,
@@ -177,8 +194,9 @@ export const generateAuditCSV = (matches: MatchData[]) => {
 };
 
 export const generateStandingsCSV = (teams: TeamData[]) => {
+    const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
     const headers = ['Rank', 'Team', 'Total Points', 'Place Points', 'Kill Points', 'Matches', 'Wins', 'Avg Damage', 'Total Kills', 'Trend'];
-    const rows = teams.map(t => [
+    const rows = sortedTeams.map(t => [
         t.rank,
         `"${t.name}"`,
         t.totalPoints,
@@ -194,15 +212,16 @@ export const generateStandingsCSV = (teams: TeamData[]) => {
 };
 
 export const generateJSON = (teams: TeamData[], matches: MatchData[], branding: BrandingConfig, config: ExportConfig) => {
+    const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
     const data = {
         metadata: {
             generatedAt: new Date().toISOString(),
             organization: branding.orgName,
             version: "2.4.0",
             matchCount: matches.length,
-            teamCount: teams.length
+            teamCount: sortedTeams.length
         },
-        leaderboard: teams.map(t => ({
+        leaderboard: sortedTeams.map(t => ({
             rank: t.rank,
             name: t.name,
             points: {
@@ -228,18 +247,21 @@ export const generateJSON = (teams: TeamData[], matches: MatchData[], branding: 
                 ...(config.includeZScores ? { zScoreDmg: p.zScoreDamage, zScoreKills: p.zScoreKills } : {})
             }))
         })),
-        matches: matches.map(m => ({
-            id: m.id,
-            day: m.day,
-            matchInDay: m.matchInDay,
-            teams: m.teams.map(t => ({
-                rank: t.rank,
-                name: t.teamName,
-                points: t.totalPoints,
-                kills: t.totalKills,
-                damage: t.totalDamage
-            }))
-        }))
+        matches: matches.map(m => {
+            const sortedMatchTeams = [...m.teams].sort((a, b) => a.rank - b.rank);
+            return {
+                id: m.id,
+                day: m.day,
+                matchInDay: m.matchInDay,
+                teams: sortedMatchTeams.map(t => ({
+                    rank: t.rank,
+                    name: t.teamName,
+                    points: t.totalPoints,
+                    kills: t.totalKills,
+                    damage: t.totalDamage
+                }))
+            };
+        })
     };
     return JSON.stringify(data, null, 2);
 };
@@ -293,20 +315,26 @@ export const generateClipboardBridge = (matches: MatchData[]) => {
         'Z-Score Dmg'
     ];
 
-    const rows = matches.flatMap(m => m.teams.flatMap(t => t.players.map(p => [
-        m.id.toUpperCase(),
-        m.day,
-        t.rank,
-        t.teamName,
-        p.individualRank || '',
-        p.playerName,
-        p.damage,
-        p.assists,
-        p.kills,
-        (p.survivalTimeSeconds / 60).toFixed(2),
-        p.impactScore.toFixed(2),
-        p.zScoreDamage.toFixed(2)
-    ].join('\t'))));
+    const rows = matches.flatMap(m => {
+        const sortedMatchTeams = [...m.teams].sort((a, b) => a.rank - b.rank);
+        return sortedMatchTeams.flatMap(t => {
+            const sortedPlayers = [...t.players].sort((a, b) => (a.individualRank || 999) - (b.individualRank || 999));
+            return sortedPlayers.map(p => [
+                m.id.toUpperCase(),
+                m.day,
+                t.rank,
+                t.teamName,
+                p.individualRank || '',
+                p.playerName,
+                p.damage,
+                p.assists,
+                p.kills,
+                (p.survivalTimeSeconds / 60).toFixed(2),
+                p.impactScore.toFixed(2),
+                p.zScoreDamage.toFixed(2)
+            ].join('\t'));
+        });
+    });
 
     return [headers.join('\t'), ...rows].join('\n');
 };
@@ -431,21 +459,43 @@ const extractAdvancedMetrics = (p: any, slots: string[]) => {
 };
 
 export const generateAdvancedAnalyticsCSV = (teams: TeamData[], slots: string[]) => {
-    const players = getGlobalPlayerRegistry(teams);
+    const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
+    const players = getGlobalPlayerRegistry(sortedTeams);
+    const teamRanks = new Map<string, number>();
+    sortedTeams.forEach(t => teamRanks.set(t.name.toUpperCase(), t.rank));
+
+    const sortedPlayers = [...players].sort((a, b) => {
+        const rankA = teamRanks.get(a.teamName.toUpperCase()) ?? 999;
+        const rankB = teamRanks.get(b.teamName.toUpperCase()) ?? 999;
+        if (rankA !== rankB) return rankA - rankB;
+        return (a.individualRank || 999) - (b.individualRank || 999);
+    });
+
     const headers = [
         'Player Name', 'Team Name', 'Matches Played', 'Kills', 'Damage', 'Assists', 'Play Time (Mins)',
         ...slots.map(getMetricLabel)
     ];
-    const rows = players.map(p => extractAdvancedMetrics(p, slots).join(','));
+    const rows = sortedPlayers.map(p => extractAdvancedMetrics(p, slots).join(','));
     return [headers.join(','), ...rows].join('\n');
 };
 
 export const generateAdvancedAnalyticsClipboard = (teams: TeamData[], slots: string[]) => {
-    const players = getGlobalPlayerRegistry(teams);
+    const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
+    const players = getGlobalPlayerRegistry(sortedTeams);
+    const teamRanks = new Map<string, number>();
+    sortedTeams.forEach(t => teamRanks.set(t.name.toUpperCase(), t.rank));
+
+    const sortedPlayers = [...players].sort((a, b) => {
+        const rankA = teamRanks.get(a.teamName.toUpperCase()) ?? 999;
+        const rankB = teamRanks.get(b.teamName.toUpperCase()) ?? 999;
+        if (rankA !== rankB) return rankA - rankB;
+        return (a.individualRank || 999) - (b.individualRank || 999);
+    });
+
     const headers = [
         'Player Name', 'Team Name', 'Matches Played', 'Kills', 'Damage', 'Assists', 'Play Time (Mins)',
         ...slots.map(getMetricLabel)
     ];
-    const rows = players.map(p => extractAdvancedMetrics(p, slots).join('\t'));
+    const rows = sortedPlayers.map(p => extractAdvancedMetrics(p, slots).join('\t'));
     return [headers.join('\t'), ...rows].join('\n');
 };

@@ -24,8 +24,8 @@ export const IntelligenceReportView: React.FC<IntelligenceReportViewProps> = ({
     isPortrait = false,
     onElementClick
 }) => {
-    // Sort data for standings
-    const sortedData = [...data].sort((a, b) => b.totalPoints - a.totalPoints);
+    // Sort data for standings by team rank ascending (e.g. 1 to 16)
+    const sortedData = [...data].sort((a, b) => a.rank - b.rank);
 
     return (
         <div className="w-full h-full bg-[#0A0A0A] p-6 lg:p-12 flex flex-col relative overflow-hidden font-sans">
@@ -72,21 +72,26 @@ export const IntelligenceReportView: React.FC<IntelligenceReportViewProps> = ({
                         </div>
 
                         <div className="space-y-1 overflow-y-auto max-h-full">
-                            {sortedData.slice(0, isPortrait ? 12 : 8).map((team, index) => {
-                                // Mock trend logic for visual fidelity
-                                const trend = index < 3 ? 'up' : index > 5 ? 'down' : 'stable';
-                                const wwcds = team.history.filter(h => h.rank === 1).length;
+                            {(() => {
+                                const teamsPerPage = isPortrait ? 12 : 8;
+                                const startIndex = (page - 1) * teamsPerPage;
+                                const paginatedTeams = sortedData.slice(startIndex, startIndex + teamsPerPage);
+                                return paginatedTeams.map((team, index) => {
+                                    const overallIndex = startIndex + index;
+                                    // Mock trend logic for visual fidelity
+                                    const trend = overallIndex < 4 ? 'up' : overallIndex > 15 ? 'down' : 'stable';
+                                    const wwcds = team.history.filter(h => h.rank === 1).length;
 
-                                return (
-                                    <div 
-                                        key={team.name} 
-                                        onClick={() => onElementClick?.('team', { teamId: team.name })}
-                                        className={`grid ${isPortrait ? 'grid-cols-[40px_1fr_60px_60px]' : 'grid-cols-[60px_1fr_120px_120px_120px_120px]'} items-center py-2 lg:py-3 border-b border-[#1A1A1A]/5 group hover:bg-[#1A1A1A]/5 transition-all cursor-pointer ${
-                                            trend === 'up' ? 'border-l-4 border-[#10b981]' : 
-                                            trend === 'down' ? 'border-l-4 border-[#E11D48]' : 'border-l-4 border-[#71717a]'
-                                        } pl-2 lg:pl-4`}
-                                    >
-                                        <span className={`${isPortrait ? 'text-lg' : 'text-2xl'} font-black text-[#1A1A1A]`}>{index + 1}</span>
+                                    return (
+                                        <div 
+                                            key={team.name} 
+                                            onClick={() => onElementClick?.('team', { teamId: team.name })}
+                                            className={`grid ${isPortrait ? 'grid-cols-[40px_1fr_60px_60px]' : 'grid-cols-[60px_1fr_120px_120px_120px_120px]'} items-center py-2 lg:py-3 border-b border-[#1A1A1A]/5 group hover:bg-[#1A1A1A]/5 transition-all cursor-pointer ${
+                                                trend === 'up' ? 'border-l-4 border-[#10b981]' : 
+                                                trend === 'down' ? 'border-l-4 border-[#E11D48]' : 'border-l-4 border-[#71717a]'
+                                            } pl-2 lg:pl-4`}
+                                        >
+                                            <span className={`${isPortrait ? 'text-lg' : 'text-2xl'} font-black text-[#1A1A1A]`}>{overallIndex + 1}</span>
                                         
                                         <div className="flex items-center gap-2 lg:gap-3 min-w-0">
                                             <div className="w-5 h-5 lg:w-6 lg:h-6 border border-[#1A1A1A]/20 rounded-full flex items-center justify-center flex-shrink-0">
@@ -107,7 +112,8 @@ export const IntelligenceReportView: React.FC<IntelligenceReportViewProps> = ({
                                         <span className={`text-right ${isPortrait ? 'text-xl' : 'text-3xl'} font-black text-[#1A1A1A]`}>{team.totalPoints}</span>
                                     </div>
                                 );
-                            })}
+                            });
+                        })()}
                         </div>
                     </div>
                 </div>
