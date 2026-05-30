@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { TeamData, PlayerDerived } from '../types';
 import { Trophy, Crosshair, LayoutGrid, Table as TableIcon, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Copy, MessageSquare, MonitorPlay, Check, Download, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
@@ -179,32 +179,34 @@ const StandingsTable: React.FC<{ data: TableRowData[]; onTeamClick?: (t: TeamDat
 
   const getWWCD = (team: TeamData) => team.history?.filter(h => h.rank === 1).length || 0;
 
-  const sortedData = [...data].sort((a, b) => {
-    let aValue: any;
-    let bValue: any;
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
 
-    switch (sortConfig.key) {
-      case 'wwcd':
-        aValue = getWWCD(a);
-        bValue = getWWCD(b);
-        break;
-      case 'avgPts':
-        aValue = a.totalPoints / (a.matchesPlayed || 1);
-        bValue = b.totalPoints / (b.matchesPlayed || 1);
-        break;
-      case 'avgDmg':
-        aValue = a.totalDamage / (a.matchesPlayed || 1);
-        bValue = b.totalDamage / (b.matchesPlayed || 1);
-        break;
-      default:
-        aValue = a[sortConfig.key as keyof TableRowData];
-        bValue = b[sortConfig.key as keyof TableRowData];
-    }
+      switch (sortConfig.key) {
+        case 'wwcd':
+          aValue = getWWCD(a);
+          bValue = getWWCD(b);
+          break;
+        case 'avgPts':
+          aValue = a.totalPoints / (a.matchesPlayed || 1);
+          bValue = b.totalPoints / (b.matchesPlayed || 1);
+          break;
+        case 'avgDmg':
+          aValue = a.totalDamage / (a.matchesPlayed || 1);
+          bValue = b.totalDamage / (b.matchesPlayed || 1);
+          break;
+        default:
+          aValue = a[sortConfig.key as keyof TableRowData];
+          bValue = b[sortConfig.key as keyof TableRowData];
+      }
 
-    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortConfig]);
 
   const handleSort = (key: SortKey) => {
     setSortConfig(current => ({
@@ -303,10 +305,10 @@ const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerCl
   if (!data || data.length === 0) return null;
 
   // Augment data with displayRank (based on original sorted order from props)
-  const processedData: TableRowData[] = data.map((team, index) => ({
+  const processedData: TableRowData[] = useMemo(() => data.map((team, index) => ({
     ...team,
     displayRank: index + 1
-  }));
+  })), [data]);
 
   // --- ACTIONS ---
   
@@ -448,4 +450,4 @@ const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerCl
   );
 };
 
-export default PointsTable;
+export default React.memo(PointsTable, (prevProps, nextProps) => prevProps.data === nextProps.data);

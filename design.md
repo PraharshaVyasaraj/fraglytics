@@ -72,3 +72,31 @@ Maintains data tabular portability. Responsible for serializing to Master Excel 
 
 ### 4.3 AI Ingestion Service (`services/gemini.ts`)
 Implements the `@google/genai` SDK to ingest raw scoreboard photography or OCR streams, enforcing extraction into rigid `PlayerAtomic` JSON arrays via deterministic schema prompting.
+
+---
+
+## 5. Professional Creative Studio Suite (Advanced Design Architecture)
+
+The high-performance **Creative Studio Panel** introduces real-time, non-destructive image production controls mimicking native Photoshop and Illustrator desktop features directly within the web rendering container:
+
+### 5.1 Vector Path Controls (Pen Tool & Mathematical Anchors)
+- **Mathematical SVG Injection**: Renders a lossless vector layer on top of the DOM export canvas mapping bezier curves (`Q`, `C` commands) and anchor point positions.
+- **Perfect Scalability**: SVG shapes possess infinite resolution. When extracted via `html2canvas`, paths remain perfectly anti-aliased with no pixel blurring or artifacting under high zoom multipliers.
+- **Overlay Node Modes**: Includes preset anchor configurations like `tech_nodes` (geometric coordinates and loop parameters), `crosshair_grids` (tactical target alignment grids), and `brutalist_bracket` (industrial cropping outlines).
+
+### 5.2 Non-Destructive Effector Stack (Layers & Adjustment Filters)
+- **Active Filter Chaining**: Avoids destructive pixel alteration by applying real-time procedural color-grading directly on the container element via custom CSS standard filters:
+  - `Contrast` & `Saturation` multipliers applied to deep nested child objects.
+  - **Procedural Grain Noise Layer**: Generates native fractal SVG noise algorithms on a separate, high-depth overlay to add organic texture.
+  - **Vignette Layer overlay**: Applies physical radial gradient filters to frame high-contrast text and stats gracefully.
+
+### 5.3 Advanced Style Presets & Component Management
+- **Linked Asset Presets**: Selecting a master style preset (e.g. `Esports Pro`, `Editorial Clean`, `Cyberpunk Glitch`) executes a batch operational transaction, updating all spacing, typography tracking, leading, and effects overlays across every active layout instantly.
+- **Global Typography Control**: Implements micro-typography adjustments including tracking (uniform letter-spacing), leading (exact vertical line heights per aspect ratio), and hardware kerning/ligature rendering to meet precise corporate brand guidelines.
+
+### 5.4 Virtual Color Profile Simulations (RGB, CMYK, Pantone PMS)
+- **Ink Gamut Proofing**: Digital displays operate inside standard RGB (emitted light), while print-press uses subtractive CMYK (ink on paper). The Creative Studio provides interactive gamut-proofing overlays:
+  - **sRGB Web**: Native high-intensity RGB space for online screens and live streams.
+  - **Press CMYK**: Simulates Standard Coated FOGRA39 print inks by clip-limiting high-saturation neons and applying targeted desaturations, ensuring the exported asset matches physically printed outputs.
+  - **Pantone Formula Solid Spot (PMS)**: Proofs and aligns colors to standardized ink matching systems for professional industrial distribution.
+

@@ -1,6 +1,7 @@
 
 import React, { useMemo } from 'react';
-import { TeamData, PlayerDerived, BrandingConfig } from '../types';
+import { TeamData, PlayerDerived, BrandingConfig, ExportTheme, AspectRatio, ExportLayout, ExportMode } from '../types';
+import { getThemeHexBg, getThemeStyles } from '../lib/themeEngine';
 import { Shield, Calendar, Crown, Skull, Crosshair, Activity, Target, Swords, HeartPulse, Zap, Sword, User, BarChart2, Users, TrendingUp, Medal, TrendingDown, Minus, GitGraph, Trophy, Star } from 'lucide-react';
 import { calculateHeadToHeadProbability } from '../services/analyticsEngine';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, PieChart, Pie, Cell, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line } from 'recharts';
@@ -10,11 +11,6 @@ import { TournamentMVP } from './mvp/TournamentMVP';
 import { SDRRGraphic } from './SDRRGraphic';
 
 import { IntelligenceReportView } from './IntelligenceReportView';
-
-export type ExportMode = 'standings' | 'winner' | 'faceoff' | 'mvp' | 'hall_of_fame' | 'player_leaderboard' | 'top_fraggers' | 'team_profile' | 'player_profile' | 'team_grid' | 'player_comparison' | 'sdrr';
-export type AspectRatio = '16:9' | '9:16' | '1:1';
-export type ExportTheme = 'protocol' | 'slate' | 'paper' | 'violet' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'intelligence';
-export type ExportLayout = 'classic' | 'sidebar' | 'main_stage' | 'analyst' | 'story' | 'broadcast_hero' | 'statistics' | 'cyber_glitch';
 
 interface ExportRendererProps {
   data: TeamData[]; 
@@ -52,21 +48,6 @@ const getContainerStyle = (ratio: AspectRatio) => {
     }
 };
 
-// Helper to get explicit hex background for export consistency
-const getThemeHexBg = (theme: ExportTheme): string => {
-    switch (theme) {
-        case 'slate': return '#1C2333';
-        case 'paper': return '#F1F5F9'; // slate-100
-        case 'violet': return '#1E1B2E';
-        case 'emerald': return '#064E3B';
-        case 'amber': return '#451a03';
-        case 'rose': return '#881337';
-        case 'cyan': return '#0e7490';
-        case 'intelligence': return '#0A0A0A';
-        case 'protocol': default: return '#0E0E0E';
-    }
-};
-
 const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio, theme, layout, branding, config, pagination, visualConfig = { headerScale: 1, rankScale: 1.2, statPriority: 'combat', spacing: 1, padding: 1, itemSpacing: 1, containerPadding: 1, rowHeight: 1, fontScale: 1 }, isExporting = false, timerSeconds = 569, onElementClick }) => {
   const containerDimensions = getContainerStyle(aspectRatio);
   const themeBgHex = getThemeHexBg(theme);
@@ -74,136 +55,23 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   
   const { page = 1, rowsPerPage = 10, totalPages = 1 } = pagination || {};
 
-  // --- THEME ENGINE ---
-  const getThemeStyles = () => {
-      switch (theme) {
-          case 'slate': // Formerly Cyber
-              return {
-                  bg: 'bg-[#1C2333]',
-                  text: 'text-[#E2E8F0]',
-                  accent: '#94A3B8', // Cool Silver-Grey
-                  subText: 'text-slate-400',
-                  border: 'border-slate-600',
-                  fontHeader: 'font-sans',
-                  fontBody: 'font-mono',
-                  cardBg: 'bg-slate-900/50 border border-slate-700 shadow-xl',
-                  highlight: 'bg-slate-700/50 text-slate-100',
-                  gradient: 'bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-[#1C2333]'
-              };
-          case 'paper':
-              return {
-                  bg: 'bg-slate-100',
-                  text: 'text-slate-900',
-                  accent: '#2563eb', // Blue
-                  subText: 'text-slate-500',
-                  border: 'border-slate-300',
-                  fontHeader: 'font-sans',
-                  fontBody: 'font-sans',
-                  cardBg: 'bg-white border border-slate-200 shadow-xl text-slate-900',
-                  highlight: 'bg-blue-100 text-blue-900',
-                  gradient: 'bg-slate-50'
-              };
-          case 'violet': // Formerly Crimson
-              return {
-                  bg: 'bg-[#1E1B2E]',
-                  text: 'text-[#F5F3FF]',
-                  accent: '#A78BFA', // Soft Violet
-                  subText: 'text-violet-300/70',
-                  border: 'border-violet-800/50',
-                  fontHeader: 'font-sans',
-                  fontBody: 'font-sans',
-                  cardBg: 'bg-black/20 border border-violet-500/20 shadow-2xl',
-                  highlight: 'bg-violet-900/40 text-violet-100',
-                  gradient: 'bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-[#2E1065] via-[#1E1B2E] to-black'
-              };
-          case 'emerald':
-              return {
-                  bg: 'bg-emerald-950',
-                  text: 'text-emerald-50',
-                  accent: '#34d399', // Emerald 400
-                  subText: 'text-emerald-300/70',
-                  border: 'border-emerald-800/50',
-                  fontHeader: 'font-sans',
-                  fontBody: 'font-mono',
-                  cardBg: 'bg-emerald-900/40 border border-emerald-700/50 shadow-xl',
-                  highlight: 'bg-emerald-800/50 text-emerald-100',
-                  gradient: 'bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-900 via-emerald-950 to-black'
-              };
-          case 'amber':
-              return {
-                  bg: 'bg-amber-950',
-                  text: 'text-amber-50',
-                  accent: '#fbbf24', // Amber 400
-                  subText: 'text-amber-300/70',
-                  border: 'border-amber-800/50',
-                  fontHeader: 'font-serif',
-                  fontBody: 'font-sans',
-                  cardBg: 'bg-amber-900/40 border border-amber-700/50 shadow-xl',
-                  highlight: 'bg-amber-800/50 text-amber-100',
-                  gradient: 'bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900 via-amber-950 to-black'
-              };
-          case 'rose':
-              return {
-                  bg: 'bg-rose-950',
-                  text: 'text-rose-50',
-                  accent: '#fb7185', // Rose 400
-                  subText: 'text-rose-300/70',
-                  border: 'border-rose-800/50',
-                  fontHeader: 'font-sans',
-                  fontBody: 'font-sans',
-                  cardBg: 'bg-rose-900/40 border border-rose-700/50 shadow-xl',
-                  highlight: 'bg-rose-800/50 text-rose-100',
-                  gradient: 'bg-[conic-gradient(at_top,_var(--tw-gradient-stops))] from-rose-900 via-rose-950 to-black'
-              };
-          case 'cyan':
-              return {
-                  bg: 'bg-cyan-950',
-                  text: 'text-cyan-50',
-                  accent: '#22d3ee', // Cyan 400
-                  subText: 'text-cyan-300/70',
-                  border: 'border-cyan-800/50',
-                  fontHeader: 'font-mono',
-                  fontBody: 'font-mono',
-                  cardBg: 'bg-cyan-900/40 border border-cyan-700/50 shadow-xl',
-                  highlight: 'bg-cyan-800/50 text-cyan-100',
-                  gradient: 'bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-cyan-900 via-cyan-950 to-black'
-              };
-          case 'intelligence':
-              return {
-                  bg: 'bg-[#0A0A0A]',
-                  text: 'text-white',
-                  accent: '#C5A073',
-                  subText: 'text-[#7A7A7A]',
-                  border: 'border-[#1A1A1A]/20',
-                  fontHeader: 'font-serif',
-                  fontBody: 'font-sans',
-                  cardBg: 'bg-[#F5F2ED]',
-                  highlight: 'bg-[#1A1A1A]/5',
-                  gradient: 'bg-[#0A0A0A]'
-              };
-          case 'protocol':
-          default:
-              return {
-                  bg: 'bg-[#0E0E0E]',
-                  text: 'text-white',
-                  accent: branding.accentColor,
-                  subText: 'text-tactical-light',
-                  border: 'border-tactical-gray',
-                  fontHeader: 'font-sans',
-                  fontBody: 'font-mono',
-                  cardBg: 'bg-white/5 border border-white/10',
-                  highlight: 'bg-white/10 text-white',
-                  gradient: 'bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-tactical-gray to-black'
-              };
-      }
-  };
-
-  const styles = getThemeStyles();
+  const themeStyles = getThemeStyles(theme, branding);
   
   // Inline styles for dynamic colors
-  const accentText = { color: styles.accent };
-  const accentBg = { backgroundColor: styles.accent };
-  const accentBorder = { borderColor: styles.accent };
+  const accentText = { color: themeStyles.accent };
+  const accentBg = { backgroundColor: themeStyles.accent };
+  const accentBorder = { borderColor: themeStyles.accent };
+
+  // Precise Typographical Tuning derived from visualConfig
+  const headerTypoStyle = {
+      letterSpacing: visualConfig.tracking !== undefined ? `${visualConfig.tracking}px` : undefined,
+      lineHeight: visualConfig.leading !== undefined ? visualConfig.leading : undefined,
+      fontFeatureSettings: visualConfig.kerning === false ? '"kern" 0, "liga" 0' : '"kern" 1, "liga" 1',
+  };
+
+  const bodyTypoStyle = {
+      fontFeatureSettings: visualConfig.kerning === false ? '"kern" 0, "liga" 0' : '"kern" 1, "liga" 1',
+  };
 
   // --- SUB-COMPONENTS ---
 
@@ -227,24 +95,24 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                         <Shield className="w-16 h-16 text-inherit" />
                     )}
                 </div>
-                <h1 className={`${isPortrait ? 'text-5xl' : 'text-7xl'} font-black ${styles.fontHeader} tracking-tighter uppercase ${styles.text}`} style={{ fontSize: `${(isPortrait ? 3 : 4.5) * visualConfig.fontScale}rem` }}>{branding.orgName}</h1>
+                 <h1 className={`${isPortrait ? 'text-5xl' : 'text-7xl'} font-black ${themeStyles.fontHeader} tracking-tighter uppercase ${themeStyles.text}`} style={{ fontSize: `${(isPortrait ? 3 : 4.5) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{branding.orgName}</h1>
             </div>
-            <p className={`text-2xl ${styles.subText} ${styles.fontBody} tracking-[0.2em] font-bold`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>INTELLIGENCE REPORT</p>
+            <p className={`text-2xl ${themeStyles.subText} ${themeStyles.fontBody} tracking-[0.2em] font-bold`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>INTELLIGENCE REPORT</p>
         </div>
         
         {(layout === 'classic' || layout === 'cyber_glitch') && (
             <div className={isPortrait ? 'mt-4' : 'text-right'}>
                 {layout === 'cyber_glitch' ? (
                     <div className="relative">
-                        <h2 className={`${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/50 uppercase tracking-tight leading-none ${styles.fontHeader} drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem` }}>{config.title}</h2>
-                        <h2 className={`absolute top-0 left-1 ${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-cyan-500 uppercase tracking-tight leading-none ${styles.fontHeader} opacity-50 mix-blend-screen`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem` }}>{config.title}</h2>
-                        <h2 className={`absolute top-0 -left-1 ${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-fuchsia-500 uppercase tracking-tight leading-none ${styles.fontHeader} opacity-50 mix-blend-screen`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem` }}>{config.title}</h2>
-                        <p className={`text-4xl ${styles.fontBody} font-bold mt-2 uppercase tracking-widest text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{config.subtitle}</p>
+                        <h2 className={`${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/50 uppercase tracking-tight leading-none ${themeStyles.fontHeader} drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
+                        <h2 className={`absolute top-0 left-1 ${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-cyan-500 uppercase tracking-tight leading-none ${themeStyles.fontHeader} opacity-50 mix-blend-screen`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
+                        <h2 className={`absolute top-0 -left-1 ${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-fuchsia-500 uppercase tracking-tight leading-none ${themeStyles.fontHeader} opacity-50 mix-blend-screen`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
+                        <p className={`text-4xl ${themeStyles.fontBody} font-bold mt-2 uppercase tracking-widest text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>{config.subtitle}</p>
                     </div>
                 ) : (
                     <>
-                        <h2 className={`${isPortrait ? 'text-6xl' : 'text-8xl'} font-black ${styles.text} uppercase tracking-tight leading-none ${styles.fontHeader}`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem` }}>{config.title}</h2>
-                        <p className={`text-4xl ${styles.fontBody} font-bold mt-2 uppercase`} style={{ ...accentText, fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{config.subtitle}</p>
+                        <h2 className={`${isPortrait ? 'text-6xl' : 'text-8xl'} font-black ${themeStyles.text} uppercase tracking-tight leading-none ${themeStyles.fontHeader}`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
+                        <p className={`text-4xl ${themeStyles.fontBody} font-bold mt-2 uppercase`} style={{ ...accentText, fontSize: `${2.25 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>{config.subtitle}</p>
                     </>
                 )}
             </div>
@@ -255,15 +123,15 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   const Footer = () => (
     <div 
         onClick={() => onElementClick?.('footer')}
-        className={`relative z-10 mt-auto pt-8 border-t flex ${isPortrait ? 'flex-col gap-4' : 'justify-between'} items-center ${styles.subText} ${styles.fontBody} uppercase tracking-widest ${!isExporting ? 'cursor-pointer hover:bg-white/5 transition-colors rounded-sm' : ''}`} 
-        style={{ borderColor: theme === 'slate' || theme === 'violet' ? styles.accent : theme === 'paper' ? '#cbd5e1' : 'rgba(255,255,255,0.1)' }}
+        className={`relative z-10 mt-auto pt-8 border-t flex ${isPortrait ? 'flex-col gap-4' : 'justify-between'} items-center ${themeStyles.subText} ${themeStyles.fontBody} uppercase tracking-widest ${!isExporting ? 'cursor-pointer hover:bg-white/5 transition-colors rounded-sm' : ''}`} 
+        style={{ borderColor: theme === 'slate' || theme === 'violet' ? themeStyles.accent : theme === 'paper' ? '#cbd5e1' : 'rgba(255,255,255,0.1)' }}
     >
         <div className="flex items-center gap-3">
             <Calendar className="w-6 h-6" />
             <span className="text-xl" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Generated: {new Date().toLocaleDateString()}</span>
         </div>
         {totalPages > 1 && (
-            <div className={`px-6 py-2 rounded-full font-bold ${styles.highlight}`} style={{ fontSize: `${1 * visualConfig.fontScale}rem` }}>
+            <div className={`px-6 py-2 rounded-full font-bold ${themeStyles.highlight}`} style={{ fontSize: `${1 * visualConfig.fontScale}rem` }}>
                 PAGE {page} OF {totalPages}
             </div>
         )}
@@ -357,7 +225,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                                       }))}>
                                           <PolarGrid stroke="rgba(255,255,255,0.1)" />
                                           <PolarAngleAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 8 }} />
-                                          <Radar name="Performance" dataKey="val" stroke={styles.accent} fill={styles.accent} fillOpacity={0.5} />
+                                          <Radar name="Performance" dataKey="val" stroke={themeStyles.accent} fill={themeStyles.accent} fillOpacity={0.5} />
                                       </RadarChart>
                                   </ResponsiveContainer>
                               </div>
@@ -383,16 +251,16 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
       if (layout === 'sidebar' && !isPortrait) {
           return (
               <div className="flex h-full w-full">
-                  <div className={`w-[500px] ${styles.cardBg} border-r p-12 flex flex-col justify-between relative z-20`} style={{ borderColor: (theme === 'slate' || theme === 'violet') ? styles.accent : 'transparent' }}>
+                  <div className={`w-[500px] ${themeStyles.cardBg} border-r p-12 flex flex-col justify-between relative z-20`} style={{ borderColor: (theme === 'slate' || theme === 'violet') ? themeStyles.accent : 'transparent' }}>
                       <div>
                           <Header />
                           <div className="mt-20">
-                            <h2 className={`text-7xl font-black ${styles.text} uppercase tracking-tight leading-none ${styles.fontHeader}`}>{config.title}</h2>
-                            <p className={`text-3xl ${styles.fontBody} font-bold mt-4 uppercase`} style={accentText}>{config.subtitle}</p>
+                            <h2 className={`text-7xl font-black ${themeStyles.text} uppercase tracking-tight leading-none ${themeStyles.fontHeader}`}>{config.title}</h2>
+                            <p className={`text-3xl ${themeStyles.fontBody} font-bold mt-4 uppercase`} style={accentText}>{config.subtitle}</p>
                             <div className={`w-24 h-2 mt-8`} style={accentBg}></div>
                           </div>
                       </div>
-                      <div className={`${styles.subText} ${styles.fontBody} uppercase tracking-widest text-lg`}>
+                      <div className={`${themeStyles.subText} ${themeStyles.fontBody} uppercase tracking-widest text-lg`}>
                           <p>Broadcast Data</p>
                           <p className="opacity-50">Confidential</p>
                       </div>
@@ -448,7 +316,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                     const actualRank = team.rank;
                     const isTop3 = actualRank <= 3;
                     
-                    let rankColor = styles.accent;
+                    let rankColor = themeStyles.accent;
                     if (actualRank === 1) rankColor = '#EAB308';
                     else if (actualRank === 2) rankColor = '#94a3b8';
                     else if (actualRank === 3) rankColor = '#C2410C';
@@ -465,7 +333,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
                             <div className="flex items-center gap-6 relative z-10">
                                 <div className="relative">
-                                    <div className={`text-5xl font-black italic tracking-tighter ${isTop3 ? 'text-white' : styles.subText} drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] animate-glitch-flicker`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 2 : 3.5) * visualConfig.rankScale}rem` }}>
+                                    <div className={`text-5xl font-black italic tracking-tighter ${isTop3 ? 'text-white' : themeStyles.subText} drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] animate-glitch-flicker`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 2 : 3.5) * visualConfig.rankScale}rem` }}>
                                         {String(actualRank).padStart(2, '0')}
                                     </div>
                                     {isTop3 && <div className="absolute -inset-2 blur-md opacity-50 animate-pulse" style={{ backgroundColor: rankColor, zIndex: -1 }}></div>}
@@ -682,11 +550,11 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
     if (layout === 'main_stage') {
         return (
             <div className="relative z-10 flex-1 flex flex-col gap-4">
-                {displayData.map((team, idx) => {
+                 {displayData.map((team, idx) => {
                     const actualRank = team.rank;
                     const isTop3 = actualRank <= 3;
                     
-                    let rankColor = styles.accent;
+                    let rankColor = themeStyles.accent;
                     if (actualRank === 1) rankColor = '#EAB308';
                     else if (actualRank === 2) rankColor = '#94a3b8';
                     else if (actualRank === 3) rankColor = '#C2410C';
@@ -704,12 +572,12 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                                 {isTop3 && <div className="absolute inset-0 opacity-20" style={{ background: `linear-gradient(90deg, ${rankColor}40 0%, transparent 100%)` }}></div>}
                                 
                                 <div className={`flex items-center ${isPortrait ? 'gap-4 pl-2' : 'gap-8 pl-8'} relative z-10`}>
-                                    <div className={`font-black ${isTop3 ? 'text-white' : styles.subText} drop-shadow-lg`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 1.5 : 3) * visualConfig.rankScale}rem` }}>
+                                    <div className={`font-black ${isTop3 ? 'text-white' : themeStyles.subText} drop-shadow-lg`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 1.5 : 3) * visualConfig.rankScale}rem` }}>
                                         #{actualRank}
                                     </div>
                                     <div>
-                                        <div className={`font-black uppercase tracking-tighter ${styles.text} drop-shadow-md truncate ${isPortrait ? 'max-w-[120px]' : ''}`} style={{ fontSize: `${(isPortrait ? 1.25 : 2.5) * visualConfig.headerScale}rem` }}>{team.name}</div>
-                                        <div className={`flex items-center gap-2 text-xs font-bold uppercase ${styles.subText}`}>
+                                        <div className={`font-black uppercase tracking-tighter ${themeStyles.text} drop-shadow-md truncate ${isPortrait ? 'max-w-[120px]' : ''}`} style={{ fontSize: `${(isPortrait ? 1.25 : 2.5) * visualConfig.headerScale}rem` }}>{team.name}</div>
+                                        <div className={`flex items-center gap-2 text-xs font-bold uppercase ${themeStyles.subText}`}>
                                             {team.trend === 'RISING' ? <TrendingUp className="w-3 h-3 text-green-500"/> : team.trend === 'FALLING' ? <TrendingDown className="w-3 h-3 text-red-500"/> : <Minus className="w-3 h-3"/>}
                                             <span className="tracking-widest">{team.trend}</span>
                                         </div>
@@ -719,19 +587,19 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                                     {!isPortrait && (
                                         <>
                                             <div className="text-center">
-                                                <div className={`text-3xl font-black ${styles.text}`}>{team.totalFinishes}</div>
-                                                <div className={`text-xs font-bold uppercase tracking-widest ${styles.subText}`}>Kills</div>
+                                                <div className={`text-3xl font-black ${themeStyles.text}`}>{team.totalFinishes}</div>
+                                                <div className={`text-xs font-bold uppercase tracking-widest ${themeStyles.subText}`}>Kills</div>
                                             </div>
                                             <div className="text-center">
-                                                <div className={`text-3xl font-black ${styles.text}`}>{team.placementPoints}</div>
-                                                <div className={`text-xs font-bold uppercase tracking-widest ${styles.subText}`}>Place</div>
+                                                <div className={`text-3xl font-black ${themeStyles.text}`}>{team.placementPoints}</div>
+                                                <div className={`text-xs font-bold uppercase tracking-widest ${themeStyles.subText}`}>Place</div>
                                             </div>
                                         </>
                                     )}
                                     <div className={`text-right ${isPortrait ? 'pl-4' : 'pl-8'} border-l border-white/10 relative`}>
                                         <div className="absolute -left-px top-1/2 -translate-y-1/2 w-px h-1/2 bg-white/30"></div>
-                                        <div className={`font-black ${styles.text} drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]`} style={{ ...accentText, fontSize: `${(isPortrait ? 2 : 6) * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
-                                        <div className={`text-[10px] font-bold uppercase tracking-widest ${styles.subText}`}>Total Pts</div>
+                                        <div className={`font-black ${themeStyles.text} drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]`} style={{ ...accentText, fontSize: `${(isPortrait ? 2 : 6) * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
+                                        <div className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.subText}`}>Total Pts</div>
                                     </div>
                                 </div>
                             </div>
@@ -741,7 +609,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
         );
     }
 
-    if (layout === 'analyst') {
+     if (layout === 'analyst') {
         const topScore = data[0]?.totalPoints || 1;
         
         return (
@@ -749,11 +617,11 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                 <table className="w-full text-left border-collapse">
                 <thead>
                     <tr className="border-b" style={{ borderColor: theme === 'paper' ? '#cbd5e1' : 'rgba(255,255,255,0.1)' }}>
-                        <th className={`py-3 text-sm font-bold ${styles.subText} uppercase tracking-widest`}>Rnk</th>
-                        <th className={`py-3 text-sm font-bold ${styles.subText} uppercase tracking-widest`}>Team</th>
-                        {!isPortrait && <th className={`py-3 text-sm font-bold ${styles.subText} uppercase tracking-widest text-center`}>Form (Last 5)</th>}
-                        {!isPortrait && <th className={`py-3 text-sm font-bold ${styles.subText} uppercase tracking-widest text-center`}>Gap</th>}
-                        <th className={`py-3 text-sm font-bold ${styles.subText} uppercase tracking-widest text-right`}>Pts</th>
+                        <th className={`py-3 text-sm font-bold ${themeStyles.subText} uppercase tracking-widest`}>Rnk</th>
+                        <th className={`py-3 text-sm font-bold ${themeStyles.subText} uppercase tracking-widest`}>Team</th>
+                        {!isPortrait && <th className={`py-3 text-sm font-bold ${themeStyles.subText} uppercase tracking-widest text-center`}>Form (Last 5)</th>}
+                        {!isPortrait && <th className={`py-3 text-sm font-bold ${themeStyles.subText} uppercase tracking-widest text-center`}>Gap</th>}
+                        <th className={`py-3 text-sm font-bold ${themeStyles.subText} uppercase tracking-widest text-right`}>Pts</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -765,27 +633,27 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
                         return (
                             <tr key={team.name} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                                <td className={`py-4 text-xl font-mono ${styles.subText}`}>
+                                <td className={`py-4 text-xl font-mono ${themeStyles.subText}`}>
                                     {String(actualRank).padStart(2, '0')}
                                 </td>
                                 <td className="py-4">
-                                    <div className={`text-2xl font-bold ${styles.text} uppercase tracking-tight`} style={{ fontSize: `${1.5 * visualConfig.headerScale}rem` }}>{team.name}</div>
+                                    <div className={`text-2xl font-bold ${themeStyles.text} uppercase tracking-tight`} style={{ fontSize: `${1.5 * visualConfig.headerScale}rem` }}>{team.name}</div>
                                 </td>
                                 {!isPortrait && (
                                     <td className="py-4">
                                         <div className="flex items-end justify-center gap-1 h-8">
                                             {recentForm.map((pts, i) => (
-                                                <div key={i} className="w-3 rounded-t-sm" style={{ height: `${(pts / maxForm) * 100}%`, backgroundColor: styles.accent, opacity: 0.5 + (i * 0.1) }}></div>
+                                                <div key={i} className="w-3 rounded-t-sm" style={{ height: `${(pts / maxForm) * 100}%`, backgroundColor: themeStyles.accent, opacity: 0.5 + (i * 0.1) }}></div>
                                             ))}
                                         </div>
                                     </td>
                                 )}
                                 {!isPortrait && (
-                                    <td className={`py-4 text-center text-lg font-mono ${actualRank === 1 ? styles.text : 'text-red-400'}`}>
+                                    <td className={`py-4 text-center text-lg font-mono ${actualRank === 1 ? themeStyles.text : 'text-red-400'}`}>
                                         {gapToLeader}
                                     </td>
                                 )}
-                                <td className={`py-4 text-right text-3xl font-black ${styles.text}`}>
+                                <td className={`py-4 text-right text-3xl font-black ${themeStyles.text}`}>
                                     {team.totalPoints}
                                 </td>
                             </tr>
@@ -806,13 +674,13 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                     const placePct = 100 - killPct;
 
                     return (
-                        <div key={team.name} className={`flex items-center gap-8 p-6 ${styles.cardBg} rounded-xl border-l-8`} style={{ borderColor: styles.accent }}>
-                            <div className={`text-6xl font-black ${styles.text} w-24 text-center`} style={{ fontSize: `${4 * visualConfig.rankScale}rem` }}>
+                        <div key={team.name} className={`flex items-center gap-8 p-6 ${themeStyles.cardBg} rounded-xl border-l-8`} style={{ borderColor: themeStyles.accent }}>
+                            <div className={`text-6xl font-black ${themeStyles.text} w-24 text-center`} style={{ fontSize: `${4 * visualConfig.rankScale}rem` }}>
                                 {team.rank}
                             </div>
                             <div className="flex-1">
-                                <div className={`text-4xl font-black uppercase tracking-tight ${styles.text} mb-1`} style={{ fontSize: `${2.5 * visualConfig.headerScale}rem` }}>{team.name}</div>
-                                <div className={`text-sm font-bold uppercase tracking-widest ${styles.subText} flex items-center gap-2`}>
+                                <div className={`text-4xl font-black uppercase tracking-tight ${themeStyles.text} mb-1`} style={{ fontSize: `${2.5 * visualConfig.headerScale}rem` }}>{team.name}</div>
+                                <div className={`text-sm font-bold uppercase tracking-widest ${themeStyles.subText} flex items-center gap-2`}>
                                     <Crown className="w-4 h-4 text-yellow-500" /> MVP: <span className="text-white">{mvp?.playerName || 'N/A'}</span>
                                 </div>
                             </div>
@@ -827,7 +695,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                                 </div>
                             </div>
                             <div className="text-right pl-8">
-                                <div className={`text-6xl font-black ${styles.text}`}>{team.totalPoints}</div>
+                                <div className={`text-6xl font-black ${themeStyles.text}`}>{team.totalPoints}</div>
                             </div>
                         </div>
                     );
@@ -840,22 +708,22 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
         <div className="relative z-10 flex-1">
             <table className="w-full text-left border-collapse">
             <thead>
-                <tr className={`border-b-2`} style={{ borderColor: (theme === 'slate' || theme === 'violet') ? styles.accent : theme === 'paper' ? '#0f172a' : 'rgba(255,255,255,0.2)' }}>
-                    <th className={`py-2 text-xl font-black ${styles.subText} uppercase tracking-widest text-center`}>Rank</th>
-                    <th className={`py-2 text-xl font-black ${styles.subText} uppercase tracking-widest pl-4`}>Team</th>
-                    {!isPortrait && <th className={`py-2 text-xl font-black ${styles.subText} uppercase tracking-widest text-center`}>SDRR</th>}
-                    {!isPortrait && <th className={`py-2 text-xl font-black ${styles.subText} uppercase tracking-widest text-center`}>Place</th>}
-                    {!isPortrait && <th className={`py-2 text-xl font-black ${styles.subText} uppercase tracking-widest text-center`}>Kills</th>}
-                    <th className={`py-2 text-2xl font-black ${styles.text} uppercase tracking-widest text-right pr-4`}>Pts</th>
+                <tr className={`border-b-2`} style={{ borderColor: (theme === 'slate' || theme === 'violet') ? themeStyles.accent : theme === 'paper' ? '#0f172a' : 'rgba(255,255,255,0.2)' }}>
+                    <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>Rank</th>
+                    <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest pl-4`}>Team</th>
+                    {!isPortrait && <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>SDRR</th>}
+                    {!isPortrait && <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>Place</th>}
+                    {!isPortrait && <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>Kills</th>}
+                    <th className={`py-2 text-2xl font-black ${themeStyles.text} uppercase tracking-widest text-right pr-4`}>Pts</th>
                 </tr>
             </thead>
             <tbody>
                 {displayData.map((team, idx) => {
                     const actualRank = team.rank;
                     const isTop3 = actualRank <= 3;
-                    const rowBg = idx % 2 === 0 ? styles.highlight : 'transparent';
+                    const rowBg = idx % 2 === 0 ? themeStyles.highlight : 'transparent';
                     
-                    let rankColor = styles.accent;
+                    let rankColor = themeStyles.accent;
                     if (actualRank === 1) rankColor = '#EAB308';
                     else if (actualRank === 2) rankColor = '#94a3b8'; // Slate 400
                     else if (actualRank === 3) rankColor = '#C2410C';
@@ -869,16 +737,16 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
             >
                             <td className="text-center" style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
                                 <div 
-                                    className={`w-12 h-12 mx-auto flex items-center justify-center font-black rounded-sm ${isTop3 ? 'text-black' : `${styles.text} ${theme === 'paper' ? 'bg-slate-200' : 'bg-white/10'}`}`} 
+                                    className={`w-12 h-12 mx-auto flex items-center justify-center font-black rounded-sm ${isTop3 ? 'text-black' : `${themeStyles.text} ${theme === 'paper' ? 'bg-slate-200' : 'bg-white/10'}`}`} 
                                     style={{ backgroundColor: isTop3 ? rankColor : undefined, fontSize: `${1.5 * visualConfig.rankScale}rem` }}
                                 >
                                     #{actualRank}
                                 </div>
                             </td>
                             <td className="pl-4" style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
-                                <div className={`font-bold ${styles.text} mb-0.5`} style={{ fontSize: `${1.8 * visualConfig.headerScale}rem` }}>{team.name}</div>
+                                <div className={`font-bold ${themeStyles.text} mb-0.5`} style={{ fontSize: `${1.8 * visualConfig.headerScale}rem` }}>{team.name}</div>
                                 {isPortrait && (
-                                    <div className={`flex text-base ${styles.fontBody} ${styles.subText}`} style={{ gap: `${1 * visualConfig.spacing}rem` }}>
+                                    <div className={`flex text-base ${themeStyles.fontBody} ${themeStyles.subText}`} style={{ gap: `${1 * visualConfig.spacing}rem` }}>
                                         <span>{team.totalFinishes} Kills</span>
                                         <span>{(team.totalDamage/1000).toFixed(1)}k Dmg</span>
                                     </div>
@@ -886,15 +754,15 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                             </td>
                             {!isPortrait && (
                                 <>
-                                    <td className={`text-center text-2xl font-bold ${styles.text}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
+                                    <td className={`text-center text-2xl font-bold ${themeStyles.text}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
                                         {team.history?.filter(h => h.rank === 1).length > 0 ? <span style={accentText}>{team.history?.filter(h => h.rank === 1).length}</span> : <span className="opacity-30">-</span>}
                                     </td>
-                                    <td className={`text-center text-2xl ${styles.fontBody} ${styles.subText}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>{team.placementPoints}</td>
-                                    <td className={`text-center text-2xl ${styles.fontBody} ${styles.subText}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>{team.totalFinishes}</td>
+                                    <td className={`text-center text-2xl ${themeStyles.fontBody} ${themeStyles.subText}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>{team.placementPoints}</td>
+                                    <td className={`text-center text-2xl ${themeStyles.fontBody} ${themeStyles.subText}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>{team.totalFinishes}</td>
                                 </>
                             )}
                             <td className="text-right pr-4" style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
-                                <span className={`text-5xl font-black ${styles.text} tracking-tighter`}>{team.totalPoints}</span>
+                                <span className={`text-5xl font-black ${themeStyles.text} tracking-tighter`}>{team.totalPoints}</span>
                             </td>
                         </tr>
                     );
@@ -912,8 +780,8 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
       const isChamp = team.rank === 1;
       const isTop3 = team.rank <= 3;
       
-      let themeColor = styles.text;
-      let accentColor = styles.accent;
+      let themeColor = themeStyles.text;
+      let accentColor = themeStyles.accent;
       let bgGradient = 'from-gray-900 to-black';
 
       if (isChamp) {
@@ -1055,10 +923,10 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                       <div className="flex items-center gap-4 mb-2">
                           <span className={`font-black ${themeColor}`} style={{ fontSize: `${4.5 * visualConfig.rankScale}rem` }}>#{team.rank}</span>
                           <div>
-                              <h1 className={`font-black uppercase leading-none ${styles.text} tracking-tighter`} style={{ fontSize: `${6 * visualConfig.headerScale}rem` }}>{team.name}</h1>
+                              <h1 className={`font-black uppercase leading-none ${themeStyles.text} tracking-tighter`} style={{ fontSize: `${6 * visualConfig.headerScale}rem` }}>{team.name}</h1>
                               <div className="flex gap-4 mt-2">
                                   {team.flags.map(f => (
-                                      <span key={f} className={`px-3 py-1 border-2 text-xl font-bold uppercase ${styles.subText}`} style={{ borderColor: theme === 'paper' ? '#94a3b8' : 'rgba(255,255,255,0.2)' }}>
+                                      <span key={f} className={`px-3 py-1 border-2 text-xl font-bold uppercase ${themeStyles.subText}`} style={{ borderColor: theme === 'paper' ? '#94a3b8' : 'rgba(255,255,255,0.2)' }}>
                                           {f}
                                       </span>
                                   ))}
@@ -1072,20 +940,20 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                       
                       <div className="grid grid-cols-4 mt-12 bg-white/5 rounded-sm backdrop-blur-sm border border-white/10" style={{ gap: `${2 * visualConfig.itemSpacing}rem`, padding: `${1.5 * visualConfig.padding}rem` }}>
                           <div>
-                              <div className={`text-xl font-bold uppercase tracking-widest ${styles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Total Pts</div>
-                              <div className={`text-6xl font-black ${styles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
+                              <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Total Pts</div>
+                              <div className={`text-6xl font-black ${themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
                           </div>
                           <div className="border-l border-white/10" style={{ paddingLeft: `${2 * visualConfig.itemSpacing}rem` }}>
-                              <div className={`text-xl font-bold uppercase tracking-widest ${styles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Wins</div>
-                              <div className={`text-6xl font-black ${isChamp ? 'text-yellow-500' : styles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.history.filter(h=>h.rank===1).length}</div>
+                              <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Wins</div>
+                              <div className={`text-6xl font-black ${isChamp ? 'text-yellow-500' : themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.history.filter(h=>h.rank===1).length}</div>
                           </div>
                           <div className="border-l border-white/10" style={{ paddingLeft: `${2 * visualConfig.itemSpacing}rem` }}>
-                              <div className={`text-xl font-bold uppercase tracking-widest ${styles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Frag Pts</div>
-                              <div className={`text-6xl font-black ${styles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.killPoints}</div>
+                              <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Frag Pts</div>
+                              <div className={`text-6xl font-black ${themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.killPoints}</div>
                           </div>
                           <div className="border-l border-white/10" style={{ paddingLeft: `${2 * visualConfig.itemSpacing}rem` }}>
-                              <div className={`text-xl font-bold uppercase tracking-widest ${styles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Matches</div>
-                              <div className={`text-6xl font-black ${styles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.matchesPlayed}</div>
+                              <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Matches</div>
+                              <div className={`text-6xl font-black ${themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.matchesPlayed}</div>
                           </div>
                       </div>
                   </div>
@@ -1180,7 +1048,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
         { subject: 'SHARE', A: player.damageShare * 2, fullMark: 100 },
       ];
 
-      const roleColor = player.carryClass === 'SYSTEM_COLLAPSE' ? '#ef4444' : player.carryClass === 'HARD_CARRY' ? '#eab308' : styles.accent;
+      const roleColor = player.carryClass === 'SYSTEM_COLLAPSE' ? '#ef4444' : player.carryClass === 'HARD_CARRY' ? '#eab308' : themeStyles.accent;
 
       if (layout === 'cyber_glitch') {
           return (
@@ -1713,48 +1581,48 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
       return (
           <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-12 relative`}>
-              <div className={`flex flex-col ${isPortrait ? 'w-full' : 'w-1/3'} p-8 border-l-8 items-center justify-center text-center ${styles.cardBg} cursor-pointer hover:brightness-125 transition-all`} style={accentBorder} onClick={() => onElementClick?.('player', { playerName: topDog.playerName })}>
+              <div className={`flex flex-col ${isPortrait ? 'w-full' : 'w-1/3'} p-8 border-l-8 items-center justify-center text-center ${themeStyles.cardBg} cursor-pointer hover:brightness-125 transition-all`} style={accentBorder} onClick={() => onElementClick?.('player', { playerName: topDog.playerName })}>
                   <div className="mb-4">
-                      <div className={`w-24 h-24 rounded-full ${styles.text} flex items-center justify-center text-4xl font-black mx-auto mb-4 border-4`} style={{ borderColor: styles.accent, backgroundColor: theme === 'paper' ? '#e2e8f0' : 'rgba(255,255,255,0.1)' }}>#1</div>
-                      <Skull className={`${isPortrait ? 'w-32 h-32' : 'w-48 h-48'} mx-auto ${styles.text} opacity-80`} strokeWidth={1} />
+                      <div className={`w-24 h-24 rounded-full ${themeStyles.text} flex items-center justify-center text-4xl font-black mx-auto mb-4 border-4`} style={{ borderColor: themeStyles.accent, backgroundColor: theme === 'paper' ? '#e2e8f0' : 'rgba(255,255,255,0.1)' }}>#1</div>
+                      <Skull className={`${isPortrait ? 'w-32 h-32' : 'w-48 h-48'} mx-auto ${themeStyles.text} opacity-80`} strokeWidth={1} />
                   </div>
-                  <div className={`font-black ${styles.text} uppercase leading-none mb-2`} style={{ fontSize: `${(isPortrait ? 3 : 3.75) * visualConfig.headerScale}rem` }}>{topDog.playerName}</div>
-                  <div className={`text-3xl ${styles.fontBody} ${styles.subText} uppercase ${isPortrait ? 'mb-4' : 'mb-8'}`}>{topDog.teamName}</div>
+                  <div className={`font-black ${themeStyles.text} uppercase leading-none mb-2`} style={{ fontSize: `${(isPortrait ? 3 : 3.75) * visualConfig.headerScale}rem` }}>{topDog.playerName}</div>
+                  <div className={`text-3xl ${themeStyles.fontBody} ${themeStyles.subText} uppercase ${isPortrait ? 'mb-4' : 'mb-8'}`}>{topDog.teamName}</div>
                   
                   <div className="flex gap-8">
                       <div>
-                          <div className={`text-7xl font-black ${styles.text} leading-none`} style={accentText}>{topDog.finishes}</div>
-                          <div className={`text-xl font-bold uppercase ${styles.subText} tracking-widest mt-1`}>Kills</div>
+                          <div className={`text-7xl font-black ${themeStyles.text} leading-none`} style={accentText}>{topDog.finishes}</div>
+                          <div className={`text-xl font-bold uppercase ${themeStyles.subText} tracking-widest mt-1`}>Kills</div>
                       </div>
                       <div className={`w-px ${theme === 'paper' ? 'bg-slate-300' : 'bg-white/20'}`}></div>
                       <div>
-                          <div className={`text-7xl font-black ${styles.text} leading-none`}>{(topDog.damage/1000).toFixed(1)}k</div>
-                          <div className={`text-xl font-bold uppercase ${styles.subText} tracking-widest mt-1`}>Dmg</div>
+                          <div className={`text-7xl font-black ${themeStyles.text} leading-none`}>{(topDog.damage/1000).toFixed(1)}k</div>
+                          <div className={`text-xl font-bold uppercase ${themeStyles.subText} tracking-widest mt-1`}>Dmg</div>
                       </div>
                   </div>
               </div>
 
               <div className={`flex-1 flex flex-col justify-center`} style={{ gap: `${1.5 * visualConfig.itemSpacing}rem` }}>
                   {runnersUp.map((p, idx) => (
-                      <div key={idx} className={`${styles.cardBg} border-l-4 border-transparent flex items-center justify-between cursor-pointer hover:brightness-125 transition-all`} style={{ borderColor: idx === 0 ? styles.accent : 'transparent', padding: `${1.5 * visualConfig.padding}rem`, marginBottom: `${0.5 * visualConfig.itemSpacing}rem` }} onClick={() => onElementClick?.('player', { playerName: p.playerName })}>
+                      <div key={idx} className={`${themeStyles.cardBg} border-l-4 border-transparent flex items-center justify-between cursor-pointer hover:brightness-125 transition-all`} style={{ borderColor: idx === 0 ? themeStyles.accent : 'transparent', padding: `${1.5 * visualConfig.padding}rem`, marginBottom: `${0.5 * visualConfig.itemSpacing}rem` }} onClick={() => onElementClick?.('player', { playerName: p.playerName })}>
                           <div className="flex items-center gap-6">
-                              <div className={`text-4xl font-black ${styles.subText} w-12`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>#{idx + 2}</div>
+                              <div className={`text-4xl font-black ${themeStyles.subText} w-12`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>#{idx + 2}</div>
                               <div>
-                                  <div className={`text-4xl font-bold ${styles.text} uppercase`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{p.playerName}</div>
-                                  <div className={`text-xl ${styles.fontBody} ${styles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{p.teamName}</div>
+                                  <div className={`text-4xl font-bold ${themeStyles.text} uppercase`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{p.playerName}</div>
+                                  <div className={`text-xl ${themeStyles.fontBody} ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{p.teamName}</div>
                               </div>
                           </div>
                           
                           <div className="flex items-center gap-12 text-right">
                               <div>
-                                  <div className={`text-5xl font-black ${styles.text}`} style={{ fontSize: `${3 * visualConfig.fontScale}rem` }}>{p.finishes}</div>
-                                  <div className={`text-sm font-bold uppercase ${styles.subText}`} style={{ fontSize: `${0.875 * visualConfig.fontScale}rem` }}>Kills</div>
+                                  <div className={`text-5xl font-black ${themeStyles.text}`} style={{ fontSize: `${3 * visualConfig.fontScale}rem` }}>{p.finishes}</div>
+                                  <div className={`text-sm font-bold uppercase ${themeStyles.subText}`} style={{ fontSize: `${0.875 * visualConfig.fontScale}rem` }}>Kills</div>
                               </div>
                               <div className="w-32">
-                                  <div className={`text-3xl font-bold ${styles.text} opacity-70`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>{(p.damage).toLocaleString()}</div>
-                                  <div className={`text-sm font-bold uppercase ${styles.subText}`} style={{ fontSize: `${0.875 * visualConfig.fontScale}rem` }}>Damage</div>
+                                  <div className={`text-3xl font-bold ${themeStyles.text} opacity-70`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>{(p.damage).toLocaleString()}</div>
+                                  <div className={`text-sm font-bold uppercase ${themeStyles.subText}`} style={{ fontSize: `${0.875 * visualConfig.fontScale}rem` }}>Damage</div>
                                   <div className={`h-2 ${theme === 'paper' ? 'bg-slate-200' : 'bg-black/50'} rounded-full mt-2 overflow-hidden`}>
-                                      <div className="h-full" style={{ width: `${(p.damage / topDog.damage) * 100}%`, backgroundColor: styles.accent }}></div>
+                                      <div className="h-full" style={{ width: `${(p.damage / topDog.damage) * 100}%`, backgroundColor: themeStyles.accent }}></div>
                                   </div>
                               </div>
                           </div>
@@ -1784,7 +1652,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                       const absoluteRank = startIdx + idx + 1;
                       const isTop3 = absoluteRank <= 3;
                       
-                      let rankColor = styles.accent;
+                      let rankColor = themeStyles.accent;
                       if (absoluteRank === 1) rankColor = '#EAB308';
                       else if (absoluteRank === 2) rankColor = '#94a3b8';
                       else if (absoluteRank === 3) rankColor = '#C2410C';
@@ -1801,7 +1669,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
                               <div className="flex items-center gap-6 relative z-10">
                                   <div className="relative">
-                                      <div className={`text-5xl font-black italic tracking-tighter ${isTop3 ? 'text-white' : styles.subText} drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 2 : 3.5) * visualConfig.rankScale}rem` }}>
+                                      <div className={`text-5xl font-black italic tracking-tighter ${isTop3 ? 'text-white' : themeStyles.subText} drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 2 : 3.5) * visualConfig.rankScale}rem` }}>
                                           {String(absoluteRank).padStart(2, '0')}
                                       </div>
                                       {isTop3 && <div className="absolute -inset-2 blur-md opacity-50" style={{ backgroundColor: rankColor, zIndex: -1 }}></div>}
@@ -1851,42 +1719,42 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
         <div className="relative z-10 flex-1">
             <table className="w-full text-left border-collapse">
             <thead>
-                <tr className="border-b-2" style={{ borderColor: (theme === 'slate' || theme === 'violet') ? styles.accent : theme === 'paper' ? '#0f172a' : 'rgba(255,255,255,0.2)' }}>
-                    <th className={`py-4 text-2xl font-black ${styles.subText} uppercase tracking-widest text-center`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Pos</th>
-                    <th className={`py-4 text-2xl font-black ${styles.subText} uppercase tracking-widest pl-4`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Operator</th>
-                    <th className={`py-4 text-2xl font-black ${styles.subText} uppercase tracking-widest`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Team</th>
-                    {!isPortrait && <th className={`py-4 text-2xl font-black ${styles.subText} uppercase tracking-widest text-center`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Survival</th>}
-                    <th className={`py-4 text-2xl font-black ${styles.subText} uppercase tracking-widest text-center`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Damage</th>
-                    <th className={`py-4 text-3xl font-black ${styles.text} uppercase tracking-widest text-right pr-4`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>Kills</th>
+                <tr className="border-b-2" style={{ borderColor: (theme === 'slate' || theme === 'violet') ? themeStyles.accent : theme === 'paper' ? '#0f172a' : 'rgba(255,255,255,0.2)' }}>
+                    <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Pos</th>
+                    <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest pl-4`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Operator</th>
+                    <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Team</th>
+                    {!isPortrait && <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Survival</th>}
+                    <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Damage</th>
+                    <th className={`py-4 text-3xl font-black ${themeStyles.text} uppercase tracking-widest text-right pr-4`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>Kills</th>
                 </tr>
             </thead>
             <tbody>
                 {displayPlayers.map((player, idx) => {
                     const absoluteRank = startIdx + idx + 1;
-                    const rowBg = idx % 2 === 0 ? styles.highlight : 'transparent';
+                    const rowBg = idx % 2 === 0 ? themeStyles.highlight : 'transparent';
                     
                     return (
                         <tr key={`${player.teamName}-${player.playerName}`} className={`${rowBg} border-l-4 border-transparent cursor-pointer hover:brightness-125 transition-all`} onClick={() => onElementClick?.('player', { playerName: player.playerName })}>
                             <td className="text-center" style={{ padding: `${1 * visualConfig.padding}rem` }}>
-                                <span className={`font-mono text-2xl ${styles.subText}`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>#{absoluteRank}</span>
+                                <span className={`font-mono text-2xl ${themeStyles.subText}`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>#{absoluteRank}</span>
                             </td>
                             <td className="pl-4" style={{ padding: `${1 * visualConfig.padding}rem` }}>
-                                <div className={`text-3xl font-bold ${styles.text}`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>{player.playerName}</div>
+                                <div className={`text-3xl font-bold ${themeStyles.text}`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>{player.playerName}</div>
                                 {player.carryClass === 'SYSTEM_COLLAPSE' && <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded">CARRY</span>}
                             </td>
                             <td style={{ padding: `${1 * visualConfig.padding}rem` }}>
-                                <div className={`text-2xl font-mono ${styles.subText} uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>{player.teamName}</div>
+                                <div className={`text-2xl font-mono ${themeStyles.subText} uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>{player.teamName}</div>
                             </td>
                             {!isPortrait && (
                                 <td className="text-center" style={{ padding: `${1 * visualConfig.padding}rem` }}>
-                                    <div className={`text-2xl font-mono ${styles.subText}`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>{player.playTimeMinutes.toFixed(1)}m</div>
+                                    <div className={`text-2xl font-mono ${themeStyles.subText}`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>{player.playTimeMinutes.toFixed(1)}m</div>
                                 </td>
                             )}
                             <td className="text-center" style={{ padding: `${1 * visualConfig.padding}rem` }}>
-                                <div className={`text-3xl font-mono ${styles.text}`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>{player.damage}</div>
+                                <div className={`text-3xl font-mono ${themeStyles.text}`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>{player.damage}</div>
                             </td>
                             <td className="text-right pr-4" style={{ padding: `${1 * visualConfig.padding}rem` }}>
-                                <span className={`text-5xl font-black ${styles.text}`} style={{ ...accentText, fontSize: `${3 * visualConfig.fontScale}rem` }}>{player.finishes}</span>
+                                <span className={`text-5xl font-black ${themeStyles.text}`} style={{ ...accentText, fontSize: `${3 * visualConfig.fontScale}rem` }}>{player.finishes}</span>
                             </td>
                         </tr>
                     );
@@ -1960,29 +1828,29 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                 <Crown className={`${isPortrait ? 'w-[600px] h-[600px]' : 'w-[800px] h-[800px]'}`} style={accentText} />
             </div>
             
-            <div className={`relative z-10 text-center ${isPortrait ? 'w-full' : 'w-3/4'} ${styles.cardBg} rounded-lg backdrop-blur-sm shadow-2xl`} style={{ ...accentBorder, padding: `${(isPortrait ? 2 : 3) * visualConfig.padding}rem`, gap: `${(isPortrait ? 1 : 2) * visualConfig.spacing}rem`, display: 'flex', flexDirection: 'column' }}>
+            <div className={`relative z-10 text-center ${isPortrait ? 'w-full' : 'w-3/4'} ${themeStyles.cardBg} rounded-lg backdrop-blur-sm shadow-2xl`} style={{ ...accentBorder, padding: `${(isPortrait ? 2 : 3) * visualConfig.padding}rem`, gap: `${(isPortrait ? 1 : 2) * visualConfig.spacing}rem`, display: 'flex', flexDirection: 'column' }}>
                 <div className={`inline-block px-8 py-3 text-white text-3xl font-black uppercase tracking-widest rounded-sm mb-4 shadow-lg`} style={{ ...accentBg, fontSize: `${(isPortrait ? 1.5 : 1.875) * visualConfig.fontScale}rem` }}>
                     #1 Victory Royale
                 </div>
-                <h1 className={`font-black ${styles.text} uppercase tracking-tighter mb-4 drop-shadow-xl leading-none`} style={{ fontSize: `${isPortrait ? 4.5 * visualConfig.headerScale : 8 * visualConfig.headerScale}rem` }}>{team.name}</h1>
+                <h1 className={`font-black ${themeStyles.text} uppercase tracking-tighter mb-4 drop-shadow-xl leading-none`} style={{ fontSize: `${isPortrait ? 4.5 * visualConfig.headerScale : 8 * visualConfig.headerScale}rem` }}>{team.name}</h1>
                 
                 <div className={`flex ${isPortrait ? 'flex-col' : 'justify-center'} border-t border-b`} style={{ borderColor: theme === 'paper' ? '#cbd5e1' : 'rgba(255,255,255,0.1)', padding: `${(isPortrait ? 1 : 2) * visualConfig.padding}rem 0`, margin: `${(isPortrait ? 1 : 2) * visualConfig.spacing}rem 0`, gap: `${(isPortrait ? 2 : 4) * visualConfig.spacing}rem` }}>
                     <div className="text-center">
                         <div className="text-2xl font-mono uppercase tracking-widest mb-2" style={{ ...accentText, fontSize: `${(isPortrait ? 1.25 : 1.5) * visualConfig.fontScale}rem` }}>Total Points</div>
-                        <div className={`text-8xl font-black ${styles.text}`} style={{ fontSize: `${(isPortrait ? 4 : 6) * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
+                        <div className={`text-8xl font-black ${themeStyles.text}`} style={{ fontSize: `${(isPortrait ? 4 : 6) * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
                     </div>
                     {!isPortrait && <div className={`w-px ${theme === 'paper' ? 'bg-slate-300' : 'bg-white/20'}`}></div>}
                     <div className="text-center">
                         <div className="text-2xl font-mono uppercase tracking-widest mb-2" style={{ ...accentText, fontSize: `${(isPortrait ? 1.25 : 1.5) * visualConfig.fontScale}rem` }}>Eliminations</div>
-                        <div className={`text-8xl font-black ${styles.text}`} style={{ fontSize: `${(isPortrait ? 4 : 6) * visualConfig.fontScale}rem` }}>{team.totalFinishes}</div>
+                        <div className={`text-8xl font-black ${themeStyles.text}`} style={{ fontSize: `${(isPortrait ? 4 : 6) * visualConfig.fontScale}rem` }}>{team.totalFinishes}</div>
                     </div>
                 </div>
                 
                 <div className={`grid ${isPortrait ? 'grid-cols-2' : 'grid-cols-4'} mt-8`} style={{ gap: `${1.5 * visualConfig.itemSpacing}rem` }}>
                     {team.players.map(p => (
-                        <div key={p.playerName} className={`${styles.highlight} rounded-sm flex justify-between items-center border border-transparent hover:border-white/20 transition-colors`} style={{ padding: `${(isPortrait ? 0.5 : 1) * visualConfig.padding}rem` }}>
-                            <div className={`text-2xl font-bold ${styles.text}`} style={{ fontSize: `${(isPortrait ? 1.125 : 1.5) * visualConfig.fontScale}rem` }}>{p.playerName}</div>
-                            <div className={`text-xl font-mono ${styles.subText}`} style={{ fontSize: `${(isPortrait ? 1 : 1.25) * visualConfig.fontScale}rem` }}>{p.finishes} K</div>
+                        <div key={p.playerName} className={`${themeStyles.highlight} rounded-sm flex justify-between items-center border border-transparent hover:border-white/20 transition-colors`} style={{ padding: `${(isPortrait ? 0.5 : 1) * visualConfig.padding}rem` }}>
+                            <div className={`text-2xl font-bold ${themeStyles.text}`} style={{ fontSize: `${(isPortrait ? 1.125 : 1.5) * visualConfig.fontScale}rem` }}>{p.playerName}</div>
+                            <div className={`text-xl font-mono ${themeStyles.subText}`} style={{ fontSize: `${(isPortrait ? 1 : 1.25) * visualConfig.fontScale}rem` }}>{p.finishes} K</div>
                         </div>
                     ))}
                 </div>
@@ -2147,7 +2015,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
     const StatButterfly = ({ label, valA, valB, unit = '', inverse = false }: any) => {
         const winA = inverse ? valA < valB : valA > valB;
-        const colorA = winA ? styles.accent : (theme === 'paper' ? '#94a3b8' : 'rgba(255,255,255,0.2)');
+        const colorA = winA ? themeStyles.accent : (theme === 'paper' ? '#94a3b8' : 'rgba(255,255,255,0.2)');
         const colorB = !winA && valA !== valB ? (theme === 'paper' ? '#3b82f6' : '#3b82f6') : (theme === 'paper' ? '#94a3b8' : 'rgba(255,255,255,0.2)');
         
         const max = Math.max(valA, valB, 1) * 1.2;
@@ -2157,17 +2025,17 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
         return (
             <div className="flex items-center gap-4 mb-4">
                 <div className="flex-1 flex justify-end items-center gap-3">
-                    <span className={`text-2xl font-black ${winA ? styles.text : styles.subText}`}>{valA.toFixed(unit ? 1 : 0)}{unit}</span>
+                    <span className={`text-2xl font-black ${winA ? themeStyles.text : themeStyles.subText}`}>{valA.toFixed(unit ? 1 : 0)}{unit}</span>
                     <div className={`h-4 flex-1 flex justify-end ${theme === 'paper' ? 'bg-slate-200' : 'bg-black/50'} rounded-sm overflow-hidden max-w-[200px]`}>
                         <div className="h-full" style={{ width: `${widthA}%`, backgroundColor: colorA }}></div>
                     </div>
                 </div>
-                <div className={`w-32 text-center text-xl font-bold uppercase tracking-widest ${styles.subText}`}>{label}</div>
+                <div className={`w-32 text-center text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`}>{label}</div>
                 <div className="flex-1 flex justify-start items-center gap-3">
                     <div className={`h-4 flex-1 ${theme === 'paper' ? 'bg-slate-200' : 'bg-black/50'} rounded-sm overflow-hidden max-w-[200px]`}>
                         <div className="h-full" style={{ width: `${widthB}%`, backgroundColor: colorB }}></div>
                     </div>
-                    <span className={`text-2xl font-black ${!winA && valA !== valB ? 'text-blue-500' : styles.subText}`}>{valB.toFixed(unit ? 1 : 0)}{unit}</span>
+                    <span className={`text-2xl font-black ${!winA && valA !== valB ? 'text-blue-500' : themeStyles.subText}`}>{valB.toFixed(unit ? 1 : 0)}{unit}</span>
                 </div>
             </div>
         );
@@ -2179,32 +2047,32 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                  <div className={`${isPortrait ? 'text-center' : 'col-span-2 text-left'}`}>
                      <div className={`flex items-center gap-4 mb-2 ${isPortrait ? 'justify-center' : ''}`}>
                          <span className={`text-3xl font-black px-4 py-1 rounded-sm text-white`} style={{ ...accentBg, fontSize: `${1.875 * visualConfig.fontScale}rem` }}>#{teamA.rank}</span>
-                         <span className={`text-xl font-mono uppercase ${styles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{teamA.flags[0] || 'CONTENDER'}</span>
+                         <span className={`text-xl font-mono uppercase ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{teamA.flags[0] || 'CONTENDER'}</span>
                      </div>
-                     <h1 className={`font-black ${styles.text} uppercase leading-none truncate`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamA.name}</h1>
+                     <h1 className={`font-black ${themeStyles.text} uppercase leading-none truncate`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamA.name}</h1>
                  </div>
                  
                  <div className={`${isPortrait ? 'flex flex-row items-center justify-center gap-4' : 'col-span-1 flex flex-col items-center justify-center pb-4'}`}>
-                     <div className={`text-6xl font-black italic ${styles.subText} opacity-50`} style={{ fontSize: `${(isPortrait ? 3 : 3.75) * visualConfig.fontScale}rem` }}>VS</div>
-                     <div className={`text-xl font-bold uppercase tracking-widest px-4 py-1 border rounded-sm ${isPortrait ? '' : 'mt-2'}`} style={{ color: styles.accent, borderColor: styles.accent, fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{styleBadge}</div>
+                     <div className={`text-6xl font-black italic ${themeStyles.subText} opacity-50`} style={{ fontSize: `${(isPortrait ? 3 : 3.75) * visualConfig.fontScale}rem` }}>VS</div>
+                     <div className={`text-xl font-bold uppercase tracking-widest px-4 py-1 border rounded-sm ${isPortrait ? '' : 'mt-2'}`} style={{ color: themeStyles.accent, borderColor: themeStyles.accent, fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{styleBadge}</div>
                  </div>
 
                  <div className={`${isPortrait ? 'text-center' : 'col-span-2 text-right'}`}>
                      <div className={`flex items-center gap-4 mb-2 ${isPortrait ? 'justify-center' : 'justify-end'}`}>
-                         <span className={`text-xl font-mono uppercase ${styles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{teamB.flags[0] || 'CONTENDER'}</span>
+                         <span className={`text-xl font-mono uppercase ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{teamB.flags[0] || 'CONTENDER'}</span>
                          <span className={`text-3xl font-black px-4 py-1 rounded-sm bg-blue-600 text-white`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>#{teamB.rank}</span>
                      </div>
-                     <h1 className={`font-black ${styles.text} uppercase leading-none truncate`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamB.name}</h1>
+                     <h1 className={`font-black ${themeStyles.text} uppercase leading-none truncate`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamB.name}</h1>
                  </div>
              </div>
 
              <div className="mb-8">
-                 <div className={`flex justify-between text-xl font-bold uppercase mb-2 ${styles.subText}`}>
+                 <div className={`flex justify-between text-xl font-bold uppercase mb-2 ${themeStyles.subText}`}>
                      <span>Win Probability</span>
                      <span>Forecast</span>
                  </div>
                  <div className={`h-8 w-full ${theme === 'paper' ? 'bg-slate-200' : 'bg-black'} rounded-sm relative overflow-hidden flex border border-white/10`}>
-                     <div className={`h-full flex items-center justify-start pl-4 text-sm font-bold text-black ${isExporting ? '' : 'transition-all duration-1000'}`} style={{ width: `${winProbs.probA}%`, backgroundColor: styles.accent }}>
+                     <div className={`h-full flex items-center justify-start pl-4 text-sm font-bold text-black ${isExporting ? '' : 'transition-all duration-1000'}`} style={{ width: `${winProbs.probA}%`, backgroundColor: themeStyles.accent }}>
                          {winProbs.probA.toFixed(0)}%
                      </div>
                      <div className={`h-full bg-blue-600 flex items-center justify-end pr-4 text-sm font-bold text-white ${isExporting ? '' : 'transition-all duration-1000'}`} style={{ width: `${winProbs.probB}%` }}>
@@ -2215,21 +2083,21 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
              </div>
 
              <div className={`flex-1 grid ${isPortrait ? 'grid-cols-1' : 'grid-cols-2'} gap-8`}>
-                 <div className={`${styles.cardBg} rounded-sm border ${styles.border} flex flex-col justify-center`} style={{ padding: `${(isPortrait ? 1 : 2) * visualConfig.padding}rem`, gap: `${(isPortrait ? 0.5 : 1) * visualConfig.itemSpacing}rem` }}>
+                 <div className={`${themeStyles.cardBg} rounded-sm border ${themeStyles.border} flex flex-col justify-center`} style={{ padding: `${(isPortrait ? 1 : 2) * visualConfig.padding}rem`, gap: `${(isPortrait ? 0.5 : 1) * visualConfig.itemSpacing}rem` }}>
                      <StatButterfly label="Avg Pts" valA={teamA.totalPoints / Math.max(1, teamA.matchesPlayed)} valB={teamB.totalPoints / Math.max(1, teamB.matchesPlayed)} />
                      <StatButterfly label="Avg Kills" valA={teamA.totalFinishes / Math.max(1, teamA.matchesPlayed)} valB={teamB.totalFinishes / Math.max(1, teamB.matchesPlayed)} />
                      <StatButterfly label="Avg Dmg" valA={teamA.totalDamage / Math.max(1, teamA.matchesPlayed)} valB={teamB.totalDamage / Math.max(1, teamB.matchesPlayed)} />
                      <StatButterfly label="Survival" valA={teamA.avgSurvivalTime} valB={teamB.avgSurvivalTime} unit="m" />
                      <StatButterfly label="Wins" valA={teamA.history.filter(h=>h.rank===1).length} valB={teamB.history.filter(h=>h.rank===1).length} />
                  </div>
-                 <div className={`${styles.cardBg} ${isPortrait ? 'p-2' : 'p-4'} rounded-sm border ${styles.border} flex flex-col items-center justify-center min-h-[300px]`}>
+                 <div className={`${themeStyles.cardBg} ${isPortrait ? 'p-2' : 'p-4'} rounded-sm border ${themeStyles.border} flex flex-col items-center justify-center min-h-[300px]`}>
                       <div className="w-full h-full relative">
                           <ResponsiveContainer width="100%" height="100%">
                             <RadarChart cx="50%" cy="50%" outerRadius={isPortrait ? "60%" : "70%"} data={radarData}>
                                 <PolarGrid stroke={theme === 'paper' ? '#e2e8f0' : '#333'} />
                                 <PolarAngleAxis dataKey="subject" tick={{ fill: theme === 'paper' ? '#64748b' : '#94a3b8', fontSize: 12, fontWeight: 'bold' }} />
                                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                <Radar name={teamA.name} dataKey="A" stroke={styles.accent} strokeWidth={3} fill={styles.accent} fillOpacity={0.3} isAnimationActive={!isExporting} />
+                                <Radar name={teamA.name} dataKey="A" stroke={themeStyles.accent} strokeWidth={3} fill={themeStyles.accent} fillOpacity={0.3} isAnimationActive={!isExporting} />
                                 <Radar name={teamB.name} dataKey="B" stroke="#3b82f6" strokeWidth={3} fill="#3b82f6" fillOpacity={0.3} isAnimationActive={!isExporting} />
                             </RadarChart>
                           </ResponsiveContainer>
@@ -2238,27 +2106,27 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
              </div>
 
              <div className={`mt-8 grid ${isPortrait ? 'grid-cols-1 gap-4' : 'grid-cols-2 gap-12'}`}>
-                 <div className={`${styles.highlight} p-6 rounded-sm flex items-center justify-between border-l-8`} style={accentBorder}>
+                 <div className={`${themeStyles.highlight} p-6 rounded-sm flex items-center justify-between border-l-8`} style={accentBorder}>
                      <div>
-                         <div className={`text-sm uppercase font-bold tracking-widest ${styles.subText}`}>Key Operator</div>
-                         <div className={`text-4xl font-black ${styles.text}`}>{starA.playerName}</div>
+                         <div className={`text-sm uppercase font-bold tracking-widest ${themeStyles.subText}`}>Key Operator</div>
+                         <div className={`text-4xl font-black ${themeStyles.text}`}>{starA.playerName}</div>
                          <div className="font-mono text-2xl" style={accentText}>{starA.impactScore.toFixed(0)} RTG</div>
                      </div>
                      <div className="text-right">
-                         <div className={`text-5xl font-black ${styles.text}`}>{starA.finishes}</div>
-                         <div className={`text-sm font-bold uppercase ${styles.subText}`}>Kills</div>
+                         <div className={`text-5xl font-black ${themeStyles.text}`}>{starA.finishes}</div>
+                         <div className={`text-sm font-bold uppercase ${themeStyles.subText}`}>Kills</div>
                      </div>
                  </div>
                  
-                 <div className={`${styles.highlight} p-6 rounded-sm flex items-center justify-between border-r-8 border-blue-600 text-right`}>
+                 <div className={`${themeStyles.highlight} p-6 rounded-sm flex items-center justify-between border-r-8 border-blue-600 text-right`}>
                      <div className="order-2">
-                         <div className={`text-sm uppercase font-bold tracking-widest ${styles.subText}`}>Key Operator</div>
-                         <div className={`text-4xl font-black ${styles.text}`}>{starB.playerName}</div>
+                         <div className={`text-sm uppercase font-bold tracking-widest ${themeStyles.subText}`}>Key Operator</div>
+                         <div className={`text-4xl font-black ${themeStyles.text}`}>{starB.playerName}</div>
                          <div className="font-mono text-2xl text-blue-500">{starB.impactScore.toFixed(0)} RTG</div>
                      </div>
                      <div className="text-left order-1">
-                         <div className={`text-5xl font-black ${styles.text}`}>{starB.finishes}</div>
-                         <div className={`text-sm font-bold uppercase ${styles.subText}`}>Kills</div>
+                         <div className={`text-5xl font-black ${themeStyles.text}`}>{starB.finishes}</div>
+                         <div className={`text-sm font-bold uppercase ${themeStyles.subText}`}>Kills</div>
                      </div>
                  </div>
              </div>
@@ -2277,14 +2145,14 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
             <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-16 items-center relative p-8`}>
                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
                  
-                 <div className={`${isPortrait ? 'w-full h-1/3' : 'w-1/3 h-full'} bg-black/80 p-8 border-l-8 relative flex flex-col justify-center items-center shadow-[0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm`} style={{ borderColor: styles.accent }}>
-                     <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(180deg, ${styles.accent} 0%, transparent 100%)` }}></div>
+                 <div className={`${isPortrait ? 'w-full h-1/3' : 'w-1/3 h-full'} bg-black/80 p-8 border-l-8 relative flex flex-col justify-center items-center shadow-[0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm`} style={{ borderColor: themeStyles.accent }}>
+                     <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(180deg, ${themeStyles.accent} 0%, transparent 100%)` }}></div>
                      <div className="absolute top-0 left-0 w-full h-[2px] bg-white/20"></div>
                      <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/20"></div>
                      
-                     <div className={`w-48 h-48 bg-white/5 rounded-full flex items-center justify-center mb-8 border-4 relative z-10`} style={{ borderColor: styles.accent }}>
-                        <div className="absolute -inset-4 blur-xl opacity-50 rounded-full" style={{ backgroundColor: styles.accent }}></div>
-                        <Skull className="w-24 h-24 relative z-10" style={{ color: styles.accent, filter: `drop-shadow(0 0 10px ${styles.accent})` }} />
+                     <div className={`w-48 h-48 bg-white/5 rounded-full flex items-center justify-center mb-8 border-4 relative z-10`} style={{ borderColor: themeStyles.accent }}>
+                        <div className="absolute -inset-4 blur-xl opacity-50 rounded-full" style={{ backgroundColor: themeStyles.accent }}></div>
+                        <Skull className="w-24 h-24 relative z-10" style={{ color: themeStyles.accent, filter: `drop-shadow(0 0 10px ${themeStyles.accent})` }} />
                      </div>
                      
                      <div className="relative mb-4">
@@ -2293,7 +2161,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                          <h1 className="relative text-6xl font-black text-white uppercase text-center leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{focusPlayer.playerName}</h1>
                      </div>
                      
-                     <div className="text-2xl font-mono font-bold uppercase tracking-widest relative z-10" style={{ color: styles.accent, textShadow: `0 0 10px ${styles.accent}` }}>{team.name}</div>
+                     <div className="text-2xl font-mono font-bold uppercase tracking-widest relative z-10" style={{ color: themeStyles.accent, textShadow: `0 0 10px ${themeStyles.accent}` }}>{team.name}</div>
                  </div>
 
                  <div className="flex-1 grid grid-cols-2 gap-8 w-full relative z-10">
@@ -2302,8 +2170,8 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                         <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Kills</div>
                         <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.finishes}</div>
                      </div>
-                     <div className="bg-black/80 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: styles.accent, padding: `${2 * visualConfig.padding}rem` }}>
-                        <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${styles.accent} 0%, transparent 100%)` }}></div>
+                     <div className="bg-black/80 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: themeStyles.accent, padding: `${2 * visualConfig.padding}rem` }}>
+                        <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${themeStyles.accent} 0%, transparent 100%)` }}></div>
                         <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
                         <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2 relative z-10`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Damage</div>
                         <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] relative z-10`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{(focusPlayer.damage/1000).toFixed(1)}k</div>
@@ -2313,8 +2181,8 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                         <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>KPM</div>
                         <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.kpm.toFixed(2)}</div>
                      </div>
-                     <div className="bg-black/80 p-8 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: styles.accent }}>
-                        <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${styles.accent} 0%, transparent 100%)` }}></div>
+                     <div className="bg-black/80 p-8 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: themeStyles.accent }}>
+                        <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${themeStyles.accent} 0%, transparent 100%)` }}></div>
                         <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
                         <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2 relative z-10`}>Impact</div>
                         <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] relative z-10`}>{focusPlayer.impactScore.toFixed(0)}</div>
@@ -2326,8 +2194,8 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
     return (
         <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-16 items-center`}>
-             <div className={`${isPortrait ? 'w-full h-1/3' : 'w-1/3 h-full'} ${theme === 'paper' ? 'bg-slate-800' : 'bg-gradient-to-b from-gray-900 to-black'} p-8 border-l-8 relative flex flex-col justify-center items-center`} style={{ borderColor: styles.accent }}>
-                 <div className={`w-48 h-48 ${theme === 'paper' ? 'bg-white' : 'bg-white/10'} rounded-full flex items-center justify-center mb-8 border-4`} style={{ borderColor: styles.accent }}>
+             <div className={`${isPortrait ? 'w-full h-1/3' : 'w-1/3 h-full'} ${theme === 'paper' ? 'bg-slate-800' : 'bg-gradient-to-b from-gray-900 to-black'} p-8 border-l-8 relative flex flex-col justify-center items-center`} style={{ borderColor: themeStyles.accent }}>
+                 <div className={`w-48 h-48 ${theme === 'paper' ? 'bg-white' : 'bg-white/10'} rounded-full flex items-center justify-center mb-8 border-4`} style={{ borderColor: themeStyles.accent }}>
                     <Skull className="w-24 h-24" style={accentText} />
                  </div>
                  <h1 className="text-6xl font-black text-white uppercase text-center leading-none mb-4">{focusPlayer.playerName}</h1>
@@ -2335,21 +2203,21 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
              </div>
 
              <div className="flex-1 grid grid-cols-2 gap-8 w-full">
-                 <div className={`${styles.cardBg} border-l-4 border-white`} style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                    <div className={`text-2xl ${styles.subText} font-mono uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Kills</div>
-                    <div className={`text-8xl font-black ${styles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.finishes}</div>
+                 <div className={`${themeStyles.cardBg} border-l-4 border-white`} style={{ padding: `${2 * visualConfig.padding}rem` }}>
+                    <div className={`text-2xl ${themeStyles.subText} font-mono uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Kills</div>
+                    <div className={`text-8xl font-black ${themeStyles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.finishes}</div>
                  </div>
-                 <div className={`${styles.cardBg} border-l-4`} style={{ ...accentBorder, padding: `${2 * visualConfig.padding}rem` }}>
-                    <div className={`text-2xl ${styles.subText} font-mono uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Damage</div>
-                    <div className={`text-8xl font-black ${styles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{(focusPlayer.damage/1000).toFixed(1)}k</div>
+                 <div className={`${themeStyles.cardBg} border-l-4`} style={{ ...accentBorder, padding: `${2 * visualConfig.padding}rem` }}>
+                    <div className={`text-2xl ${themeStyles.subText} font-mono uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Damage</div>
+                    <div className={`text-8xl font-black ${themeStyles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{(focusPlayer.damage/1000).toFixed(1)}k</div>
                  </div>
-                 <div className={`${styles.cardBg} border-l-4 border-white`} style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                    <div className={`text-2xl ${styles.subText} font-mono uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>KPM</div>
-                    <div className={`text-8xl font-black ${styles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.kpm.toFixed(2)}</div>
+                 <div className={`${themeStyles.cardBg} border-l-4 border-white`} style={{ padding: `${2 * visualConfig.padding}rem` }}>
+                    <div className={`text-2xl ${themeStyles.subText} font-mono uppercase`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>KPM</div>
+                    <div className={`text-8xl font-black ${themeStyles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.kpm.toFixed(2)}</div>
                  </div>
-                 <div className={`${styles.cardBg} p-8 border-l-4`} style={accentBorder}>
-                    <div className={`text-2xl ${styles.subText} font-mono uppercase`}>Impact</div>
-                    <div className={`text-8xl font-black ${styles.text}`}>{focusPlayer.impactScore.toFixed(0)}</div>
+                 <div className={`${themeStyles.cardBg} p-8 border-l-4`} style={accentBorder}>
+                    <div className={`text-2xl ${themeStyles.subText} font-mono uppercase`}>Impact</div>
+                    <div className={`text-8xl font-black ${themeStyles.text}`}>{focusPlayer.impactScore.toFixed(0)}</div>
                  </div>
              </div>
         </div>
@@ -2401,15 +2269,15 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
     return (
         <div className={`flex-1 grid ${isPortrait ? 'grid-cols-1' : 'grid-cols-2'} items-center`} style={{ gap: `${2 * visualConfig.itemSpacing}rem` }}>
             {awards.map((a, idx) => a.p && (
-                <div key={idx} className={`${styles.cardBg} border ${styles.border} rounded-sm flex items-center gap-6 relative overflow-hidden group`} style={{ padding: `${2 * visualConfig.padding}rem` }}>
+                <div key={idx} className={`${themeStyles.cardBg} border ${themeStyles.border} rounded-sm flex items-center gap-6 relative overflow-hidden group`} style={{ padding: `${2 * visualConfig.padding}rem` }}>
                     <div className="absolute right-0 top-0 p-6 opacity-10 scale-150" style={{color: a.color}}>{a.icon}</div>
                     <div className="w-20 h-20 rounded-full flex items-center justify-center border-2" style={{borderColor: a.color, color: a.color, backgroundColor: theme === 'paper' ? 'white' : 'black'}}>
                         {a.icon}
                     </div>
                     <div>
                         <div className="text-xl font-mono uppercase tracking-widest mb-1" style={{color: a.color, fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{a.title}</div>
-                        <div className={`text-4xl font-black ${styles.text} uppercase`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{a.p.playerName}</div>
-                        <div className={`text-lg font-mono ${styles.subText}`} style={{ fontSize: `${1.125 * visualConfig.fontScale}rem` }}>{a.p.teamName}</div>
+                        <div className={`text-4xl font-black ${themeStyles.text} uppercase`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{a.p.playerName}</div>
+                        <div className={`text-lg font-mono ${themeStyles.subText}`} style={{ fontSize: `${1.125 * visualConfig.fontScale}rem` }}>{a.p.teamName}</div>
                     </div>
                 </div>
             ))}
@@ -2542,7 +2410,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
             {/* Header Section - Now in flow for better spacing */}
             <div className="w-full flex flex-col items-center mb-12 mt-8 z-20 relative">
-                <h1 className={`font-black uppercase tracking-wider mb-2 text-center ${styles.text} drop-shadow-2xl`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem`, lineHeight: 1 }}>
+                <h1 className={`font-black uppercase tracking-wider mb-2 text-center ${themeStyles.text} drop-shadow-2xl`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem`, lineHeight: 1 }}>
                     {config.title || 'Playing Teams'}
                 </h1>
                 <div className="px-10 py-2 font-black uppercase tracking-[0.2em] text-black shadow-xl skew-x-[-10deg]" style={{ ...accentBg, fontSize: `${1.875 * visualConfig.fontScale}rem` }}>
@@ -2581,13 +2449,13 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
             {/* Footer Section / Countdown */}
             <div className="w-full flex justify-between items-end mt-8 z-20">
                 <div className="flex flex-col">
-                    <span className={`text-xs font-mono uppercase tracking-[0.4em] opacity-50 ${styles.subText}`}>Tournament Intelligence System</span>
-                    <span className={`text-[10px] font-mono opacity-30 ${styles.subText}`}>SECURE_LINK_ESTABLISHED // {new Date().toLocaleDateString()}</span>
+                    <span className={`text-xs font-mono uppercase tracking-[0.4em] opacity-50 ${themeStyles.subText}`}>Tournament Intelligence System</span>
+                    <span className={`text-[10px] font-mono opacity-30 ${themeStyles.subText}`}>SECURE_LINK_ESTABLISHED // {new Date().toLocaleDateString()}</span>
                 </div>
                 
                 <div className="flex flex-col items-end">
                     <span className="font-bold uppercase tracking-widest text-xl mb-[-5px]" style={accentText}>Starting In</span>
-                    <span className={`font-black tracking-tighter drop-shadow-lg ${styles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem`, lineHeight: 1 }}>
+                    <span className={`font-black tracking-tighter drop-shadow-lg ${themeStyles.text}`} style={{ fontSize: `${6 * visualConfig.fontScale}rem`, lineHeight: 1 }}>
                         {formatTime(timerSeconds)}
                     </span>
                 </div>
@@ -2599,18 +2467,19 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   return (
     <div 
         id="export-container" 
-        className={`${styles.bg} ${styles.text} font-sans relative flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar ${isExporting ? 'disable-blurs' : ''}`}
+        className={`${themeStyles.bg} ${themeStyles.text} font-sans relative flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar ${isExporting ? 'disable-blurs' : ''}`}
         style={{ 
             ...containerDimensions, 
             backgroundColor: themeBgHex, 
             backgroundImage: branding.customBackground ? `url(${branding.customBackground})` : undefined,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            animation: isExporting ? 'none' : undefined 
+            animation: isExporting ? 'none' : undefined,
+            filter: `contrast(${visualConfig.filterContrast ?? 100}%) saturate(${(visualConfig.filterSaturation ?? 100) * (visualConfig.colorProfile === 'cmyk' ? 0.85 : 1)}%) brightness(${(visualConfig.filterBrightness ?? 100) * (visualConfig.colorProfile === 'cmyk' ? 0.96 : 1)}%) ${visualConfig.colorProfile === 'pantone' ? 'sepia(4%) contrast(105%)' : ''}`
         }}
     >
         {/* Background Texture */}
-        <div className={`absolute inset-0 z-0 opacity-20 ${styles.gradient} pointer-events-none`}></div>
+        <div className={`absolute inset-0 z-0 opacity-20 ${themeStyles.gradient} pointer-events-none`}></div>
         {/* Only apply Cyber grid if specific theme requires pattern, otherwise subtle gradient is fine for Slate/Violet */}
         {theme === 'slate' && <div className="absolute inset-0 z-0 opacity-5 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none"></div>}
         
@@ -2670,6 +2539,78 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                 {mode === 'team_profile' && TeamProfileLayout()}
                 {mode === 'player_profile' && PlayerProfileLayout()}
             </LayoutWrapper>
+        )}
+
+        {/* Pro Vignette Overlay (Non-destructive shadow layer) */}
+        {visualConfig.vignetteOverlay && (
+            <div className="absolute inset-0 z-40 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0)_40%,rgba(0,0,0,0.6)_100%)]"></div>
+        )}
+
+        {/* Pro Grain Overlay (Procedural noise texture) */}
+        {visualConfig.noiseOverlay && (
+            <div className="absolute inset-0 z-40 pointer-events-none opacity-[0.04] bg-[repeat] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiB2aWV3Qm94PSIwIDAgMTIwIDEyMCI+CjxmaWx0ZXIgaWQ9Im4iPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aWNoeVRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj4KPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI24pIi8+Cjwvc3ZnPg==')]"></div>
+        )}
+
+        {/* Pro Vector Paths & Brackets */}
+        {visualConfig.vectorOverlay && visualConfig.vectorOverlay !== 'none' && (
+            <svg className="absolute inset-0 z-45 w-full h-full pointer-events-none text-cyan-400 select-none pb-4" viewBox={`0 0 ${containerDimensions.width} ${containerDimensions.height}`} fill="none" xmlns="http://www.w3.org/2000/svg">
+                {visualConfig.vectorOverlay === 'tech_nodes' && (
+                    <>
+                        {/* Anchor point path decoration */}
+                        <path d={`M 40 100 L ${containerDimensions.width - 40} 100`} stroke="white" strokeWidth="1" strokeDasharray="4 8" opacity="0.15" />
+                        <path d={`M 100 40 L 100 ${containerDimensions.height - 40}`} stroke="white" strokeWidth="1" strokeDasharray="4 8" opacity="0.15" />
+                        <path d={`M ${containerDimensions.width - 100} 40 L ${containerDimensions.width - 100} ${containerDimensions.height - 40}`} stroke="white" strokeWidth="1" strokeDasharray="4 8" opacity="0.15" />
+                        
+                        {/* Corner vector loops */}
+                        <rect x="25" y="25" width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+                        <circle cx="35" cy="35" r="3" fill="currentColor" opacity="0.8" />
+                        
+                        <rect x={containerDimensions.width - 45} y="25" width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+                        <circle cx={containerDimensions.width - 35} cy="35" r="3" fill="currentColor" opacity="0.8" />
+                        
+                        <rect x="25" y={containerDimensions.height - 45} width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+                        <circle cx="35" cy={containerDimensions.height - 35} r="3" fill="currentColor" opacity="0.8" />
+
+                        <rect x={containerDimensions.width - 45} y={containerDimensions.height - 45} width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+                        <circle cx={containerDimensions.width - 35} cy={containerDimensions.height - 35} r="3" fill="currentColor" opacity="0.8" />
+
+                        {/* Bezier decorative spline curves */}
+                        <path d={`M 150 150 Q ${containerDimensions.width / 2} ${containerDimensions.height / 2 - 100} ${containerDimensions.width - 150} 150`} stroke="currentColor" strokeWidth="1.5" strokeDasharray="5,5" fill="none" opacity="0.2" />
+                        <path d={`M 150 ${containerDimensions.height - 150} Q ${containerDimensions.width / 2} ${containerDimensions.height / 2 + 100} ${containerDimensions.width - 150} ${containerDimensions.height - 150}`} stroke="currentColor" strokeWidth="1.5" strokeDasharray="5,5" fill="none" opacity="0.2" />
+                    </>
+                )}
+                {visualConfig.vectorOverlay === 'crosshair_grids' && (
+                    <>
+                        {/* Tactical Crosshair coordinates and radar indicators */}
+                        <circle cx={containerDimensions.width / 2} cy={containerDimensions.height / 2} r="150" stroke="currentColor" strokeWidth="1" strokeDasharray="3 6" opacity="0.15" />
+                        <circle cx={containerDimensions.width / 2} cy={containerDimensions.height / 2} r="5" fill="currentColor" opacity="0.6" />
+                        
+                        <line x1={containerDimensions.width / 2 - 200} y1={containerDimensions.height / 2} x2={containerDimensions.width / 2 + 200} y2={containerDimensions.height / 2} stroke="currentColor" strokeWidth="1" opacity="0.2" />
+                        <line x1={containerDimensions.width / 2} y1={containerDimensions.height / 2 - 200} x2={containerDimensions.width / 2} y2={containerDimensions.height / 2 + 200} stroke="currentColor" strokeWidth="1" opacity="0.2" />
+                        
+                        {/* Math points indicator boxes */}
+                        <rect x={containerDimensions.width / 2 - 6} y={containerDimensions.height / 2 - 200 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
+                        <rect x={containerDimensions.width / 2 - 6} y={containerDimensions.height / 2 + 200 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
+                        <rect x={containerDimensions.width / 2 - 200 - 6} y={containerDimensions.height / 2 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
+                        <rect x={containerDimensions.width / 2 + 200 - 6} y={containerDimensions.height / 2 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
+                    </>
+                )}
+                {visualConfig.vectorOverlay === 'brutalist_bracket' && (
+                    <>
+                        {/* Thick industrial crop frame brackets and anchor targets */}
+                        <path d="M 50 120 L 50 50 L 120 50" stroke="white" strokeWidth="5" opacity="0.6" />
+                        <path d={`M ${containerDimensions.width - 50} 120 L ${containerDimensions.width - 50} 50 L ${containerDimensions.width - 120} 50`} stroke="white" strokeWidth="5" opacity="0.6" />
+                        <path d={`M 50 ${containerDimensions.height - 120} L 50 ${containerDimensions.height - 50} L 120 ${containerDimensions.height - 50}`} stroke="white" strokeWidth="5" opacity="0.6" />
+                        <path d={`M ${containerDimensions.width - 50} ${containerDimensions.height - 120} L ${containerDimensions.width - 50} ${containerDimensions.height - 50} L ${containerDimensions.width - 120} ${containerDimensions.height - 50}`} stroke="white" strokeWidth="5" opacity="0.6" />
+
+                        {/* Anchor dots indicating vectors */}
+                        <circle cx="50" cy="50" r="4.5" fill="#f43f5e" />
+                        <circle cx={containerDimensions.width - 50} cy="50" r="4.5" fill="#f43f5e" />
+                        <circle cx="50" cy={containerDimensions.height - 50} r="4.5" fill="#f43f5e" />
+                        <circle cx={containerDimensions.width - 50} cy={containerDimensions.height - 50} r="4.5" fill="#f43f5e" />
+                    </>
+                )}
+            </svg>
         )}
     </div>
   );

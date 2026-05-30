@@ -73,7 +73,7 @@ export const TournamentMVP: React.FC<TournamentMVPProps> = ({ data, branding, is
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#050505] flex flex-col overflow-hidden font-sans selection:bg-white selection:text-black">
+    <div className="absolute inset-0 z-[100] bg-[#050505] flex flex-col overflow-hidden font-sans selection:bg-white selection:text-black">
         {/* Background Grid & Gradient */}
         <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 opacity-[0.05]" 

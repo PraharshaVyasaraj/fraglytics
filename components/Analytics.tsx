@@ -378,4 +378,4 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
   );
 };
 
-export default Analytics;
+export default React.memo(Analytics, (prevProps, nextProps) => prevProps.data === nextProps.data);

@@ -3,6 +3,7 @@ import { TeamMatchStats, MatchData, PlayerAtomic } from '../types';
 import { parseRawData, extractScoreboardImages } from '../services/gemini';
 import { calculateMatchStats, applySlotMapping, DEFAULT_SCORING_RULES } from '../services/analyticsEngine';
 import { Loader2, Database, ScanLine, Upload, X, Layers, PlayCircle, Plus, Calendar, Sword, FileSpreadsheet, Download, FileText, CheckCircle2, AlertCircle, Lock, Table as TableIcon, Grid, Eraser, Trash2, Copy, Users, RotateCcw, ClipboardList, Save, Wand2, Merge, ArrowRight, CheckSquare, Square, Calculator, Redo, Undo, RefreshCw, FileStack, Globe, Beaker } from 'lucide-react';
+import { useTacticalGrid, GridRow } from '../lib/useTacticalGrid';
 import { SAMPLE_MASTER_DATA } from '../constants/sampleData';
 
 interface DataInputProps {
@@ -22,18 +23,6 @@ interface QueuedImage {
   preview: string;
   day: number;
   matchInDay: number;
-}
-
-interface GridRow {
-  rank: string; // Team Rank
-  team: string;
-  playerRank: string; // Individual Player Position
-  player: string;
-  kills: string;
-  assists: string;
-  damage: string;
-  time: string;
-  adjustment: string; // Manual Points (+/-)
 }
 
 interface InputCacheEntry {
@@ -66,23 +55,18 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   const csvFileInputRef = useRef<HTMLInputElement>(null);
   const masterCsvFileInputRef = useRef<HTMLInputElement>(null);
 
-  // History State
-  const [gridUndoStack, setGridUndoStack] = useState<Record<string, GridRow[][]>>({});
-  const [gridRedoStack, setGridRedoStack] = useState<Record<string, GridRow[][]>>({});
-  
-  // Selection State
-  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
-  const [bulkField, setBulkField] = useState<keyof GridRow>('kills');
-  const [bulkValue, setBulkValue] = useState('');
-
   // Hierarchy State: Day -> Match -> Teams(TeamMatchStats)
   const [tournamentData, setTournamentData] = useState<Record<number, Record<number, TeamMatchStats[]>>>({
     1: { 1: [] }
   });
 
+  const [bulkField, setBulkField] = useState<keyof GridRow>('kills');
+  const [bulkValue, setBulkValue] = useState('');
+
+  // History State
   const [activeDay, setActiveDay] = useState<number>(1);
   const [activeMatch, setActiveMatch] = useState<number>(1);
-
+  
   // Modals
   const [isSlotMapOpen, setIsSlotMapOpen] = useState(false);
   const [isStandardizeOpen, setIsStandardizeOpen] = useState(false);
@@ -106,6 +90,52 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
       gridScrollContainerRef.current.scrollTop = 0;
     }
   }, [activeDay, activeMatch]);
+
+  // --- GRID ENGINE ---
+  const currentMatchId = getMatchId(activeDay, activeMatch);
+  const {
+    selectedIndices,
+    setSelectedIndices,
+    toggleSelection,
+    toggleAll,
+    selectAll,
+    clearSelection,
+    undo,
+    redo,
+    pushToHistory,
+    applyBulkEdit,
+    handleGridChange,
+    handleGridPaste,
+    canUndo,
+    canRedo
+  } = useTacticalGrid({
+    initialRows: inputCache[currentMatchId]?.gridRows || Array(25).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' }),
+    onUpdate: (newRows) => updateCache('gridRows', newRows),
+    readOnly
+  });
+
+  const onGridChange = (index: number, field: any, value: string) => {
+    const newRows = handleGridChange(currentGridRows, index, field, value);
+    updateCache('gridRows', newRows);
+  };
+
+  const onGridPaste = (e: React.ClipboardEvent, index: number, field: any) => {
+    const newRows = handleGridPaste(currentGridRows, e, index, field);
+    if (newRows !== currentGridRows) {
+        pushToHistory(currentGridRows);
+        updateCache('gridRows', newRows);
+    }
+  };
+
+  const handleUndoGrid = () => {
+    const newRows = undo(currentGridRows);
+    if (newRows !== currentGridRows) updateCache('gridRows', newRows);
+  };
+
+  const handleRedoGrid = () => {
+    const newRows = redo(currentGridRows);
+    if (newRows !== currentGridRows) updateCache('gridRows', newRows);
+  };
 
   // --- HYDRATION LOGIC ---
   useEffect(() => {
@@ -179,7 +209,6 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   }, [activeDay, activeMatch]);
 
   // --- Computed Helpers ---
-  const currentMatchId = getMatchId(activeDay, activeMatch);
   
   const currentAiText = inputCache[currentMatchId]?.aiText || '';
   const currentCsvText = inputCache[currentMatchId]?.csvText || '';
@@ -369,189 +398,22 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
     }));
   };
 
-  // --- HISTORY SYSTEM ---
-
-  const pushToHistory = () => {
-      setGridUndoStack(prev => {
-          const currentStack = prev[currentMatchId] || [];
-          const newStack = [...currentStack, [...currentGridRows]].slice(-20);
-          return { ...prev, [currentMatchId]: newStack };
-      });
-      setGridRedoStack(prev => {
-          const next = { ...prev };
-          delete next[currentMatchId];
-          return next;
-      });
-  };
-
-  const handleUndoGrid = () => {
-      if (readOnly) return;
-      const currentStack = gridUndoStack[currentMatchId];
-      if (currentStack && currentStack.length > 0) {
-          const prevState = currentStack[currentStack.length - 1];
-          const newStack = currentStack.slice(0, -1);
-          setGridRedoStack(prev => ({ ...prev, [currentMatchId]: [...(prev[currentMatchId] || []), [...currentGridRows]] }));
-          setGridUndoStack(prev => ({ ...prev, [currentMatchId]: newStack }));
-          updateCache('gridRows', prevState);
-      }
-  };
-
-  const handleRedoGrid = () => {
-      if (readOnly) return;
-      const currentStack = gridRedoStack[currentMatchId];
-      if (currentStack && currentStack.length > 0) {
-          const nextState = currentStack[currentStack.length - 1];
-          const newRedoStack = currentStack.slice(0, -1);
-          setGridUndoStack(prev => ({ ...prev, [currentMatchId]: [...(prev[currentMatchId] || []), [...currentGridRows]] }));
-          setGridRedoStack(prev => ({ ...prev, [currentMatchId]: newRedoStack }));
-          updateCache('gridRows', nextState);
-      }
-  };
-
-  // --- GRID INTERACTION with AUTO-CONSISTENCY ---
-
-  const handleGridChange = (index: number, field: keyof GridRow, value: string) => {
-      if (readOnly) return;
-      
-      let newRows = [...currentGridRows];
-      newRows[index] = { ...newRows[index], [field]: value };
-
-      // --- TACTICAL CONSISTENCY ENGINE ---
-      const currentRank = newRows[index].rank;
-
-      if (currentRank && currentRank.trim() !== '') {
-          // Rule 1: If Team Name changed, propagate to all players with same Rank
-          if (field === 'team') {
-              newRows = newRows.map(row => 
-                  row.rank === currentRank ? { ...row, team: value } : row
-              );
-          }
-          // Rule 2: If Rank changed, inherit Team Name from that Rank group (if it exists)
-          else if (field === 'rank') {
-              // Find any sibling with the same rank that has a valid team name
-              const sibling = newRows.find(r => r.rank === value && r.team && r.team.trim() !== '');
-              if (sibling) {
-                  newRows[index] = { ...newRows[index], team: sibling.team };
-              }
-          }
-      }
-
-      updateCache('gridRows', newRows);
-  };
-
-  const handleGridPaste = (e: React.ClipboardEvent, startRowIndex: number, startColKey: keyof GridRow) => {
+  const handleBulkEditAction = () => {
     if (readOnly) return;
-    e.preventDefault();
-    const clipboardData = e.clipboardData.getData('text');
-    if (!clipboardData) return;
-    pushToHistory();
-    const rows = clipboardData.split(/\r\n|\n|\r/).filter(row => row.trim() !== '');
-    
-    const keys: (keyof GridRow)[] = ['rank', 'team', 'playerRank', 'player', 'kills', 'assists', 'damage', 'time', 'adjustment'];
-    const startColIndex = keys.indexOf(startColKey);
-    const newRows = [...currentGridRows];
-    
-    // Ensure we have enough rows
-    while (newRows.length < startRowIndex + rows.length) {
-        newRows.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
+    const newRows = applyBulkEdit(currentGridRows, bulkField, bulkValue);
+    if (newRows !== currentGridRows) {
+        pushToHistory(currentGridRows);
+        updateCache('gridRows', newRows);
+        setBulkValue('');
     }
-
-    // Apply Paste
-    rows.forEach((row, rIdx) => {
-        const targetRowIdx = startRowIndex + rIdx;
-        const cells = row.split('\t'); 
-        cells.forEach((cell, cIdx) => {
-            const targetColIndex = startColIndex + cIdx;
-            if (targetColIndex < keys.length) {
-                const key = keys[targetColIndex];
-                newRows[targetRowIdx] = { ...newRows[targetRowIdx], [key]: cell.trim() };
-            }
-        });
-    });
-
-    // --- POST-PASTE CONSISTENCY CHECK ---
-    // Group by Rank and unify Team Names based on the pasted content
-    const rankTeamMap = new Map<string, string>();
-    
-    // 1. Identify valid Team Names for each Rank in the new dataset
-    // We prioritize the most frequent name or just the first valid one found
-    newRows.forEach(row => {
-        if(row.rank && row.rank.trim() && row.team && row.team.trim()) {
-            // If map doesn't have it, set it. 
-            // In a more complex version we could count frequency, but first-found usually works for pasted blocks
-            if (!rankTeamMap.has(row.rank.trim())) {
-                rankTeamMap.set(row.rank.trim(), row.team.trim());
-            }
-        }
-    });
-
-    // 2. Apply the map to ensure consistency
-    const consistentRows = newRows.map(row => {
-        if (row.rank && row.rank.trim() && rankTeamMap.has(row.rank.trim())) {
-            const standardName = rankTeamMap.get(row.rank.trim())!;
-            if (row.team !== standardName) {
-                return { ...row, team: standardName };
-            }
-        }
-        return row;
-    });
-
-    updateCache('gridRows', consistentRows);
-  };
-
-  // --- GRID MANIPULATION ---
-
-  const toggleRowSelection = (index: number) => {
-      setSelectedIndices(prev => {
-          const next = new Set(prev);
-          if (next.has(index)) next.delete(index);
-          else next.add(index);
-          return next;
-      });
-  };
-
-  const toggleAllRows = () => {
-      if (selectedIndices.size === currentGridRows.length) setSelectedIndices(new Set());
-      else setSelectedIndices(new Set(currentGridRows.map((_, i) => i)));
-  };
-
-  const applyBulkEdit = () => {
-      if (readOnly) return;
-      if (selectedIndices.size === 0) return;
-      pushToHistory();
-      const newRows = [...currentGridRows];
-      const opRegex = /^([\+\-\*\/])\s*([\d\.]+)$/; 
-      const match = bulkValue.trim().match(opRegex);
-      selectedIndices.forEach(idx => {
-          let newVal = bulkValue;
-          const currentValStr = newRows[idx][bulkField];
-          if (['kills', 'assists', 'damage', 'adjustment', 'rank', 'playerRank'].includes(bulkField) && match) {
-              const op = match[1];
-              const operand = parseFloat(match[2]);
-              const currentNum = parseFloat(currentValStr) || 0;
-              if (!isNaN(operand)) {
-                  let result = currentNum;
-                  if (op === '+') result += operand;
-                  if (op === '-') result -= operand;
-                  if (op === '*') result *= operand;
-                  if (op === '/') result /= operand;
-                  newVal = Math.round(result).toString();
-              }
-          }
-          newRows[idx] = { ...newRows[idx], [bulkField]: newVal };
-      });
-      updateCache('gridRows', newRows);
-      setBulkValue(''); 
   };
 
   const handleCloneRoster = () => {
     if (readOnly) return;
     const sourceData = tournamentData[1]?.[1];
-    if (!sourceData || sourceData.length === 0) {
-        alert("No data found in Day 1 / Match 1 to clone.");
-        return;
-    }
-    pushToHistory();
+    if (!sourceData || sourceData.length === 0) return;
+    
+    pushToHistory(currentGridRows);
     const newRows: GridRow[] = [];
     sourceData.forEach(team => {
         team.players.forEach(p => {
@@ -574,7 +436,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
 
   const handleConsolidateDuplicates = () => {
       if (readOnly) return;
-      pushToHistory();
+      pushToHistory(currentGridRows);
       const map = new Map<string, GridRow>();
       currentGridRows.forEach(row => {
         const tName = row.team || '';
@@ -599,12 +461,13 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
       updateCache('gridRows', mergedRows);
   };
 
+
   const handleApplyTeamNames = (nameMap: Record<string, string>) => {
       if (readOnly) return;
       
       if (standardizeScope === 'current') {
           // Local Only
-          pushToHistory();
+          pushToHistory(currentGridRows);
           const newRows = currentGridRows.map(row => {
               if (row.team && row.team.trim() && nameMap[row.team.trim()]) return { ...row, team: nameMap[row.team.trim()] };
               return row;
@@ -655,14 +518,14 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   const clearGrid = () => {
       if (readOnly) return;
       if (confirm("Clear all grid data?")) {
-        pushToHistory();
+        pushToHistory(currentGridRows);
         updateCache('gridRows', Array(25).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' }));
       }
   };
 
   const enforceFullConsistency = () => {
       if (readOnly) return;
-      pushToHistory();
+      pushToHistory(currentGridRows);
       const rankTeamMap = new Map<string, string>();
       currentGridRows.forEach(row => {
           if (row.rank && row.rank.trim() && row.team && row.team.trim() && !rankTeamMap.has(row.rank.trim())) {
@@ -778,7 +641,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
       const combined = [...existingRows, ...incomingRows];
       while(combined.length < 25) combined.push({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' });
       
-      pushToHistory();
+      pushToHistory(currentGridRows);
       updateCache('gridRows', combined);
       setActiveInputType('grid'); 
   };
@@ -1637,8 +1500,8 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                        <div className="text-xs font-mono text-tactical-light flex items-center gap-2"><span className="text-white font-bold">STAGING AREA</span></div>
                        <div className="w-px h-4 bg-tactical-gray/50 mx-1"></div>
                        {/* History Controls */}
-                       <button onClick={handleUndoGrid} disabled={!gridUndoStack[currentMatchId]?.length} className="p-1.5 text-tactical-light hover:text-white disabled:opacity-30 rounded-sm hover:bg-white/5" title="Undo (Ctrl+Z)"><Undo className="w-3.5 h-3.5"/></button>
-                       <button onClick={handleRedoGrid} disabled={!gridRedoStack[currentMatchId]?.length} className="p-1.5 text-tactical-light hover:text-white disabled:opacity-30 rounded-sm hover:bg-white/5" title="Redo (Ctrl+Y)"><Redo className="w-3.5 h-3.5"/></button>
+                       <button onClick={handleUndoGrid} disabled={!canUndo} className="p-1.5 text-tactical-light hover:text-white disabled:opacity-30 rounded-sm hover:bg-white/5" title="Undo (Ctrl+Z)"><Undo className="w-3.5 h-3.5"/></button>
+                       <button onClick={handleRedoGrid} disabled={!canRedo} className="p-1.5 text-tactical-light hover:text-white disabled:opacity-30 rounded-sm hover:bg-white/5" title="Redo (Ctrl+Y)"><Redo className="w-3.5 h-3.5"/></button>
                    </div>
                    
                    <div className="flex items-center gap-2 flex-wrap">
@@ -1680,7 +1543,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                                 className="bg-black border border-tactical-gray text-xs text-white p-1.5 rounded-sm outline-none focus:border-yellow-500 w-32"
                              />
                              <button 
-                                onClick={applyBulkEdit}
+                                onClick={handleBulkEditAction}
                                 className="px-3 py-1.5 bg-yellow-500/10 border border-yellow-500 text-yellow-500 text-[10px] font-bold uppercase rounded-sm hover:bg-yellow-500 hover:text-black transition-colors"
                              >
                                 Apply Bulk
@@ -1694,7 +1557,7 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                         <thead className="sticky top-0 z-10">
                             <tr className="bg-tactical-dark text-tactical-light border-b border-tactical-gray">
                                 <th className="p-2 border-r border-tactical-gray/30 w-8 text-center bg-tactical-dark z-20 sticky left-0">
-                                    <div onClick={toggleAllRows} className="cursor-pointer flex justify-center">
+                                    <div onClick={() => toggleAll(currentGridRows.length)} className="cursor-pointer flex justify-center">
                                         {selectedIndices.size === currentGridRows.length && currentGridRows.length > 0 ? <CheckSquare className="w-3.5 h-3.5 text-white" /> : <Square className="w-3.5 h-3.5 text-tactical-gray" />}
                                     </div>
                                 </th>
@@ -1721,22 +1584,22 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                                 return (
                                     <tr key={idx} className={`border-b border-tactical-gray/20 group data-row-hover ${selectedIndices.has(idx) ? 'bg-white/10' : ''}`}>
                                         <td className="p-0 border-r border-tactical-gray/30 text-center sticky left-0 z-10 bg-black group-hover:bg-tactical-dark/50">
-                                            <div onClick={() => toggleRowSelection(idx)} className="cursor-pointer h-full flex items-center justify-center py-2">
+                                            <div onClick={() => toggleSelection(idx)} className="cursor-pointer h-full flex items-center justify-center py-2">
                                                 {selectedIndices.has(idx) ? <CheckSquare className="w-3.5 h-3.5 text-tactical-green" /> : <Square className="w-3.5 h-3.5 text-tactical-gray" />}
                                             </div>
                                         </td>
                                         <td className="p-0 border-r border-tactical-gray/30 text-center text-tactical-gray">{idx+1}</td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.rank} onChange={(e) => handleGridChange(idx, 'rank', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'rank')} className="w-full bg-transparent p-2 text-white text-center focus:outline-none focus:bg-white/10" placeholder="-" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.rank} onChange={(e) => onGridChange(idx, 'rank', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'rank')} className="w-full bg-transparent p-2 text-white text-center focus:outline-none focus:bg-white/10" placeholder="-" /></td>
                                         <td className="p-0 border-r border-tactical-gray/30 relative">
-                                            <input value={row.team} onChange={(e) => handleGridChange(idx, 'team', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'team')} list="team-suggestions" className="w-full bg-transparent p-2 text-white font-bold focus:outline-none focus:bg-white/10" placeholder="Team" />
+                                            <input value={row.team} onChange={(e) => onGridChange(idx, 'team', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'team')} list="team-suggestions" className="w-full bg-transparent p-2 text-white font-bold focus:outline-none focus:bg-white/10" placeholder="Team" />
                                         </td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.playerRank} onChange={(e) => handleGridChange(idx, 'playerRank', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'playerRank')} className="w-full bg-transparent p-2 text-tactical-green text-center focus:outline-none focus:bg-white/10" placeholder="#" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.player} onChange={(e) => handleGridChange(idx, 'player', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'player')} list="player-suggestions" className="w-full bg-transparent p-2 text-white focus:outline-none focus:bg-white/10" placeholder="Player" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.kills} onChange={(e) => handleGridChange(idx, 'kills', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'kills')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.assists} onChange={(e) => handleGridChange(idx, 'assists', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'assists')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.damage} onChange={(e) => handleGridChange(idx, 'damage', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'damage')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.time} onChange={(e) => handleGridChange(idx, 'time', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'time')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="00:00" /></td>
-                                        <td className="p-0"><input value={row.adjustment} onChange={(e) => handleGridChange(idx, 'adjustment', e.target.value)} onPaste={(e)=>handleGridPaste(e,idx,'adjustment')} className="w-full bg-transparent p-2 text-center text-yellow-500 font-bold focus:outline-none focus:bg-white/10" placeholder="+/-" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.playerRank} onChange={(e) => onGridChange(idx, 'playerRank', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'playerRank')} className="w-full bg-transparent p-2 text-tactical-green text-center focus:outline-none focus:bg-white/10" placeholder="#" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.player} onChange={(e) => onGridChange(idx, 'player', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'player')} list="player-suggestions" className="w-full bg-transparent p-2 text-white focus:outline-none focus:bg-white/10" placeholder="Player" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.kills} onChange={(e) => onGridChange(idx, 'kills', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'kills')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.assists} onChange={(e) => onGridChange(idx, 'assists', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'assists')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.damage} onChange={(e) => onGridChange(idx, 'damage', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'damage')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
+                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.time} onChange={(e) => onGridChange(idx, 'time', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'time')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="00:00" /></td>
+                                        <td className="p-0"><input value={row.adjustment} onChange={(e) => onGridChange(idx, 'adjustment', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'adjustment')} className="w-full bg-transparent p-2 text-center text-yellow-500 font-bold focus:outline-none focus:bg-white/10" placeholder="+/-" /></td>
                                     </tr>
                                 );
                             })}

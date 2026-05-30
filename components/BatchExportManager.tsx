@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { TeamData, BrandingConfig } from '../types';
-import { ExportMode, AspectRatio, ExportTheme, ExportLayout } from './ExportRenderer';
+import { TeamData, BrandingConfig, ExportMode, AspectRatio, ExportTheme, ExportLayout } from '../types';
 import JSZip from 'jszip';
 import { toPng } from 'html-to-image';
 import { Download, Loader2, Users, User } from 'lucide-react';

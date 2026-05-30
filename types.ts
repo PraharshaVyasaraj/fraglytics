@@ -1,7 +1,8 @@
-
-
-
-export type CarryClass = 'BALANCED' | 'PRIMARY' | 'HARD_CARRY' | 'SYSTEM_COLLAPSE';
+export type CarryClass =
+  | "BALANCED"
+  | "PRIMARY"
+  | "HARD_CARRY"
+  | "SYSTEM_COLLAPSE";
 
 // 1️⃣ ATOMIC PLAYER STATS (Raw Telemetry)
 export interface PlayerAtomic {
@@ -9,13 +10,13 @@ export interface PlayerAtomic {
   teamName: string;
   matchId: string;
   dayId: number;
-  
+
   // The Atomic Integers
   kills: number;
   assists: number;
   damage: number;
   survivalTimeSeconds: number; // CHANGED: Seconds for precision
-  
+
   teamRank: number; // The rank of their team in this match
   individualRank?: number; // The individual placement (death order) of the player
   manualPoints?: number; // Admin adjustment
@@ -29,12 +30,12 @@ export interface PlayerDerived extends PlayerAtomic {
   kpm: number; // Kills Per Match (Calculated)
   damageShare: number; // % of team damage
   impactScore: number; // Custom Formula
-  
+
   // NEW: Advanced Metrics
   clutchRating: number;
   supportRating: number;
   performanceTrend: number[]; // Impact scores over time
-  
+
   // --- 70-METRIC SUITE FIELDS ---
   // Individual Level - Two Fields Combined
   assistsPerMinute?: number;
@@ -84,17 +85,17 @@ export interface PlayerDerived extends PlayerAtomic {
   carryClass: CarryClass;
   isOutlier: boolean;
   outlierReason?: string;
-  
+
   // Statistical Deviation (Contextual to Team)
   zScoreDamage: number;
   zScoreKills: number;
 
   // History & Aggregation
-  history: { 
-    matchId: string; 
-    day: number; 
-    damage: number; 
-    finishes: number; 
+  history: {
+    matchId: string;
+    day: number;
+    damage: number;
+    finishes: number;
     impact: number;
     zScoreDamage?: number;
     zScoreKills?: number;
@@ -111,25 +112,25 @@ export interface TeamMatchStats {
   dayId: number;
   teamName: string;
   rank: number;
-  
+
   // Scoreboard
   placementPoints: number;
   killPoints: number;
   manualPointsAdjustment: number;
   totalPoints: number;
-  
+
   // Aggregates for this match
   totalKills: number;
   totalDamage: number;
   totalAssists: number;
   avgSurvivalSeconds: number;
-  
+
   // Roster for this specific match
   players: PlayerDerived[];
-  
+
   // Match-Specific Flags
-  flags: string[]; 
-  
+  flags: string[];
+
   // --- 70-METRIC SUITE FIELDS ---
   teamKillDistribution?: number;
   teamDamageDistribution?: number;
@@ -147,7 +148,11 @@ export interface MatchData {
   matchInDay: number;
   label: string;
   teams: TeamMatchStats[]; // Results for this match
-  status: 'completed' | 'pending';
+  status: "completed" | "pending";
+  // Optional League Tags
+  leagueStage?: string;
+  leagueGroup?: string;
+  timestamp?: number; // For sorting by Date Added
 }
 
 // 🛡️ TEAM PROFILE (Aggregated / Leaderboard Row)
@@ -155,17 +160,17 @@ export interface MatchData {
 export interface TeamData {
   rank: number; // Overall Tournament Rank
   name: string;
-  
+
   // Aggregated Totals
   totalPoints: number;
   killPoints: number;
   placementPoints: number;
   manualPointsAdjustment: number;
-  
+
   totalDamage: number;
   totalFinishes: number;
   matchesPlayed: number;
-  
+
   // Derived Aggregates
   avgSurvivalTime: number; // Minutes
   avgPlacement: number;
@@ -173,11 +178,11 @@ export interface TeamData {
   efficiencyRating: number; // Points per 1k Damage
   conversionRate: number; // Dmg per Kill
   lobbyShare: number;
-  
+
   // NEW: Advanced Team Metrics
   teamClutchScore: number;
   teamSupportScore: number;
-  
+
   // --- 70-METRIC SUITE FIELDS ---
   pointsPerMatch?: number;
   placementConsistency?: number;
@@ -190,20 +195,20 @@ export interface TeamData {
   avgPlacementPointsPerMatch?: number;
   winProbability?: number;
   // ------------------------------
-  
+
   // Meta
   damageVariance: number; // Consistency metric
   isWinner: boolean;
   flags: string[]; // "Dominant", "Passive", etc.
   logoUrl?: string; // Optional team logo URL
-  
+
   // Roster History (All players who have played for this team)
   players: PlayerDerived[]; // Aggregated Player Stats
-  
+
   // Trends
   history: { matchId: string; day: number; points: number; rank: number }[];
   rollingAvgPoints: number;
-  trend: 'RISING' | 'FALLING' | 'STABLE';
+  trend: "RISING" | "FALLING" | "STABLE";
 }
 
 // 📆 DAY PROFILE
@@ -224,7 +229,7 @@ export interface Session {
 export interface Insight {
   title: string;
   description: string;
-  type: 'tactical' | 'warning' | 'performance' | 'prediction';
+  type: "tactical" | "warning" | "performance" | "prediction";
 }
 
 export interface ScoringRules {
@@ -264,24 +269,24 @@ export interface RegistryConfig {
 
 // 📜 SNAPSHOT (Versioned History File)
 export interface Snapshot {
-    meta: {
-      type: 'FRAGLAB_SNAPSHOT';
-      version: string; // App Version
-      timestamp: number;
-      hash: string; // Simple unique ID for the snapshot
-      label?: string; // e.g. "Grand Finals - Match 3"
-    };
-    config: {
-      rules: ScoringRules;
-      branding: BrandingConfig;
-      mode: 'manual' | 'auto';
-    };
-    data: {
-      matches: MatchData[]; // The Immutable Truth
-    };
-    analysis: {
-      insights: Insight[];
-    }
+  meta: {
+    type: "FRAGLAB_SNAPSHOT";
+    version: string; // App Version
+    timestamp: number;
+    hash: string; // Simple unique ID for the snapshot
+    label?: string; // e.g. "Grand Finals - Match 3"
+  };
+  config: {
+    rules: ScoringRules;
+    branding: BrandingConfig;
+    mode: "manual" | "auto";
+  };
+  data: {
+    matches: MatchData[]; // The Immutable Truth
+  };
+  analysis: {
+    insights: Insight[];
+  };
 }
 
 export interface Tournament {
@@ -295,8 +300,8 @@ export interface Tournament {
   scoringRules: ScoringRules;
   brandingConfig: BrandingConfig;
   insights: Insight[];
-  workflowStep: 'ingestion' | 'analysis';
-  operationMode: 'manual' | 'auto';
+  workflowStep: "ingestion" | "analysis";
+  operationMode: "manual" | "auto";
   isAutoInsightsEnabled: boolean;
 }
 
@@ -307,4 +312,12 @@ export interface Workspace {
 }
 
 // Compatibility Types for UI Components
-export type SortConfig = { key: keyof TeamData | 'aggressionIndex' | 'conversionRate'; direction: 'asc' | 'desc' } | null;
+export type SortConfig = {
+  key: keyof TeamData | "aggressionIndex" | "conversionRate";
+  direction: "asc" | "desc";
+} | null;
+
+export type ExportMode = 'standings' | 'winner' | 'faceoff' | 'mvp' | 'hall_of_fame' | 'player_leaderboard' | 'top_fraggers' | 'team_profile' | 'player_profile' | 'team_grid' | 'player_comparison' | 'sdrr' | 'intelligence' | 'broadcast_hero';
+export type AspectRatio = '16:9' | '9:16' | '1:1';
+export type ExportTheme = 'protocol' | 'slate' | 'paper' | 'violet' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'intelligence';
+export type ExportLayout = 'classic' | 'sidebar' | 'main_stage' | 'analyst' | 'story' | 'broadcast_hero' | 'statistics' | 'cyber_glitch';

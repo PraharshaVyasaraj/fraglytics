@@ -31,8 +31,8 @@ export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false, acc
   
   return (
     <div className={cn(
-      "flex flex-col relative group transition-all duration-300",
-      isPrimary ? "w-full max-w-[420px] z-10" : "w-full max-w-[320px]"
+      "flex flex-col relative group transition-all duration-300 shrink-0",
+      isPrimary ? "w-[380px] md:w-[400px] z-10" : "w-[260px] md:w-[280px]"
     )}>
       {/* Brutalist Border Container */}
       <div className={cn(

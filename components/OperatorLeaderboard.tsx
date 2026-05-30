@@ -542,4 +542,4 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
   );
 };
 
-export default OperatorLeaderboard;
+export default React.memo(OperatorLeaderboard, (prevProps, nextProps) => prevProps.data === nextProps.data);

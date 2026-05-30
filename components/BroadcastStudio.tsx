@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { TeamData, BrandingConfig } from '../types';
-import ExportRenderer, { ExportMode, AspectRatio, ExportTheme, ExportLayout } from './ExportRenderer';
+import { TeamData, BrandingConfig, ExportMode, AspectRatio, ExportTheme, ExportLayout } from '../types';
+import ExportRenderer from './ExportRenderer';
 import { X, Download, LayoutTemplate, Trophy, User, Swords, ChevronDown, MonitorPlay, Smartphone, Monitor, Square, Crown, LogOut, ChevronLeft, ChevronRight, ListOrdered, Crosshair, Copy, Palette, Layout, Type, Contact, Users, Sliders, Zap, ArrowRightLeft, Shield, Settings, ImageIcon } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -27,6 +27,18 @@ export interface VisualConfig {
     containerPadding: number;
     rowHeight: number;
     fontScale: number;
+    // Advanced Design Systems
+    tracking?: number; // Kerning/tracking adjustments (-5px to 15px)
+    leading?: number;  // Typography line height (0.8 to 2)
+    kerning?: boolean; // Toggle typographical ligature kerning
+    colorProfile?: 'rgb' | 'cmyk' | 'pantone'; // RGB / CMYK / Pantone Color simulation profiles
+    noiseOverlay?: boolean; // Non-destructive retro grain noise layer
+    vignetteOverlay?: boolean; // Non-destructive vignette vignette master mask layer
+    filterContrast?: number; // Non-destructive adjustments
+    filterBrightness?: number;
+    filterSaturation?: number;
+    vectorOverlay?: 'none' | 'tech_nodes' | 'crosshair_grids' | 'brutalist_bracket'; // Pen Tool & Vector Paths
+    exportDelay?: number; // Added export delay forcefulness
 }
 
 const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data, defaultTitle, defaultSubtitle, branding, initialMode, initialFocusTeamId, initialFocusPlayerName }) => {
@@ -47,7 +59,19 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
       itemSpacing: 1,
       containerPadding: 1,
       rowHeight: 1,
-      fontScale: 1
+      fontScale: 1,
+      // Advanced Defaults
+      tracking: 0,
+      leading: 1.2,
+      kerning: true,
+      colorProfile: 'rgb',
+      noiseOverlay: false,
+      vignetteOverlay: false,
+      filterContrast: 100,
+      filterBrightness: 100,
+      filterSaturation: 100,
+      vectorOverlay: 'none',
+      exportDelay: 2000
   });
 
   const [title, setTitle] = useState(defaultTitle);
@@ -251,8 +275,9 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
           if (aspectRatio === '1:1') { width = 1080; height = 1080; }
 
           const capture = async (suffix: string) => {
-              // Wait for render to clear animations
-              await new Promise(r => setTimeout(r, 300));
+              // Standard minimum delay for visual assets to load completely
+              const waitTime = visualConfig.exportDelay || 2000;
+              await new Promise(r => setTimeout(r, waitTime));
               
               const dataUrl = await toPng(node, {
                   backgroundColor: getThemeHexBg(theme), // Explicitly pass correct BG color
@@ -1171,8 +1196,276 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                 </button>
                             </div>
                         </div>
-                    </div>
-                )}
+
+                        {/* Pro Creative Studio Preset Templates */}
+                        <div className="space-y-3 pt-4 border-t border-tactical-gray/30">
+                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                <Zap className="w-3 h-3 text-yellow-400" /> Style Presets
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({
+                                        ...prev,
+                                        fontScale: 1.1,
+                                        headerScale: 1.1,
+                                        tracking: 4,
+                                        leading: 1.15,
+                                        kerning: true,
+                                        noiseOverlay: false,
+                                        vignetteOverlay: true,
+                                        filterContrast: 105,
+                                        filterSaturation: 110,
+                                        vectorOverlay: 'tech_nodes'
+                                    }))}
+                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
+                                >
+                                    ⚡ Esports Pro
+                                </button>
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({
+                                        ...prev,
+                                        fontScale: 0.85,
+                                        headerScale: 0.9,
+                                        tracking: 10,
+                                        leading: 1.4,
+                                        kerning: true,
+                                        noiseOverlay: false,
+                                        vignetteOverlay: false,
+                                        filterContrast: 100,
+                                        filterSaturation: 80,
+                                        vectorOverlay: 'none'
+                                    }))}
+                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
+                                >
+                                    📰 Editorial Clean
+                                </button>
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({
+                                        ...prev,
+                                        fontScale: 1.15,
+                                        headerScale: 1.2,
+                                        tracking: -2,
+                                        leading: 0.95,
+                                        kerning: false,
+                                        noiseOverlay: true,
+                                        vignetteOverlay: true,
+                                        filterContrast: 125,
+                                        filterSaturation: 140,
+                                        vectorOverlay: 'crosshair_grids'
+                                    }))}
+                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
+                                >
+                                    🔋 Cyberpunk Glitch
+                                </button>
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({
+                                        ...prev,
+                                        fontScale: 1.0,
+                                        headerScale: 1.0,
+                                        tracking: 0,
+                                        leading: 1.2,
+                                        kerning: true,
+                                        noiseOverlay: false,
+                                        vignetteOverlay: false,
+                                        filterContrast: 100,
+                                        filterBrightness: 100,
+                                        filterSaturation: 100,
+                                        vectorOverlay: 'none'
+                                    }))}
+                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
+                                >
+                                    🔄 Clear Reset
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Typography Control */}
+                        <div className="space-y-4 pt-4 border-t border-tactical-gray/30">
+                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                <Type className="w-3 h-3" /> Precision Typography
+                            </label>
+
+                            {/* Letter Spacing Slider (Tracking) */}
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between text-[11px] font-mono text-tactical-light font-bold">
+                                    <span>TRACKING (LETTER SPACING)</span>
+                                    <span className="text-white">{visualConfig.tracking ?? 0}px</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="-5" 
+                                    max="15" 
+                                    step="1"
+                                    value={visualConfig.tracking ?? 0}
+                                    onChange={(e) => setVisualConfig(prev => ({ ...prev, tracking: parseInt(e.target.value) }))}
+                                    className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                                />
+                            </div>
+
+                            {/* Line Height Slider (Leading) */}
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between text-[11px] font-mono text-tactical-light font-bold">
+                                    <span>LEADING (LINE HEIGHT)</span>
+                                    <span className="text-white">{(visualConfig.leading ?? 1.2).toFixed(2)}x</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="0.8" 
+                                    max="2.0" 
+                                    step="0.05"
+                                    value={visualConfig.leading ?? 1.2}
+                                    onChange={(e) => setVisualConfig(prev => ({ ...prev, leading: parseFloat(e.target.value) }))}
+                                    className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                                />
+                            </div>
+
+                            {/* Liga / Kerning toggle */}
+                            <div className="flex items-center justify-between pt-1">
+                                <span className="text-[11px] font-mono text-tactical-light font-bold">LIGATURES / KERNING</span>
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({ ...prev, kerning: !prev.kerning }))}
+                                    className={`px-2 py-1 text-[9px] font-mono font-bold uppercase tracking-wider rounded-sm border ${visualConfig.kerning ? 'bg-green-600 border-green-500 text-white' : 'bg-black border-tactical-gray text-tactical-light'}`}
+                                >
+                                    {visualConfig.kerning ? 'ACTIVE' : 'STANDARD'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Color Simulation Profiles */}
+                        <div className="space-y-3 pt-4 border-t border-tactical-gray/30">
+                            <label className="text-xs font-mono uppercase text-[#A78BFA] font-bold flex items-center gap-2">
+                                <Palette className="w-3 h-3 text-purple-400" /> Color Profiles
+                            </label>
+                            <div className="grid grid-cols-3 gap-1">
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({ ...prev, colorProfile: 'rgb' }))}
+                                    className={`py-2 px-1 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.colorProfile === 'rgb' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
+                                >
+                                    sRGB Web
+                                </button>
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({ ...prev, colorProfile: 'cmyk' }))}
+                                    className={`py-2 px-1 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.colorProfile === 'cmyk' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
+                                    title="Calibrated CMYK press profile simulation"
+                                >
+                                    Press CMYK
+                                </button>
+                                <button 
+                                    onClick={() => setVisualConfig(prev => ({ ...prev, colorProfile: 'pantone' }))}
+                                    className={`py-2 px-1 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.colorProfile === 'pantone' ? 'bg-pink-600 border-pink-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
+                                    title="Pantone ink system spot proofing"
+                                >
+                                    Pantone PMS
+                                </button>
+                            </div>
+                            <p className="text-[9px] text-tactical-light font-mono leading-relaxed">
+                                {visualConfig.colorProfile === 'cmyk' ? 'Simulating: Standard Coated FOGRA39 (Print Match)' : visualConfig.colorProfile === 'pantone' ? 'Simulating: Pantone Formula Coated Solid Spot' : 'sRGB screen broadcast mode.'}
+                            </p>
+                        </div>
+
+                        {/* Non-Destructive Effector Layers */}
+                        <div className="space-y-4 pt-4 border-t border-tactical-gray/30">
+                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                <Sliders className="w-3 h-3" /> Effects Layers
+                            </label>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={visualConfig.noiseOverlay ?? false}
+                                        onChange={() => setVisualConfig(prev => ({ ...prev, noiseOverlay: !prev.noiseOverlay }))}
+                                        className="rounded border-tactical-gray bg-black text-blue-500 focus:ring-0"
+                                    />
+                                    <span className="text-[10px] font-mono font-bold uppercase text-tactical-light group-hover:text-white">GRAIN NOISE</span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={visualConfig.vignetteOverlay ?? false}
+                                        onChange={() => setVisualConfig(prev => ({ ...prev, vignetteOverlay: !prev.vignetteOverlay }))}
+                                        className="rounded border-tactical-gray bg-black text-blue-500 focus:ring-0"
+                                     />
+                                     <span className="text-[10px] font-mono font-bold uppercase text-tactical-light group-hover:text-white">VIGNETTE</span>
+                                 </label>
+                             </div>
+
+                             <div className="space-y-1.5">
+                                 <div className="flex justify-between text-[11px] font-mono text-tactical-light font-bold">
+                                     <span>CONTRAST</span>
+                                     <span className="text-white">{visualConfig.filterContrast ?? 100}%</span>
+                                 </div>
+                                 <input 
+                                     type="range" 
+                                     min="80" 
+                                     max="150" 
+                                     step="5"
+                                     value={visualConfig.filterContrast ?? 100}
+                                     onChange={(e) => setVisualConfig(prev => ({ ...prev, filterContrast: parseInt(e.target.value) }))}
+                                     className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                                 />
+                             </div>
+
+                             <div className="space-y-1.5">
+                                 <div className="flex justify-between text-[11px] font-mono text-tactical-light font-bold">
+                                     <span>SATURATION</span>
+                                     <span className="text-white">{visualConfig.filterSaturation ?? 100}%</span>
+                                 </div>
+                                 <input 
+                                     type="range" 
+                                     min="50" 
+                                     max="150" 
+                                     step="5"
+                                     value={visualConfig.filterSaturation ?? 100}
+                                     onChange={(e) => setVisualConfig(prev => ({ ...prev, filterSaturation: parseInt(e.target.value) }))}
+                                     className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                                 />
+                             </div>
+                         </div>
+
+                         {/* Pen Tool & Vector Paths */}
+                         <div className="space-y-3 pt-4 border-t border-tactical-gray/30 pb-4">
+                             <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                 <Crosshair className="w-3 h-3 text-cyan-400" /> Vector Paths & Brackets
+                             </label>
+                             <div className="grid grid-cols-2 gap-2">
+                                 {(['none', 'tech_nodes', 'crosshair_grids', 'brutalist_bracket'] as const).map(op => (
+                                     <button 
+                                         key={op}
+                                         onClick={() => setVisualConfig(prev => ({ ...prev, vectorOverlay: op }))}
+                                         className={`p-2 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.vectorOverlay === op ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
+                                     >
+                                         {op.replace('_', ' ')}
+                                     </button>
+                                 ))}
+                             </div>
+                         </div>
+                         
+                         {/* Render Engine & Snapshots */}
+                         <div className="space-y-3 pt-4 border-t border-tactical-gray/30 pb-4">
+                             <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
+                                 <Download className="w-3 h-3 text-red-500" /> Rendering Engine Time
+                             </label>
+                             <div className="space-y-1.5">
+                                 <div className="flex justify-between text-[9px] font-mono font-bold text-tactical-light uppercase">
+                                     <span>Min Capture Delay</span>
+                                     <span>{(visualConfig.exportDelay || 2000) / 1000}s</span>
+                                 </div>
+                                 <input 
+                                     type="range" 
+                                     min="1000" 
+                                     max="10000" 
+                                     step="500"
+                                     value={visualConfig.exportDelay || 2000}
+                                     onChange={(e) => setVisualConfig(prev => ({ ...prev, exportDelay: parseInt(e.target.value) }))}
+                                     className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-red-500" 
+                                 />
+                                 <p className="text-[9px] text-tactical-gray italic">Higher wait times ensure images and charts load perfectly before snapshotting.</p>
+                             </div>
+                         </div>
+                     </div>
+                 )}
 
             </div>
 
