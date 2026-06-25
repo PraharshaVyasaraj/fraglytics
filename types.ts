@@ -150,8 +150,6 @@ export interface MatchData {
   teams: TeamMatchStats[]; // Results for this match
   status: "completed" | "pending";
   // Optional League Tags
-  leagueStage?: string;
-  leagueGroup?: string;
   timestamp?: number; // For sorting by Date Added
 }
 
@@ -232,10 +230,18 @@ export interface Insight {
   type: "tactical" | "warning" | "performance" | "prediction";
 }
 
+export interface ActiveTelemetryMetrics {
+  kills: boolean; // Base option (always enabled)
+  assists: boolean;
+  damage: boolean;
+  time: boolean;
+}
+
 export interface ScoringRules {
   killMultiplier: number;
   rankPoints: Record<number, number>;
   belowThresholdPoints: number;
+  activeMetrics?: ActiveTelemetryMetrics;
 }
 
 export interface TeamBranding {
@@ -260,6 +266,7 @@ export interface BrandingConfig {
   sponsorLogos?: string[];
   teamBranding?: Record<string, TeamBranding>;
   playerBranding?: Record<string, PlayerBranding>;
+  currentGame?: "scarfall" | "bgmi" | "universal";
 }
 
 export interface RegistryConfig {
@@ -280,6 +287,7 @@ export interface Snapshot {
     rules: ScoringRules;
     branding: BrandingConfig;
     mode: "manual" | "auto";
+    currentGame?: "scarfall" | "bgmi" | "universal";
   };
   data: {
     matches: MatchData[]; // The Immutable Truth
@@ -317,7 +325,7 @@ export type SortConfig = {
   direction: "asc" | "desc";
 } | null;
 
-export type ExportMode = 'standings' | 'winner' | 'faceoff' | 'mvp' | 'hall_of_fame' | 'player_leaderboard' | 'top_fraggers' | 'team_profile' | 'player_profile' | 'team_grid' | 'player_comparison' | 'sdrr' | 'intelligence' | 'broadcast_hero';
-export type AspectRatio = '16:9' | '9:16' | '1:1';
-export type ExportTheme = 'protocol' | 'slate' | 'paper' | 'violet' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'intelligence';
-export type ExportLayout = 'classic' | 'sidebar' | 'main_stage' | 'analyst' | 'story' | 'broadcast_hero' | 'statistics' | 'cyber_glitch';
+export type ExportMode = 'standings' | 'winner' | 'faceoff' | 'mvp' | 'hall_of_fame' | 'player_leaderboard' | 'top_fraggers' | 'team_profile' | 'player_profile' | 'team_grid' | 'player_comparison' | 'sdrr' | 'intelligence';
+export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '21:9';
+export type ExportTheme = 'protocol' | 'paper' | 'rose' | 'intelligence';
+export type ExportLayout = 'classic' | 'sidebar' | 'main_stage' | 'analyst' | 'story' | 'statistics';

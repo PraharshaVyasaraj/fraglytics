@@ -14,6 +14,8 @@ interface LayoutProps {
   onOpenStudio?: () => void;
   onOpenSettings?: () => void;
   onBackToHub?: () => void;
+  currentGame?: 'scarfall' | 'bgmi' | 'universal' | null;
+  onChangeGame?: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -27,7 +29,9 @@ const Layout: React.FC<LayoutProps> = ({
   onNavigate,
   onOpenStudio,
   onOpenSettings,
-  onBackToHub
+  onBackToHub,
+  currentGame,
+  onChangeGame
 }) => {
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
@@ -63,8 +67,9 @@ const Layout: React.FC<LayoutProps> = ({
         exportDate: new Date().toISOString()
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(designTokens, null, 2));
+      const gamePrefix = localStorage.getItem('fraglab_game_mode') === 'bgmi' ? 'bgmi' : 'scarfall';
       const link = document.createElement('a');
-      link.download = `scarfall-design-tokens-${Date.now()}.json`;
+      link.download = `${gamePrefix}-design-tokens-${Date.now()}.json`;
       link.href = dataStr;
       link.click();
       setIsDownloadMenuOpen(false);
@@ -140,6 +145,20 @@ const Layout: React.FC<LayoutProps> = ({
             <h1 className="font-serif text-lg sm:text-xl font-bold tracking-tight text-white hidden sm:block">
               FragLab <span className="text-tactical-light font-normal hidden lg:inline">Analytics</span>
             </h1>
+
+            {currentGame && (
+              <button 
+                onClick={onChangeGame}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono tracking-wider font-bold bg-tactical-dark border border-tactical-gray hover:border-tactical-red hover:bg-tactical-red/5 text-tactical-light rounded-sm uppercase transition-all shrink-0 cursor-pointer"
+                title="Click to Switch Game Mode"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tactical-green opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-tactical-green"></span>
+                </span>
+                <span>GAME: {currentGame?.toUpperCase()}</span>
+              </button>
+            )}
           </div>
 
           {/* Search Bar Integration */}
@@ -190,6 +209,17 @@ const Layout: React.FC<LayoutProps> = ({
                 <span className="hidden sm:inline">RESET_OP</span>
               </button>
             )}
+            {step === 'analysis' && (
+              <button 
+                onClick={onOpenStudio}
+                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-tactical-dark border border-tactical-gray text-tactical-light rounded-sm hover:border-white hover:text-white transition-all"
+                title="Open Broadcast Studio"
+              >
+                <MonitorPlay className="w-3 h-3" />
+                <span className="hidden sm:inline">Broadcast Studio</span>
+              </button>
+            )}
+
             <div className="relative" ref={downloadMenuRef}>
               <button 
                 onClick={() => setIsDownloadMenuOpen(!isDownloadMenuOpen)}

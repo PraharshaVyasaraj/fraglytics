@@ -43,6 +43,8 @@ const getContainerStyle = (ratio: AspectRatio) => {
     switch (ratio) {
         case '9:16': return { width: 1080, height: 1920 };
         case '1:1': return { width: 1080, height: 1080 };
+        case '4:3': return { width: 1440, height: 1080 };
+        case '21:9': return { width: 2560, height: 1080 };
         case '16:9': 
         default: return { width: 1920, height: 1080 };
     }
@@ -56,6 +58,18 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   const { page = 1, rowsPerPage = 10, totalPages = 1 } = pagination || {};
 
   const themeStyles = getThemeStyles(theme, branding);
+  const isTemplate = visualConfig.templateMode;
+
+  const tMode = (classes: string, borderToo = true) => {
+    if (!isTemplate) return classes;
+    let newClasses = classes.replace(/bg-[^\s/]+(?:\/\d+)?/g, 'bg-transparent')
+                            .replace(/backdrop-blur-[^\s]+/g, 'backdrop-blur-none')
+                            .replace(/shadow-[^\s]+/g, 'shadow-none');
+    if (borderToo) {
+        newClasses = newClasses.replace(/border-[^\s/]+(?:\/\d+)?/g, 'border-transparent');
+    }
+    return newClasses;
+  };
   
   // Inline styles for dynamic colors
   const accentText = { color: themeStyles.accent };
@@ -78,8 +92,8 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   const Header = () => (
     <div 
         onClick={() => onElementClick?.('header')}
-        className={`relative z-10 flex ${isPortrait ? 'flex-col items-center text-center gap-6' : 'justify-between items-end'} ${(layout === 'classic' || layout === 'cyber_glitch') ? 'border-b-4 pb-8 mb-8' : 'mb-8'} ${!isExporting ? 'cursor-pointer hover:bg-white/5 transition-colors rounded-sm group' : ''}`} 
-        style={(layout === 'classic' || layout === 'cyber_glitch') ? accentBorder : {}}
+        className={`relative z-10 flex ${isPortrait ? 'flex-col items-center text-center gap-2' : 'justify-between items-end'} ${layout === 'classic' ? 'border-b-4 pb-2 mb-4' : 'mb-2'} ${!isExporting ? 'cursor-pointer hover:bg-white/5 transition-colors rounded-sm group' : ''}`} 
+        style={layout === 'classic' ? accentBorder : {}}
     >
         {!isExporting && (
             <div className="absolute -top-6 left-0 text-[10px] font-bold uppercase tracking-widest text-tactical-light opacity-0 group-hover:opacity-100 transition-opacity">
@@ -87,34 +101,23 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
             </div>
         )}
         <div className={isPortrait ? 'flex flex-col items-center' : ''}>
-            <div className={`flex items-center gap-6 ${isPortrait ? 'flex-col mb-2' : 'mb-3'}`}>
-                <div className={`p-4 rounded-sm shadow-lg ${theme === 'paper' ? 'bg-slate-900 text-white' : 'bg-white/10 text-white'}`} style={theme === 'paper' ? {} : accentBg}>
+            <div className={`flex items-center gap-4 ${isPortrait ? 'flex-col mb-1' : 'mb-2'}`}>
+                <div className={`p-3 rounded-sm shadow-lg ${theme === 'paper' ? 'bg-slate-900 text-white' : 'bg-white/10 text-white'}`} style={theme === 'paper' ? {} : accentBg}>
                     {branding.logoUrl ? (
-                        <img src={branding.logoUrl} alt="Logo" className="w-16 h-16 object-contain invert brightness-0" />
+                        <img src={branding.logoUrl} alt="Logo" className="w-12 h-12 object-contain invert brightness-0" />
                     ) : (
-                        <Shield className="w-16 h-16 text-inherit" />
+                        <Shield className="w-12 h-12 text-inherit" />
                     )}
                 </div>
-                 <h1 className={`${isPortrait ? 'text-5xl' : 'text-7xl'} font-black ${themeStyles.fontHeader} tracking-tighter uppercase ${themeStyles.text}`} style={{ fontSize: `${(isPortrait ? 3 : 4.5) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{branding.orgName}</h1>
+                 <h1 className={`${isPortrait ? 'text-4xl' : 'text-5xl'} font-black ${themeStyles.fontHeader} tracking-tighter uppercase ${themeStyles.text}`} style={{ fontSize: `${(isPortrait ? 2.5 : 3.5) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{branding.orgName}</h1>
             </div>
-            <p className={`text-2xl ${themeStyles.subText} ${themeStyles.fontBody} tracking-[0.2em] font-bold`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>INTELLIGENCE REPORT</p>
+            <p className={`text-xl ${themeStyles.subText} ${themeStyles.fontBody} tracking-[0.2em] font-bold`} style={{ fontSize: `${1.125 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>INTELLIGENCE REPORT</p>
         </div>
         
-        {(layout === 'classic' || layout === 'cyber_glitch') && (
-            <div className={isPortrait ? 'mt-4' : 'text-right'}>
-                {layout === 'cyber_glitch' ? (
-                    <div className="relative">
-                        <h2 className={`${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/50 uppercase tracking-tight leading-none ${themeStyles.fontHeader} drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
-                        <h2 className={`absolute top-0 left-1 ${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-cyan-500 uppercase tracking-tight leading-none ${themeStyles.fontHeader} opacity-50 mix-blend-screen`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
-                        <h2 className={`absolute top-0 -left-1 ${isPortrait ? 'text-6xl' : 'text-8xl'} font-black text-fuchsia-500 uppercase tracking-tight leading-none ${themeStyles.fontHeader} opacity-50 mix-blend-screen`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
-                        <p className={`text-4xl ${themeStyles.fontBody} font-bold mt-2 uppercase tracking-widest text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>{config.subtitle}</p>
-                    </div>
-                ) : (
-                    <>
-                        <h2 className={`${isPortrait ? 'text-6xl' : 'text-8xl'} font-black ${themeStyles.text} uppercase tracking-tight leading-none ${themeStyles.fontHeader}`} style={{ fontSize: `${(isPortrait ? 3.75 : 6) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
-                        <p className={`text-4xl ${themeStyles.fontBody} font-bold mt-2 uppercase`} style={{ ...accentText, fontSize: `${2.25 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>{config.subtitle}</p>
-                    </>
-                )}
+        {layout === 'classic' && (
+            <div className={isPortrait ? 'mt-1' : 'text-right'}>
+                <h2 className={`${isPortrait ? 'text-5xl' : 'text-7xl'} font-black ${themeStyles.text} uppercase tracking-tight leading-none ${themeStyles.fontHeader}`} style={{ fontSize: `${(isPortrait ? 3 : 5) * visualConfig.fontScale}rem`, ...headerTypoStyle }}>{config.title}</h2>
+                <p className={`text-3xl ${themeStyles.fontBody} font-bold mt-1 uppercase`} style={{ ...accentText, fontSize: `${1.75 * visualConfig.fontScale}rem`, ...bodyTypoStyle }}>{config.subtitle}</p>
             </div>
         )}
     </div>
@@ -123,8 +126,8 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   const Footer = () => (
     <div 
         onClick={() => onElementClick?.('footer')}
-        className={`relative z-10 mt-auto pt-8 border-t flex ${isPortrait ? 'flex-col gap-4' : 'justify-between'} items-center ${themeStyles.subText} ${themeStyles.fontBody} uppercase tracking-widest ${!isExporting ? 'cursor-pointer hover:bg-white/5 transition-colors rounded-sm' : ''}`} 
-        style={{ borderColor: theme === 'slate' || theme === 'violet' ? themeStyles.accent : theme === 'paper' ? '#cbd5e1' : 'rgba(255,255,255,0.1)' }}
+        className={`relative z-10 mt-auto pt-4 border-t flex ${isPortrait ? 'flex-col gap-3' : 'justify-between'} items-center ${themeStyles.subText} ${themeStyles.fontBody} uppercase tracking-widest ${!isExporting ? 'cursor-pointer hover:bg-white/5 transition-colors rounded-sm' : ''}`} 
+        style={{ borderColor: theme === 'paper' ? '#cbd5e1' : 'rgba(255,255,255,0.1)' }}
     >
         <div className="flex items-center gap-3">
             <Calendar className="w-6 h-6" />
@@ -144,10 +147,10 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       if (layout === 'statistics') {
           return (
-              <div className={`w-full h-full flex flex-col relative z-10 bg-black/40 backdrop-blur-xl`} style={{ padding: `${2 * visualConfig.containerPadding}rem` }}>
-                  <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+              <div className={`w-full h-full flex flex-col relative z-10 ${visualConfig.templateMode ? 'bg-transparent backdrop-blur-none' : 'bg-black/40 backdrop-blur-xl'}`} style={{ padding: `${2 * visualConfig.containerPadding}rem` }}>
+                  <div className={`flex items-center justify-between mb-6 border-b ${visualConfig.templateMode ? 'border-transparent' : 'border-white/10'} pb-4`}>
                       <div className="flex items-center gap-4">
-                          <div className="p-2 bg-white/10 rounded-sm" style={accentBg}>
+                          <div className={`p-2 ${visualConfig.templateMode ? 'bg-transparent' : 'bg-white/10'} rounded-sm`} style={visualConfig.templateMode ? {} : accentBg}>
                               {branding.logoUrl ? <img src={branding.logoUrl} alt="Logo" className="w-8 h-8 object-contain invert brightness-0" /> : <Shield className="w-8 h-8 text-white" />}
                           </div>
                           <div>
@@ -164,7 +167,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                   <div className="flex-1 grid grid-cols-12 gap-6 overflow-hidden">
                       {/* Left Column: Main Content */}
                       <div className="col-span-8 flex flex-col gap-6 overflow-hidden">
-                          <div className="flex-1 bg-white/5 border border-white/10 rounded-sm p-6 overflow-hidden flex flex-col">
+                          <div className={`flex-1 ${visualConfig.templateMode ? 'bg-transparent border-transparent' : 'bg-white/5 border border-white/10'} rounded-sm p-6 overflow-hidden flex flex-col`}>
                               {children}
                           </div>
                       </div>
@@ -172,7 +175,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                       {/* Right Column: Advanced Stats */}
                       <div className="col-span-4 flex flex-col gap-6 overflow-hidden">
                           {/* Global Stats Card */}
-                          <div className="bg-white/5 border border-white/10 rounded-sm p-6">
+                          <div className={tMode("bg-white/5 border border-white/10 rounded-sm p-6")}>
                               <h3 className="text-xs font-bold uppercase tracking-widest text-tactical-light mb-4 flex items-center gap-2">
                                   <Activity className="w-3 h-3" /> Tournament Pulse
                               </h3>
@@ -189,7 +192,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                           </div>
 
                           {/* Top Performers */}
-                          <div className="flex-1 bg-white/5 border border-white/10 rounded-sm p-6 overflow-hidden flex flex-col">
+                          <div className={tMode("flex-1 bg-white/5 border border-white/10 rounded-sm p-6 overflow-hidden flex flex-col")}>
                               <h3 className="text-xs font-bold uppercase tracking-widest text-tactical-light mb-4 flex items-center gap-2">
                                   <Trophy className="w-3 h-3" /> Top Impact Players
                               </h3>
@@ -213,7 +216,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                           </div>
 
                           {/* Consistency Index */}
-                          <div className="bg-white/5 border border-white/10 rounded-sm p-6">
+                          <div className={tMode("bg-white/5 border border-white/10 rounded-sm p-6")}>
                               <h3 className="text-xs font-bold uppercase tracking-widest text-tactical-light mb-4 flex items-center gap-2">
                                   <TrendingUp className="w-3 h-3" /> Consistency Index
                               </h3>
@@ -251,7 +254,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
       if (layout === 'sidebar' && !isPortrait) {
           return (
               <div className="flex h-full w-full">
-                  <div className={`w-[500px] ${themeStyles.cardBg} border-r p-12 flex flex-col justify-between relative z-20`} style={{ borderColor: (theme === 'slate' || theme === 'violet') ? themeStyles.accent : 'transparent' }}>
+                  <div className={`w-[500px] ${visualConfig.templateMode ? 'bg-transparent border-transparent' : themeStyles.cardBg + ' border-r'} p-12 flex flex-col justify-between relative z-20`} style={{ borderColor: 'transparent' }}>
                       <div>
                           <Header />
                           <div className="mt-20">
@@ -275,9 +278,9 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
       
       // Classic Layout
       return (
-          <div className={`w-full h-full flex flex-col relative z-10`} style={{ padding: `${4 * visualConfig.containerPadding}rem` }}>
+          <div className={`w-full h-full flex flex-col relative z-10`} style={{ padding: `${2 * visualConfig.containerPadding}rem` }}>
               <Header />
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col overflow-hidden">
                   {children}
               </div>
               <Footer />
@@ -298,6 +301,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                     subtitle={config.subtitle}
                     page={page}
                     totalPages={totalPages}
+                    rowsPerPage={rowsPerPage}
                     isPortrait={isPortrait}
                     onElementClick={onElementClick}
                 />
@@ -308,244 +312,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
     const startIdx = (page - 1) * rowsPerPage;
     const endIdx = startIdx + rowsPerPage;
     const displayData = data.slice(startIdx, endIdx);
-
-    if (layout === 'cyber_glitch') {
-        return (
-            <div className="relative z-10 flex-1 flex flex-col gap-3 p-8">
-                {displayData.map((team, idx) => {
-                    const actualRank = team.rank;
-                    const isTop3 = actualRank <= 3;
-                    
-                    let rankColor = themeStyles.accent;
-                    if (actualRank === 1) rankColor = '#EAB308';
-                    else if (actualRank === 2) rankColor = '#94a3b8';
-                    else if (actualRank === 3) rankColor = '#C2410C';
-
-                    return (
-                        <div key={team.name} className={`relative flex items-center justify-between p-4 bg-black/80 border-l-4 overflow-hidden group`} style={{ borderColor: rankColor }}>
-                            {/* Glitch Background Effect */}
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, ${rankColor} 0%, transparent 100%)` }}></div>
-                            <div className="absolute top-0 left-0 w-full h-[1px] bg-white/20"></div>
-                            <div className="absolute bottom-0 left-0 w-full h-[1px] bg-white/20"></div>
-                            
-                            {/* Scanline */}
-                            <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
-
-                            <div className="flex items-center gap-6 relative z-10">
-                                <div className="relative">
-                                    <div className={`text-5xl font-black italic tracking-tighter ${isTop3 ? 'text-white' : themeStyles.subText} drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] animate-glitch-flicker`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 2 : 3.5) * visualConfig.rankScale}rem` }}>
-                                        {String(actualRank).padStart(2, '0')}
-                                    </div>
-                                    {isTop3 && <div className="absolute -inset-2 blur-md opacity-50 animate-pulse" style={{ backgroundColor: rankColor, zIndex: -1 }}></div>}
-                                </div>
-                                
-                                <div className="flex flex-col">
-                                    <div className={`text-3xl font-black uppercase tracking-widest text-white drop-shadow-md relative group-hover:animate-glitch-skew`} style={{ fontSize: `${(isPortrait ? 1.5 : 2.5) * visualConfig.headerScale}rem` }}>
-                                        <span className="absolute -left-[1px] top-[1px] text-cyan-500 opacity-50 mix-blend-screen animate-glitch-color">{team.name}</span>
-                                        <span className="absolute -right-[1px] -top-[1px] text-fuchsia-500 opacity-50 mix-blend-screen animate-glitch-color">{team.name}</span>
-                                        <span className="relative z-10">{team.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-xs font-mono text-white/50 mt-1">
-                                        <span className="bg-white/10 px-2 py-0.5 rounded-sm">KILLS: <span className="text-white font-bold">{team.totalFinishes}</span></span>
-                                        <span className="bg-white/10 px-2 py-0.5 rounded-sm">PLACE: <span className="text-white font-bold">{team.placementPoints}</span></span>
-                                        {team.trend === 'RISING' && <span className="text-green-400 flex items-center gap-1"><TrendingUp className="w-3 h-3"/> UP</span>}
-                                        {team.trend === 'FALLING' && <span className="text-red-400 flex items-center gap-1"><TrendingDown className="w-3 h-3"/> DOWN</span>}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="relative z-10 flex items-center gap-8">
-                                {!isPortrait && (
-                                    <div className="flex gap-1 h-12 items-end opacity-50">
-                                        {team.history.slice(-5).map((h, i) => (
-                                            <div key={i} className="w-2 bg-white" style={{ height: `${Math.max(10, (h.points / 30) * 100)}%` }}></div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="text-right flex items-center gap-4">
-                                    <div className="flex flex-col items-end">
-                                        <div className="text-[10px] font-mono text-white/40 tracking-[0.3em] uppercase mb-1 flex items-center gap-2">
-                                            <span className="opacity-50">SYS.PTS</span>
-                                            Total Score
-                                        </div>
-                                        <div className={`text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] relative`} style={{ fontSize: `${(isPortrait ? 3 : 5) * visualConfig.fontScale}rem` }}>
-                                            <span className="absolute -left-[2px] top-[1px] text-cyan-500 opacity-50 mix-blend-screen">{team.totalPoints}</span>
-                                            <span className="absolute -right-[2px] -top-[1px] text-fuchsia-500 opacity-50 mix-blend-screen">{team.totalPoints}</span>
-                                            <span className="relative z-10">{team.totalPoints}</span>
-                                        </div>
-                                    </div>
-                                    <div className="w-1 h-16 bg-white/20 flex flex-col justify-between">
-                                        <div className="w-full h-1/3 bg-white/50"></div>
-                                        <div className="w-full h-1/4 bg-white/80" style={{ backgroundColor: rankColor }}></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        );
-    }
-
-    if (layout === 'broadcast_hero') {
-        // FORCE SINGLE COLUMN LAYOUT (BGMI Style)
-        // Only show up to 16 teams for the broadcast view to fit on screen
-        const displayTeams = displayData.slice(0, 16);
-
-        const BroadcastHeaderRow = () => (
-            <div className={`flex items-center h-12 bg-[#D1B88F] text-[#3E2723] text-sm font-black uppercase tracking-widest ${isPortrait ? 'px-2' : 'px-6'} border-b-4 border-[#8D6E63] shadow-md`}>
-                <div className={`${isPortrait ? 'w-10' : 'w-16'} text-center`}>POS</div>
-                <div className="flex-1 pl-4">TEAM NAME</div>
-                {!isPortrait && <div className="w-32 text-center">MATCHES PLAYED</div>}
-                <div className={`${isPortrait ? 'w-16' : 'w-24'} text-center`}>FINISH</div>
-                <div className={`${isPortrait ? 'w-16' : 'w-24'} text-center`}>POS</div>
-                <div className={`${isPortrait ? 'w-20' : 'w-24'} text-center`}>TOTAL</div>
-            </div>
-        );
-
-        const BroadcastTeamRow: React.FC<{ team: TeamData, rank: number }> = ({ team, rank }) => {
-            const teamLogo = branding.teamBranding?.[team.name]?.logoUrl;
-            const wins = team.history.filter(h => h.rank === 1).length;
-            const matchesPlayed = team.matchesPlayed || 18; // Default to 18 if not set for demo purposes
-
-            // BGMI style row colors
-            const isTop3 = rank <= 3;
-            const rowBg = rank % 2 === 0 ? 'bg-[#EFEBE1]' : 'bg-[#E6DECD]';
-            
-            return (
-                <div className={`flex items-center ${rowBg} border-b border-[#D1B88F]/50 relative overflow-hidden group shadow-sm`} style={{ height: `${(isPortrait ? 2.5 : 3.5) * visualConfig.rowHeight}rem`, paddingLeft: `${(isPortrait ? 0.5 : 1.5) * visualConfig.padding}rem`, paddingRight: `${(isPortrait ? 0.5 : 1.5) * visualConfig.padding}rem`, marginBottom: `${0.2 * visualConfig.itemSpacing}rem` }}>
-                    {/* Rank */}
-                    <div className={`${isPortrait ? 'w-10' : 'w-16'} flex items-center justify-center gap-1`}>
-                        {!isPortrait && (
-                            rank === 1 ? (
-                                <div className="w-6 h-1 bg-[#4CAF50]"></div> // Green indicator for #1
-                            ) : rank === 2 ? (
-                                <div className="w-6 h-1 bg-[#4CAF50]"></div>
-                            ) : rank === 3 ? (
-                                <div className="w-6 h-1 bg-[#4CAF50]"></div>
-                            ) : team.trend === 'RISING' ? (
-                                <TrendingUp className="w-4 h-4 text-green-600" />
-                            ) : team.trend === 'FALLING' ? (
-                                <TrendingDown className="w-4 h-4 text-red-600" />
-                            ) : (
-                                <Minus className="w-4 h-4 text-gray-400" />
-                            )
-                        )}
-                        <span className={`font-black ${isPortrait ? 'text-lg' : 'text-2xl'} text-[#3E2723] ${isPortrait ? 'w-6' : 'w-8'} text-center`}>{rank}</span>
-                    </div>
-
-                    {/* Team Name & Logo & Wins */}
-                    <div className="flex-1 pl-2 flex items-center gap-2">
-                        <div className={`${isPortrait ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center overflow-hidden`}>
-                            {teamLogo ? (
-                                <img src={teamLogo} alt={team.name} className="w-full h-full object-contain" />
-                            ) : (
-                                <Shield className={`${isPortrait ? 'w-4 h-4' : 'w-6 h-6'} text-[#8D6E63]`} />
-                            )}
-                        </div>
-                        <span className={`font-black ${isPortrait ? 'text-sm' : 'text-xl'} uppercase text-[#3E2723] tracking-tight truncate ${isPortrait ? 'max-w-[100px]' : 'w-48'}`}>
-                            {team.name}
-                        </span>
-                        
-                        {/* SDRR (Wins) */}
-                        {!isPortrait && (
-                            <div className="flex items-center gap-1 w-20">
-                                {wins > 0 && (
-                                    <>
-                                        <span className="text-[10px] font-black bg-[#D1B88F] text-[#3E2723] px-1.5 py-0.5 rounded-sm tracking-tighter">SDRR</span>
-                                        <span className="font-black text-lg text-[#3E2723]">x{wins}</span>
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Stats */}
-                    {!isPortrait && <div className="w-32 text-center font-bold text-[#5D4037] text-xl">{matchesPlayed}</div>}
-                    <div className={`${isPortrait ? 'w-16' : 'w-24'} text-center font-bold text-[#5D4037] ${isPortrait ? 'text-sm' : 'text-xl'}`}>{team.totalFinishes}</div>
-                    <div className={`${isPortrait ? 'w-16' : 'w-24'} text-center font-bold text-[#5D4037] ${isPortrait ? 'text-sm' : 'text-xl'}`}>{team.placementPoints}</div>
-                    <div className={`${isPortrait ? 'w-20' : 'w-24'} text-center font-black ${isPortrait ? 'text-xl' : 'text-3xl'} text-[#3E2723]`}>
-                        {team.totalPoints}
-                    </div>
-                </div>
-            );
-        };
-
-        return (
-            <div className="relative z-10 flex-1 flex flex-col font-sans bg-[#F5F2EB]">
-                {/* BACKGROUND TEXTURE */}
-                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/cream-paper.png")' }}></div>
-                
-                {/* TOP HEADER */}
-                <div className={`relative z-10 flex ${isPortrait ? 'flex-col items-center text-center' : 'justify-between items-end'}`} style={{ paddingTop: `${(isPortrait ? 1 : 2.5) * visualConfig.padding}rem`, paddingBottom: `${(isPortrait ? 1 : 1.5) * visualConfig.padding}rem`, paddingLeft: `${(isPortrait ? 1 : 4) * visualConfig.padding}rem`, paddingRight: `${(isPortrait ? 1 : 4) * visualConfig.padding}rem` }}>
-                    <div>
-                        <h1 className={`${isPortrait ? 'text-4xl' : 'text-7xl'} font-black text-[#D1B88F] uppercase tracking-tighter drop-shadow-sm`} style={{ WebkitTextStroke: isPortrait ? '1px #3E2723' : '2px #3E2723', color: '#F5F2EB' }}>
-                            {branding.tournamentName || 'OVERALL STANDINGS'}
-                        </h1>
-                        <div className={`bg-[#D1B88F] text-[#3E2723] font-black tracking-widest uppercase ${isPortrait ? 'text-sm px-2' : 'text-lg px-4'} py-1 inline-block mt-2 shadow-sm`}>
-                            {branding.tournamentStage || 'GRAND FINALS | END OF DAY 3'}
-                        </div>
-                    </div>
-                    
-                    {/* Sponsor / Tournament Logos */}
-                    {!isPortrait && (
-                        <div className="flex flex-col items-end gap-4">
-                            {branding.publisherLogoUrl ? (
-                                <div className="h-16 bg-white p-2 rounded shadow-sm border border-gray-200 flex items-center justify-center">
-                                    <img src={branding.publisherLogoUrl} alt="Publisher" className="h-full object-contain" />
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-4 bg-white p-2 rounded shadow-sm border border-gray-200 opacity-50">
-                                    <div className="font-black text-2xl tracking-tighter border-r-2 border-black pr-2">PUBLISHER</div>
-                                    <div className="font-bold text-sm leading-none">LOGO<br/>HERE</div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* MAIN TABLE */}
-                <div className={`flex-1 flex relative z-10`} style={{ paddingLeft: `${(isPortrait ? 1 : 4) * visualConfig.padding}rem`, paddingRight: `${(isPortrait ? 1 : 4) * visualConfig.padding}rem`, paddingBottom: `${(isPortrait ? 1 : 3) * visualConfig.padding}rem` }}>
-                    <div className="flex-1 flex flex-col shadow-2xl rounded-sm border-2 border-[#8D6E63]">
-                        <BroadcastHeaderRow />
-                        <div className="flex flex-col bg-[#F5F2EB]">
-                            {displayTeams.map((team, idx) => (
-                                <BroadcastTeamRow key={team.name} team={team} rank={team.rank} />
-                            ))}
-                        </div>
-                    </div>
-                    
-                    {/* Right Side Sponsor Bar */}
-                    {!isPortrait && (
-                        <div className="w-48 ml-8 flex flex-col items-center justify-start gap-12 pt-12">
-                            {branding.sponsorLogos && branding.sponsorLogos[0] ? (
-                                <img src={branding.sponsorLogos[0]} alt="Sponsor 1" className="w-32 object-contain" />
-                            ) : (
-                                <div className="w-32 h-16 border-2 border-dashed border-gray-400 flex items-center justify-center text-gray-400 font-bold text-sm text-center opacity-50">SPONSOR<br/>LOGO 1</div>
-                            )}
-                            
-                            {branding.sponsorLogos && branding.sponsorLogos[1] ? (
-                                <img src={branding.sponsorLogos[1]} alt="Sponsor 2" className="w-32 object-contain" />
-                            ) : (
-                                <div className="w-32 h-32 bg-white rounded-full border-4 border-dashed border-gray-400 flex flex-col items-center justify-center shadow-lg transform -rotate-6 opacity-50">
-                                    <div className="font-black text-xl text-gray-400 text-center">SPONSOR<br/>LOGO 2</div>
-                                </div>
-                            )}
-                            
-                            <div className="text-center mt-auto pb-12">
-                                <div className="text-xs font-bold text-gray-500 mb-2">POWERED BY</div>
-                                {branding.sponsorLogos && branding.sponsorLogos[2] ? (
-                                    <img src={branding.sponsorLogos[2]} alt="Sponsor 3" className="w-32 object-contain mx-auto" />
-                                ) : (
-                                    <div className="w-32 h-12 border-2 border-dashed border-gray-400 flex items-center justify-center text-gray-400 font-bold text-sm opacity-50 mx-auto">SPONSOR 3</div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-    }
 
     if (layout === 'main_stage') {
         return (
@@ -560,7 +326,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                     else if (actualRank === 3) rankColor = '#C2410C';
 
                     return (
-                            <div className={`flex items-center justify-between ${isPortrait ? 'p-2' : 'p-4'} relative overflow-hidden backdrop-blur-md bg-white/5`} style={{ clipPath: isPortrait ? 'none' : 'polygon(20px 0, 100% 0, calc(100% - 20px) 100%, 0 100%)', borderColor: isTop3 ? rankColor : 'rgba(255,255,255,0.1)', borderWidth: isTop3 ? '2px' : '1px' }}>
+                            <div className={tMode(`flex items-center justify-between ${isPortrait ? 'p-2' : 'p-3'} relative overflow-hidden backdrop-blur-md bg-white/5`)} style={{ clipPath: isPortrait ? 'none' : 'polygon(20px 0, 100% 0, calc(100% - 20px) 100%, 0 100%)', borderColor: isTemplate ? 'transparent' : (isTop3 ? rankColor : 'rgba(255,255,255,0.1)'), borderWidth: isTop3 ? '2px' : '1px' }}>
                                 {/* Inner Glow / Edge Lighting */}
                                 <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
                                 
@@ -674,7 +440,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                     const placePct = 100 - killPct;
 
                     return (
-                        <div key={team.name} className={`flex items-center gap-8 p-6 ${themeStyles.cardBg} rounded-xl border-l-8`} style={{ borderColor: themeStyles.accent }}>
+                        <div key={team.name} className={`flex items-center gap-6 p-4 ${themeStyles.cardBg} rounded-xl border-l-8`} style={{ borderColor: themeStyles.accent }}>
                             <div className={`text-6xl font-black ${themeStyles.text} w-24 text-center`} style={{ fontSize: `${4 * visualConfig.rankScale}rem` }}>
                                 {team.rank}
                             </div>
@@ -705,70 +471,233 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
     }
 
     return (
-        <div className="relative z-10 flex-1">
-            <table className="w-full text-left border-collapse">
-            <thead>
-                <tr className={`border-b-2`} style={{ borderColor: (theme === 'slate' || theme === 'violet') ? themeStyles.accent : theme === 'paper' ? '#0f172a' : 'rgba(255,255,255,0.2)' }}>
-                    <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>Rank</th>
-                    <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest pl-4`}>Team</th>
-                    {!isPortrait && <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>SDRR</th>}
-                    {!isPortrait && <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>Place</th>}
-                    {!isPortrait && <th className={`py-2 text-xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`}>Kills</th>}
-                    <th className={`py-2 text-2xl font-black ${themeStyles.text} uppercase tracking-widest text-right pr-4`}>Pts</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div className="relative z-10 flex-1 flex flex-col justify-between overflow-hidden">
+            <div className="flex flex-col gap-1.5">
+                {/* Header belt */}
+                <div className="flex items-center px-4 py-1.5 bg-black/40 border-y border-white/5 font-mono text-[9px] font-bold uppercase tracking-[0.25em] text-white/40 mb-1">
+                    <div className="w-16 text-center">POS</div>
+                    <div className="w-1/3 pl-4">TEAM / CHAMPIONSHIP ROSTER</div>
+                    {!isPortrait && (
+                        <div className="flex-1 flex items-center justify-around mr-12 ml-8">
+                            <div className="w-24 text-center">SDRR</div>
+                            <div className="w-24 text-center">PLACE PTS</div>
+                            <div className="w-24 text-center">KILL PTS</div>
+                        </div>
+                    )}
+                    <div className="w-32 text-right pr-4">TOTAL SCORE</div>
+                </div>
+
+                {/* Body Rows */}
                 {displayData.map((team, idx) => {
                     const actualRank = team.rank;
                     const isTop3 = actualRank <= 3;
-                    const rowBg = idx % 2 === 0 ? themeStyles.highlight : 'transparent';
                     
                     let rankColor = themeStyles.accent;
-                    if (actualRank === 1) rankColor = '#EAB308';
-                    else if (actualRank === 2) rankColor = '#94a3b8'; // Slate 400
-                    else if (actualRank === 3) rankColor = '#C2410C';
+                    let rankBadgeBg = 'bg-zinc-800/60 border-zinc-700/50';
+                    let rankText = 'text-zinc-300';
+                    let rowBg = 'bg-[#121214]/85 hover:bg-[#18181b]/95 border-white/[0.02]';
+                    let borderHighlight = 'border-l-zinc-700/40';
+                    let badgeAccent = 'text-zinc-400';
+                    
+                    if (actualRank === 1) {
+                        rankColor = '#EAB308'; // Gold
+                        rankBadgeBg = 'bg-amber-500/10 border-amber-500/30';
+                        rankText = 'text-yellow-400 font-extrabold';
+                        rowBg = 'bg-gradient-to-r from-amber-500/[0.04] to-zinc-950/90 border border-amber-500/15 hover:from-amber-500/[0.08]';
+                        borderHighlight = 'border-l-yellow-500';
+                        badgeAccent = 'text-yellow-500';
+                    } else if (actualRank === 2) {
+                        rankColor = '#38bdf8'; // Blue / Platinum style
+                        rankBadgeBg = 'bg-sky-500/10 border-sky-500/30';
+                        rankText = 'text-sky-400 font-extrabold';
+                        rowBg = 'bg-gradient-to-r from-sky-500/[0.03] to-zinc-950/90 border border-sky-500/10 hover:from-sky-500/[0.06]';
+                        borderHighlight = 'border-l-sky-400';
+                        badgeAccent = 'text-sky-400';
+                    } else if (actualRank === 3) {
+                        rankColor = '#f97316'; // Bronze / Orange
+                        rankBadgeBg = 'bg-orange-500/10 border-orange-500/30';
+                        rankText = 'text-orange-400 font-extrabold';
+                        rowBg = 'bg-gradient-to-r from-orange-500/[0.03] to-zinc-950/90 border border-orange-500/15 hover:from-orange-500/[0.06]';
+                        borderHighlight = 'border-l-orange-500';
+                        badgeAccent = 'text-orange-500';
+                    }
+
+                    // Special custom generated background if theme is Paper (light theme)
+                    if (theme === 'paper') {
+                        rowBg = 'bg-white hover:bg-slate-50 border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]';
+                        rankBadgeBg = 'bg-slate-100 border-slate-200';
+                        rankText = isTop3 ? 'text-slate-900 font-black' : 'text-slate-600 font-bold';
+                        borderHighlight = isTop3 ? borderHighlight : 'border-l-slate-300';
+                    }
+
+                    // Dynamic crest/logo bg
+                    const hashTeamColor = (str: string) => {
+                        let hash = 0;
+                        for (let i = 0; i < str.length; i++) {
+                            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                        }
+                        const colors = [
+                            'from-red-600 to-rose-950',
+                            'from-indigo-600 to-blue-950',
+                            'from-emerald-600 to-teal-950',
+                            'from-amber-600 to-yellow-950',
+                            'from-purple-600 to-fuchsia-950',
+                            'from-pink-600 to-rose-950',
+                            'from-teal-600 to-cyan-950'
+                        ];
+                        return colors[Math.abs(hash) % colors.length];
+                    };
+
+                    const teamLogoURL = branding.teamBranding?.[team.name]?.logoUrl;
+                    const sdrrWins = team.history?.filter(h => h.rank === 1).length || 0;
 
                     return (
-            <tr 
-                key={team.name} 
-                onClick={() => onElementClick?.('team', { teamId: team.name })}
-                className={`${rowBg} ${isTop3 ? 'border-l-[8px]' : 'border-l-4 border-transparent'} ${!isExporting ? 'cursor-pointer hover:brightness-125 transition-all' : ''}`} 
-                style={{ borderColor: isTop3 ? rankColor : 'transparent' }}
-            >
-                            <td className="text-center" style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
-                                <div 
-                                    className={`w-12 h-12 mx-auto flex items-center justify-center font-black rounded-sm ${isTop3 ? 'text-black' : `${themeStyles.text} ${theme === 'paper' ? 'bg-slate-200' : 'bg-white/10'}`}`} 
-                                    style={{ backgroundColor: isTop3 ? rankColor : undefined, fontSize: `${1.5 * visualConfig.rankScale}rem` }}
-                                >
-                                    #{actualRank}
-                                </div>
-                            </td>
-                            <td className="pl-4" style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
-                                <div className={`font-bold ${themeStyles.text} mb-0.5`} style={{ fontSize: `${1.8 * visualConfig.headerScale}rem` }}>{team.name}</div>
-                                {isPortrait && (
-                                    <div className={`flex text-base ${themeStyles.fontBody} ${themeStyles.subText}`} style={{ gap: `${1 * visualConfig.spacing}rem` }}>
-                                        <span>{team.totalFinishes} Kills</span>
-                                        <span>{(team.totalDamage/1000).toFixed(1)}k Dmg</span>
-                                    </div>
-                                )}
-                            </td>
-                            {!isPortrait && (
-                                <>
-                                    <td className={`text-center text-2xl font-bold ${themeStyles.text}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
-                                        {team.history?.filter(h => h.rank === 1).length > 0 ? <span style={accentText}>{team.history?.filter(h => h.rank === 1).length}</span> : <span className="opacity-30">-</span>}
-                                    </td>
-                                    <td className={`text-center text-2xl ${themeStyles.fontBody} ${themeStyles.subText}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>{team.placementPoints}</td>
-                                    <td className={`text-center text-2xl ${themeStyles.fontBody} ${themeStyles.subText}`} style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>{team.totalFinishes}</td>
-                                </>
+                        <div 
+                            key={team.name}
+                            onClick={() => onElementClick?.('team', { teamId: team.name })}
+                            className={`flex items-center justify-between p-3 rounded-md border shadow-md transition-all duration-300 relative group border-l-[6px] ${borderHighlight} ${rowBg} cursor-pointer hover:scale-[1.005]`}
+                        >
+                            {/* Inner ambient glow on hover for premium dark card structure */}
+                            {theme !== 'paper' && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/[0.01] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-md" />
                             )}
-                            <td className="text-right pr-4" style={{ padding: `${0.5 * visualConfig.padding}rem ${1 * visualConfig.padding}rem` }}>
-                                <span className={`text-5xl font-black ${themeStyles.text} tracking-tighter`}>{team.totalPoints}</span>
-                            </td>
-                        </tr>
+
+                            {/* LEFT BRAND SECTION */}
+                            <div className="flex items-center gap-6 relative z-10 flex-1 min-w-0">
+                                {/* Position Badge */}
+                                <div className={`w-12 h-12 flex flex-col items-center justify-center rounded-sm border font-mono ${rankBadgeBg}`}>
+                                    <span className={`text-[8px] uppercase tracking-wider ${isTop3 ? badgeAccent : 'text-zinc-500 font-bold'} font-mono leading-none shadow-sm`}>RANK</span>
+                                    <span className={`text-2xl font-black italic tracking-tighter leading-none mt-1 ${rankText}`}>
+                                        {actualRank}
+                                    </span>
+                                </div>
+
+                                {/* Composite Team Crest / Logo */}
+                                <div className="relative flex-shrink-0">
+                                    <div className="w-11 h-11 rounded-sm bg-black/40 border border-white/5 flex items-center justify-center overflow-hidden relative shadow-inner">
+                                        {teamLogoURL ? (
+                                            <img src={teamLogoURL} alt={team.name} className="w-9 h-9 object-contain" referrerPolicy="no-referrer" />
+                                        ) : (
+                                            <div className={`w-full h-full bg-gradient-to-br ${hashTeamColor(team.name)} flex items-center justify-center text-white font-extrabold text-lg uppercase font-serif tracking-wider shadow-inner`}>
+                                                {team.name.substring(0, 2)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {isTop3 && (
+                                        <div className="absolute -top-1.5 -right-1.5">
+                                            {actualRank === 1 ? (
+                                                <div className="bg-yellow-500 text-black text-[8px] font-black uppercase p-0.5 rounded-sm flex items-center justify-center shadow-md animate-pulse">
+                                                    <Crown className="w-2.5 h-2.5" />
+                                                </div>
+                                            ) : (
+                                                <div className="bg-white/10 border border-white/15 text-white text-[8px] font-black uppercase p-0.5 rounded-sm flex items-center justify-center shadow-sm">
+                                                    <Star className="w-2.5 h-2.5 text-zinc-300" fill="currentColor" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Team Name, Code and Trend */}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className={`font-serif text-xl font-black uppercase tracking-tight truncate ${theme === 'paper' ? 'text-slate-900' : 'text-white'}`} style={{ fontSize: `${1.4 * visualConfig.headerScale}rem` }}>
+                                            {team.name}
+                                        </h3>
+                                        <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-white/50 font-semibold tracking-wider">
+                                            #{(branding.teamBranding?.[team.name] as any)?.tag || team.name.substring(0, 3).toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-1 text-[10px] font-mono text-zinc-500">
+                                        {team.trend === 'RISING' ? (
+                                            <div className="flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">
+                                                <TrendingUp className="w-3 h-3 animate-bounce" />
+                                                <span>RISING</span>
+                                            </div>
+                                        ) : team.trend === 'FALLING' ? (
+                                            <div className="flex items-center gap-1 text-rose-400 font-bold bg-rose-500/5 px-1.5 py-0.5 rounded border border-rose-500/10">
+                                                <TrendingDown className="w-3 h-3" />
+                                                <span>FALLING</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1 text-zinc-400 font-bold bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                                                <Minus className="w-3 h-3" />
+                                                <span>STABLE</span>
+                                            </div>
+                                        )}
+                                        
+                                        {!isPortrait && team.players && team.players.length > 0 && (
+                                            <span className="text-zinc-700/40 truncate max-w-[240px] italic font-medium ml-2 border-l border-white/5 pl-3">
+                                                {team.players.slice(0, 4).map(p => p.playerName).join(' • ')}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* STATISTICS PANEL */}
+                            {!isPortrait && (
+                                <div className="flex-1 flex items-center justify-around mr-12 ml-8 relative z-10 flex-shrink-0">
+                                    {/* SDRR Wins */}
+                                    <div className="w-24 flex flex-col items-center">
+                                        <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500 mb-1">SDRR</span>
+                                        <div className="flex items-center gap-1">
+                                            {sdrrWins > 0 ? (
+                                                <div className="flex items-center gap-1 text-yellow-400 bg-yellow-500/10 border border-yellow-500/25 px-2 py-0.5 rounded-sm font-black font-mono">
+                                                    <Trophy className="w-3 h-3 text-yellow-500" />
+                                                    <span>{sdrrWins}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-zinc-600 font-medium font-mono text-lg">-</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Placement Points */}
+                                    <div className="w-24 text-center">
+                                        <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500 block mb-1">PLACE PTS</span>
+                                        <span className="text-lg font-bold font-mono text-zinc-300">
+                                            {team.placementPoints}
+                                        </span>
+                                    </div>
+
+                                    {/* Kill Points */}
+                                    <div className="w-24 text-center">
+                                        <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500 block mb-1">KILL PTS</span>
+                                        <span className="text-lg font-bold font-mono text-zinc-300">
+                                            {team.totalFinishes}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* POWERED POINTS BOX */}
+                            <div className="w-32 flex items-center justify-end relative z-10 flex-shrink-0">
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[8.5px] font-mono tracking-widest text-zinc-500 uppercase mb-0.5">PTS</span>
+                                    <div 
+                                        className={`px-3 py-1 bg-black/60 border border-white/5 rounded-sm font-black text-3xl tracking-tighter shadow-md`}
+                                        style={{ color: isTop3 ? rankColor : '#FFFFFF', fontFamily: 'var(--font-heading, "Inter")' }}
+                                    >
+                                        {team.totalPoints}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     );
                 })}
-            </tbody>
-            </table>
+            </div>
+
+            {/* Premium Template Signature Footer */}
+            {!isExporting && (
+                <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4 text-[9px] font-mono text-white/30 tracking-[0.2em] uppercase">
+                    <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>FRAGLAB POWERED ANALYTICS SYSTEM</span>
+                    </div>
+                    <div>PAGE {page} OF {totalPages} // CUMULATIVE STANDINGS OVERVIEW</div>
+                </div>
+            )}
         </div>
     );
   };
@@ -809,122 +738,17 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
           { subject: 'KILL', A: Math.min(100, (team.totalFinishes / (team.matchesPlayed * 10)) * 100), fullMark: 100 },
       ];
 
-      if (layout === 'cyber_glitch') {
-          return (
-              <div className="flex-1 flex flex-col relative cursor-pointer p-8" onClick={() => onElementClick?.('team', { teamId: team.name })}>
-                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
-                  
-                  <div className="flex justify-between items-start mb-8 relative z-10">
-                      <div className="flex-1">
-                          <div className="flex items-center gap-4 mb-2">
-                              <span className={`text-3xl font-black px-4 py-1 rounded-sm text-black bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.8)]`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>#{team.rank}</span>
-                              <span className={`text-xl font-mono uppercase text-white/50`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{team.flags[0] || 'CONTENDER'}</span>
-                          </div>
-                          <div className="relative">
-                              <h1 className={`absolute -top-[2px] -left-[2px] font-black text-cyan-500 uppercase leading-none truncate mix-blend-screen opacity-50`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem` }}>{team.name}</h1>
-                              <h1 className={`absolute top-[2px] left-[2px] font-black text-fuchsia-500 uppercase leading-none truncate mix-blend-screen opacity-50`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem` }}>{team.name}</h1>
-                              <h1 className={`relative font-black text-white uppercase leading-none truncate drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem` }}>{team.name}</h1>
-                          </div>
-                      </div>
-                      <div className="text-right">
-                          <div className="text-sm font-mono text-white/50 uppercase tracking-widest mb-1">Total Score</div>
-                          <div className="text-7xl font-black text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)]">{team.totalPoints}</div>
-                      </div>
-                  </div>
-
-                  <div className="flex gap-8 flex-1 relative z-10">
-                      <div className="w-1/3 flex flex-col gap-4">
-                          <div className="bg-black/80 border border-white/10 rounded-lg p-6 backdrop-blur-sm relative overflow-hidden">
-                              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-yellow-500 to-transparent"></div>
-                              <div className="text-xs font-mono text-white/50 uppercase tracking-widest mb-4">Combat Stats</div>
-                              <div className="space-y-4">
-                                  <div className="flex justify-between items-end">
-                                      <span className="text-white/80 font-bold">Total Kills</span>
-                                      <span className="text-3xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">{team.totalFinishes}</span>
-                                  </div>
-                                  <div className="flex justify-between items-end">
-                                      <span className="text-white/80 font-bold">Total Damage</span>
-                                      <span className="text-3xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">{team.totalDamage}</span>
-                                  </div>
-                                  <div className="flex justify-between items-end">
-                                      <span className="text-white/80 font-bold">Avg Survival</span>
-                                      <span className="text-3xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">{team.avgSurvivalTime}m</span>
-                                  </div>
-                              </div>
-                          </div>
-
-                          <div className="bg-black/80 border border-white/10 rounded-lg p-6 backdrop-blur-sm flex-1 relative overflow-hidden flex flex-col">
-                              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-cyan-500 to-transparent"></div>
-                              <div className="text-xs font-mono text-white/50 uppercase tracking-widest mb-4">Team DNA</div>
-                              <div className="flex-1 min-h-[200px]">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                      <RadarChart cx="50%" cy="50%" outerRadius="70%" data={dnaData}>
-                                          <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                                          <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10, fontFamily: 'monospace' }} />
-                                          <Radar name="DNA" dataKey="A" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.3} />
-                                      </RadarChart>
-                                  </ResponsiveContainer>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="w-2/3 flex flex-col gap-4">
-                          <div className="bg-black/80 border border-white/10 rounded-lg p-6 backdrop-blur-sm relative overflow-hidden">
-                              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-fuchsia-500 to-transparent"></div>
-                              <div className="text-xs font-mono text-white/50 uppercase tracking-widest mb-4">Performance Trend</div>
-                              <div className="h-[150px]">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                      <LineChart data={team.history}>
-                                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                          <XAxis dataKey="matchId" stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                                          <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
-                                          <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.2)' }} />
-                                          <Line type="monotone" dataKey="points" stroke="#d946ef" strokeWidth={3} dot={{ r: 4, fill: '#d946ef', strokeWidth: 0 }} activeDot={{ r: 6, fill: '#fff' }} />
-                                      </LineChart>
-                                  </ResponsiveContainer>
-                              </div>
-                          </div>
-
-                          <div className="bg-black/80 border border-white/10 rounded-lg p-6 backdrop-blur-sm flex-1 relative overflow-hidden">
-                              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-white to-transparent"></div>
-                              <div className="text-xs font-mono text-white/50 uppercase tracking-widest mb-4">Roster</div>
-                              <div className="grid grid-cols-2 gap-4">
-                                  {team.players.map(p => {
-                                      const roleColor = p.carryClass === 'SYSTEM_COLLAPSE' ? '#ef4444' : p.carryClass === 'HARD_CARRY' ? '#eab308' : '#71717a';
-                                      return (
-                                          <div key={p.playerName} className="bg-white/5 border border-white/10 rounded-sm p-4 flex items-center gap-4 hover:bg-white/10 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); onElementClick?.('player', { playerName: p.playerName }); }}>
-                                              <div className="w-12 h-12 rounded-full border-2 flex items-center justify-center bg-black/50" style={{ borderColor: roleColor }}>
-                                                  <User className="w-6 h-6" style={{ color: roleColor }} />
-                                              </div>
-                                              <div className="flex-1">
-                                                  <div className="text-xl font-bold text-white uppercase truncate">{p.playerName}</div>
-                                                  <div className="flex justify-between items-center mt-1">
-                                                      <span className="text-xs font-mono text-white/50">{p.carryClass.replace('_', ' ')}</span>
-                                                      <span className="text-sm font-bold text-white">{p.finishes} K</span>
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          );
-      }
-
       return (
           <div className="flex-1 flex flex-col relative cursor-pointer" onClick={() => onElementClick?.('team', { teamId: team.name })}>
               <div className={`absolute inset-0 bg-gradient-to-b ${bgGradient} opacity-30 pointer-events-none`}></div>
               
-              <div className="flex justify-between items-start mb-8 relative z-10">
-                  <div className="flex-1">
-                      <div className="flex items-center gap-4 mb-2">
+              <div className={`flex ${isPortrait ? 'flex-col items-center gap-6' : 'justify-between items-start'} mb-8 relative z-10`}>
+                  <div className={`flex-1 ${isPortrait ? 'text-center flex flex-col items-center w-full' : ''}`}>
+                      <div className={`flex items-center gap-4 mb-2 ${isPortrait ? 'flex-col justify-center' : ''}`}>
                           <span className={`font-black ${themeColor}`} style={{ fontSize: `${4.5 * visualConfig.rankScale}rem` }}>#{team.rank}</span>
                           <div>
-                              <h1 className={`font-black uppercase leading-none ${themeStyles.text} tracking-tighter`} style={{ fontSize: `${6 * visualConfig.headerScale}rem` }}>{team.name}</h1>
-                              <div className="flex gap-4 mt-2">
+                              <h1 className={`font-black uppercase leading-none ${themeStyles.text} tracking-tighter`} style={{ fontSize: `${(isPortrait ? 4 : 6) * visualConfig.headerScale}rem` }}>{team.name}</h1>
+                              <div className={`flex gap-4 mt-2 ${isPortrait ? 'justify-center' : ''}`}>
                                   {team.flags.map(f => (
                                       <span key={f} className={`px-3 py-1 border-2 text-xl font-bold uppercase ${themeStyles.subText}`} style={{ borderColor: theme === 'paper' ? '#94a3b8' : 'rgba(255,255,255,0.2)' }}>
                                           {f}
@@ -938,27 +762,27 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                           </div>
                       </div>
                       
-                      <div className="grid grid-cols-4 mt-12 bg-white/5 rounded-sm backdrop-blur-sm border border-white/10" style={{ gap: `${2 * visualConfig.itemSpacing}rem`, padding: `${1.5 * visualConfig.padding}rem` }}>
-                          <div>
+                      <div className={`grid ${isPortrait ? 'grid-cols-2 text-center w-full' : 'grid-cols-4'} mt-12 bg-white/5 rounded-sm backdrop-blur-sm border border-white/10`} style={{ gap: `${2 * visualConfig.itemSpacing}rem`, padding: `${1.5 * visualConfig.padding}rem` }}>
+                          <div className={isPortrait ? 'border-b border-white/10 pb-4' : ''}>
                               <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Total Pts</div>
                               <div className={`text-6xl font-black ${themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
                           </div>
-                          <div className="border-l border-white/10" style={{ paddingLeft: `${2 * visualConfig.itemSpacing}rem` }}>
+                          <div className={`${isPortrait ? 'border-b border-white/10 pb-4' : 'border-l border-white/10'}`} style={{ paddingLeft: isPortrait ? '0' : `${2 * visualConfig.itemSpacing}rem` }}>
                               <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Wins</div>
                               <div className={`text-6xl font-black ${isChamp ? 'text-yellow-500' : themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.history.filter(h=>h.rank===1).length}</div>
                           </div>
-                          <div className="border-l border-white/10" style={{ paddingLeft: `${2 * visualConfig.itemSpacing}rem` }}>
+                          <div className={isPortrait ? 'pt-4' : 'border-l border-white/10'} style={{ paddingLeft: isPortrait ? '0' : `${2 * visualConfig.itemSpacing}rem` }}>
                               <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Frag Pts</div>
                               <div className={`text-6xl font-black ${themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.killPoints}</div>
                           </div>
-                          <div className="border-l border-white/10" style={{ paddingLeft: `${2 * visualConfig.itemSpacing}rem` }}>
+                          <div className={`${isPortrait ? 'pt-4 border-l border-white/10 pl-4' : 'border-l border-white/10'}`} style={{ paddingLeft: isPortrait ? '1rem' : `${2 * visualConfig.itemSpacing}rem` }}>
                               <div className={`text-xl font-bold uppercase tracking-widest ${themeStyles.subText}`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Matches</div>
                               <div className={`text-6xl font-black ${themeStyles.text}`} style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{team.matchesPlayed}</div>
                           </div>
                       </div>
                   </div>
 
-                  <div className="w-[400px] h-[400px] bg-white/5 rounded-full border border-white/10 relative flex items-center justify-center p-4">
+                  <div className={`${isPortrait ? 'w-[300px] h-[300px] mt-4' : 'w-[400px] h-[400px]'} bg-white/5 rounded-full border border-white/10 relative flex items-center justify-center p-4`}>
                         <div className="absolute top-4 left-0 w-full text-center text-xl font-bold uppercase tracking-widest text-white">Squad DNA</div>
                         <ResponsiveContainer width="100%" height="100%">
                             <RadarChart cx="50%" cy="55%" outerRadius="70%" data={dnaData}>
@@ -979,7 +803,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                   </div>
               </div>
 
-              <div className="flex-1 flex items-stretch relative z-10 pb-8" style={{ gap: `${1.5 * visualConfig.itemSpacing}rem` }}>
+              <div className={`flex-1 flex ${isPortrait ? 'flex-col gap-4' : 'items-stretch'} relative z-10 pb-8`} style={{ gap: isPortrait ? undefined : `${1.5 * visualConfig.itemSpacing}rem` }}>
                   {team.players.map((p, idx) => {
                       const roleColor = p.carryClass === 'SYSTEM_COLLAPSE' ? '#ef4444' : p.carryClass === 'HARD_CARRY' ? '#eab308' : '#71717a';
                       return (
@@ -1050,125 +874,31 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
       const roleColor = player.carryClass === 'SYSTEM_COLLAPSE' ? '#ef4444' : player.carryClass === 'HARD_CARRY' ? '#eab308' : themeStyles.accent;
 
-      if (layout === 'cyber_glitch') {
-          return (
-              <div className="flex-1 flex gap-12 items-stretch cursor-pointer p-8 relative" onClick={() => onElementClick?.('player', { playerName: player.playerName })}>
-                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
-                  
-                  <div className={`w-1/3 bg-black/80 border-l-4 flex flex-col relative overflow-hidden backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.8)]`} style={{ borderColor: roleColor, padding: `${3 * visualConfig.padding}rem` }}>
-                      <div className="absolute inset-0 opacity-0 hover:opacity-20 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, ${roleColor} 0%, transparent 100%)` }}></div>
-                      <div className="absolute top-0 left-0 w-full h-[1px] bg-white/20"></div>
-                      <div className="absolute bottom-0 left-0 w-full h-[1px] bg-white/20"></div>
-                      
-                      <div className="flex-1 flex flex-col justify-center relative z-10">
-                          <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-8 border-2 shrink-0 relative" style={{ borderColor: roleColor }}>
-                              <div className="absolute -inset-2 blur-md opacity-50 rounded-full" style={{ backgroundColor: roleColor }}></div>
-                              <User className="w-12 h-12 relative z-10" style={{ color: roleColor }} />
-                          </div>
-                          
-                          <div className="relative mb-4">
-                              <h1 className={`absolute -top-[2px] -left-[2px] font-black text-cyan-500 uppercase leading-tight break-words mix-blend-screen opacity-50`} style={{ fontSize: `${(player.playerName.length > 10 ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{player.playerName}</h1>
-                              <h1 className={`absolute top-[2px] left-[2px] font-black text-fuchsia-500 uppercase leading-tight break-words mix-blend-screen opacity-50`} style={{ fontSize: `${(player.playerName.length > 10 ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{player.playerName}</h1>
-                              <h1 className={`relative font-black text-white uppercase leading-tight break-words drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${(player.playerName.length > 10 ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{player.playerName}</h1>
-                          </div>
-                          
-                          <div className="text-2xl font-mono text-white/50 uppercase tracking-widest mb-6">{player.teamName}</div>
-                          
-                          <div className="inline-block px-4 py-2 text-black font-bold uppercase tracking-widest text-lg self-start rounded-sm shadow-[0_0_15px_rgba(255,255,255,0.3)]" style={{ backgroundColor: roleColor }}>
-                              {player.carryClass.replace('_', ' ')}
-                          </div>
-                      </div>
-
-                      <div className="mt-auto pt-8 shrink-0 relative z-10 border-t border-white/10">
-                          <div className="text-sm font-mono text-white/40 uppercase mb-2">Team Impact Share</div>
-                          <div className="text-7xl font-black text-white leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">{player.damageShare.toFixed(0)}<span className="text-3xl text-white/50">%</span></div>
-                      </div>
-                  </div>
-
-                  <div className="w-1/3 flex flex-col items-center justify-center relative z-10">
-                      <div className="w-full h-full absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-30"></div>
-                      <div className="relative z-10 w-full h-[500px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                                <PolarGrid stroke="rgba(255,255,255,0.2)" />
-                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#fff', fontSize: 16, fontWeight: 'bold', fontFamily: 'monospace' }} />
-                                <PolarRadiusAxis angle={30} domain={[0, 150]} tick={false} axisLine={false} />
-                                <Radar name={player.playerName} dataKey="A" stroke={roleColor} strokeWidth={3} fill={roleColor} fillOpacity={0.4} isAnimationActive={!isExporting} />
-                            </RadarChart>
-                          </ResponsiveContainer>
-                      </div>
-                  </div>
-
-                  <div className="flex-1 flex flex-col justify-center relative z-10" style={{ gap: `${2 * visualConfig.itemSpacing}rem` }}>
-                      {visualConfig.statPriority === 'combat' ? (
-                          <>
-                            <div className="bg-black/80 border-l-4 border-white/20 relative overflow-hidden backdrop-blur-sm" style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                                <div className="text-xl font-mono uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Confirmed Kills</div>
-                                <div className="text-8xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" style={{ fontSize: `${7 * visualConfig.fontScale}rem` }}>{player.finishes}</div>
-                            </div>
-                            <div className="bg-black/80 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: roleColor, padding: `${2 * visualConfig.padding}rem` }}>
-                                <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${roleColor} 0%, transparent 100%)` }}></div>
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                                <div className="text-xl font-mono uppercase text-white/50 mb-2 tracking-widest relative z-10" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Total Damage</div>
-                                <div className="text-8xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] relative z-10" style={{ fontSize: `${7 * visualConfig.fontScale}rem` }}>{(player.damage / 1000).toFixed(1)}k</div>
-                            </div>
-                            <div className="bg-black/80 border-l-4 border-white/20 opacity-75 relative overflow-hidden backdrop-blur-sm" style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                                <div className="text-lg font-mono uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1 * visualConfig.fontScale}rem` }}>Impact Rating</div>
-                                <div className="text-6xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" style={{ fontSize: `${3.75 * visualConfig.fontScale}rem` }}>{player.impactScore.toFixed(0)}</div>
-                            </div>
-                          </>
-                      ) : (
-                          <>
-                            <div className="bg-black/80 border-l-4 border-white/20 relative overflow-hidden backdrop-blur-sm" style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                                <div className="text-xl font-mono uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Impact Rating</div>
-                                <div className="text-8xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" style={{ fontSize: `${7 * visualConfig.fontScale}rem` }}>{player.impactScore.toFixed(0)}</div>
-                            </div>
-                            <div className="bg-black/80 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: roleColor, padding: `${2 * visualConfig.padding}rem` }}>
-                                <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${roleColor} 0%, transparent 100%)` }}></div>
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                                <div className="text-xl font-mono uppercase text-white/50 mb-2 tracking-widest relative z-10" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Total Damage</div>
-                                <div className="text-8xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] relative z-10" style={{ fontSize: `${7 * visualConfig.fontScale}rem` }}>{(player.damage / 1000).toFixed(1)}k</div>
-                            </div>
-                            <div className="bg-black/80 border-l-4 border-white/20 relative overflow-hidden backdrop-blur-sm" style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                                <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                                <div className="text-xl font-mono uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Confirmed Kills</div>
-                                <div className="text-8xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" style={{ fontSize: `${7 * visualConfig.fontScale}rem` }}>{player.finishes}</div>
-                            </div>
-                          </>
-                      )}
-                  </div>
-              </div>
-          );
-      }
-
       return (
-          <div className="flex-1 flex gap-12 items-stretch cursor-pointer" onClick={() => onElementClick?.('player', { playerName: player.playerName })}>
-              <div className={`w-1/3 bg-black/40 border-r border-white/10 flex flex-col relative`} style={{ padding: `${3 * visualConfig.padding}rem` }}>
+          <div className={`flex-1 flex ${isPortrait ? 'flex-col items-center overflow-y-auto' : 'gap-12 items-stretch'} cursor-pointer`} onClick={() => onElementClick?.('player', { playerName: player.playerName })}>
+              <div className={`${isPortrait ? 'w-full text-center items-center pb-6 border-b border-white/10' : 'w-1/3 bg-black/40 border-r border-white/10'} flex flex-col relative`} style={{ padding: `${3 * visualConfig.padding}rem` }}>
                   <div className={`absolute top-0 left-0 w-full h-2`} style={{ backgroundColor: roleColor }}></div>
                   
-                  <div className="flex-1 flex flex-col justify-center">
+                  <div className={`flex-1 flex flex-col justify-center ${isPortrait ? 'items-center mt-4' : ''}`}>
                       <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-4 border-2 border-white/10 shrink-0">
                           <User className="w-12 h-12 text-white" />
                       </div>
-                      <h1 className={`font-black text-white uppercase leading-tight mb-2 break-words`} style={{ fontSize: `${(player.playerName.length > 10 ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{player.playerName}</h1>
+                      <h1 className={`font-black text-white uppercase leading-tight mb-2 break-words ${isPortrait ? 'text-center' : ''}`} style={{ fontSize: `${(player.playerName.length > 10 ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{player.playerName}</h1>
                       <div className="text-2xl font-mono text-white/50 uppercase tracking-widest mb-4">{player.teamName}</div>
-                      <div className="inline-block px-4 py-2 bg-white/10 text-white font-bold uppercase tracking-widest text-lg self-start rounded-sm border border-white/20">
+                      <div className={`inline-block px-4 py-2 bg-white/10 text-white font-bold uppercase tracking-widest text-lg rounded-sm border border-white/20 ${isPortrait ? 'self-center' : 'self-start'}`}>
                           {player.carryClass.replace('_', ' ')}
                       </div>
                   </div>
 
-                  <div className="mt-auto pt-4 shrink-0">
+                  <div className={`pt-4 shrink-0 ${isPortrait ? 'text-center w-full mt-6 bg-white/5 py-4 border border-white/10' : 'mt-auto'}`}>
                       <div className="text-sm font-mono text-white/40 uppercase mb-1">Team Impact Share</div>
                       <div className="text-7xl font-black text-white leading-none">{player.damageShare.toFixed(0)}<span className="text-3xl text-white/50">%</span></div>
                   </div>
               </div>
 
-              <div className="w-1/3 flex flex-col items-center justify-center relative">
+              <div className={`${isPortrait ? 'w-full h-[300px] my-4' : 'w-1/3'} flex flex-col items-center justify-center relative`}>
                   <div className="w-full h-full absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-30"></div>
-                  <div className="relative z-10 w-full h-[500px]">
+                  <div className="relative z-10 w-full h-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                             <PolarGrid stroke="#444" />
@@ -1180,16 +910,16 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                   </div>
               </div>
 
-              <div className="flex-1 flex flex-col justify-center" style={{ gap: `${2 * visualConfig.itemSpacing}rem`, padding: `${3 * visualConfig.padding}rem` }}>
+              <div className="w-full flex-1 flex flex-col justify-center" style={{ gap: `${2 * visualConfig.itemSpacing}rem`, padding: `${(isPortrait ? 1 : 3) * visualConfig.padding}rem` }}>
                   {visualConfig.statPriority === 'combat' ? (
                       <>
                         <div className="bg-white/5 border-l-8 border-white/20" style={{ padding: `${2 * visualConfig.padding}rem` }}>
                             <div className="text-2xl font-bold uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Confirmed Kills</div>
-                            <div className="text-9xl font-black text-white" style={{ fontSize: `${8 * visualConfig.fontScale}rem` }}>{player.finishes}</div>
+                            <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-white`} style={{ fontSize: `${(isPortrait ? 4 : 8) * visualConfig.fontScale}rem` }}>{player.finishes}</div>
                         </div>
                         <div className="bg-white/5 border-l-8" style={{ borderColor: roleColor, padding: `${2 * visualConfig.padding}rem` }}>
                             <div className="text-2xl font-bold uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Total Damage</div>
-                            <div className="text-9xl font-black text-white" style={{ fontSize: `${8 * visualConfig.fontScale}rem` }}>{(player.damage / 1000).toFixed(1)}k</div>
+                            <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-white`} style={{ fontSize: `${(isPortrait ? 4 : 8) * visualConfig.fontScale}rem` }}>{(player.damage / 1000).toFixed(1)}k</div>
                         </div>
                         <div className="bg-white/5 border-l-8 border-white/20 opacity-75" style={{ padding: `${2 * visualConfig.padding}rem` }}>
                             <div className="text-xl font-bold uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>Impact Rating</div>
@@ -1200,15 +930,15 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
                       <>
                         <div className="bg-white/5 border-l-8 border-white/20" style={{ padding: `${2 * visualConfig.padding}rem` }}>
                             <div className="text-2xl font-bold uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Impact Rating</div>
-                            <div className="text-9xl font-black text-white" style={{ fontSize: `${8 * visualConfig.fontScale}rem` }}>{player.impactScore.toFixed(0)}</div>
+                            <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-white`} style={{ fontSize: `${(isPortrait ? 4 : 8) * visualConfig.fontScale}rem` }}>{player.impactScore.toFixed(0)}</div>
                         </div>
                         <div className="bg-white/5 border-l-8" style={{ borderColor: roleColor, padding: `${2 * visualConfig.padding}rem` }}>
                             <div className="text-2xl font-bold uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Total Damage</div>
-                            <div className="text-8xl font-black text-white" style={{ fontSize: `${7 * visualConfig.fontScale}rem` }}>{(player.damage / 1000).toFixed(1)}k</div>
+                            <div className={`${isPortrait ? 'text-5xl' : 'text-8xl'} font-black text-white`} style={{ fontSize: `${(isPortrait ? 3.5 : 7) * visualConfig.fontScale}rem` }}>{(player.damage / 1000).toFixed(1)}k</div>
                         </div>
                         <div className="bg-white/5 border-l-8 border-white/20" style={{ padding: `${2 * visualConfig.padding}rem` }}>
                             <div className="text-2xl font-bold uppercase text-white/50 mb-2 tracking-widest" style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Confirmed Kills</div>
-                            <div className="text-8xl font-black text-white" style={{ fontSize: `${7 * visualConfig.fontScale}rem` }}>{player.finishes}</div>
+                            <div className={`${isPortrait ? 'text-5xl' : 'text-8xl'} font-black text-white`} style={{ fontSize: `${(isPortrait ? 3.5 : 7) * visualConfig.fontScale}rem` }}>{player.finishes}</div>
                         </div>
                       </>
                   )}
@@ -1242,120 +972,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
       const colorA = '#3b82f6'; // Blue
       const colorB = '#ef4444'; // Red
-
-      if (layout === 'cyber_glitch') {
-          return (
-              <div className={`flex-1 flex flex-col relative ${isPortrait ? 'p-8' : 'p-16'}`}>
-                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
-                  
-                  {/* Branding Header */}
-                  <div className={`flex ${isPortrait ? 'flex-col items-center text-center gap-4' : 'justify-between items-start'} mb-12 relative z-10 cursor-pointer`} onClick={() => onElementClick?.('header')}>
-                      <div className="flex items-center gap-6">
-                          <div className="p-4 bg-yellow-500 text-black rounded-sm shadow-[0_0_15px_rgba(234,179,8,0.8)]">
-                              {branding.logoUrl ? (
-                                  <img src={branding.logoUrl} alt="Logo" className="w-12 h-12 object-contain" />
-                              ) : (
-                                  <Shield className="w-12 h-12" />
-                              )}
-                          </div>
-                          <div>
-                              <h1 className="text-6xl font-black tracking-tighter uppercase text-white leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">{branding.orgName}</h1>
-                              <p className="text-xl text-yellow-500 font-bold tracking-[0.3em] mt-1 uppercase">Intelligence Report</p>
-                          </div>
-                      </div>
-                      
-                      {!isPortrait && (
-                          <div className="text-right">
-                              <h2 className="text-6xl font-black text-white uppercase tracking-tight leading-none drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">{config.title || 'Player Comparison'}</h2>
-                              <p className="text-2xl font-bold mt-2 uppercase text-yellow-500">{config.subtitle || 'Head-to-Head'}</p>
-                          </div>
-                      )}
-                  </div>
-
-                  {/* Player Names Row */}
-                  <div className={`flex ${isPortrait ? 'flex-col items-center' : 'justify-between items-center'} mb-8 relative z-10`}>
-                      <div className={`flex-1 ${isPortrait ? 'text-center' : 'text-left'} cursor-pointer hover:brightness-125 transition-all`} onClick={() => onElementClick?.('player', { playerName: playerA.playerName })}>
-                          <div className="text-xs font-mono text-cyan-500 uppercase tracking-[0.3em] mb-2" style={{ fontSize: `${0.75 * visualConfig.fontScale}rem` }}>Player Alpha</div>
-                          <div className="relative">
-                              <h1 className={`absolute -top-[2px] -left-[2px] font-black text-cyan-500 uppercase leading-none tracking-tighter mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3 : 6) * visualConfig.headerScale}rem` }}>{playerA.playerName}</h1>
-                              <h1 className={`absolute top-[2px] left-[2px] font-black text-fuchsia-500 uppercase leading-none tracking-tighter mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3 : 6) * visualConfig.headerScale}rem` }}>{playerA.playerName}</h1>
-                              <h1 className={`relative font-black text-white uppercase leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${(isPortrait ? 3 : 6) * visualConfig.headerScale}rem` }}>{playerA.playerName}</h1>
-                          </div>
-                          <div className="text-xl font-mono text-white/50 uppercase tracking-widest mt-1" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{playerA.teamName}</div>
-                      </div>
-                      
-                      <div className={`flex flex-col items-center ${isPortrait ? 'py-6' : 'px-16'}`}>
-                          <div className="relative">
-                              <div className="text-5xl font-black text-white italic tracking-tighter relative z-10" style={{ fontSize: `${3 * visualConfig.fontScale}rem` }}>VS</div>
-                              <div className="absolute inset-0 blur-xl bg-yellow-500/30 scale-150"></div>
-                          </div>
-                          <div className="flex gap-1 mt-3">
-                              <div className="h-1 w-12 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)]"></div>
-                              <div className="h-1 w-12 bg-fuchsia-500 shadow-[0_0_10px_rgba(217,70,239,0.8)]"></div>
-                          </div>
-                      </div>
-
-                      <div className={`flex-1 ${isPortrait ? 'text-center' : 'text-right'} cursor-pointer hover:brightness-125 transition-all`} onClick={() => onElementClick?.('player', { playerName: playerB.playerName })}>
-                          <div className="text-xs font-mono text-fuchsia-500 uppercase tracking-[0.3em] mb-2" style={{ fontSize: `${0.75 * visualConfig.fontScale}rem` }}>Player Bravo</div>
-                          <div className="relative">
-                              <h1 className={`absolute -top-[2px] -left-[2px] font-black text-cyan-500 uppercase leading-none tracking-tighter mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3 : 6) * visualConfig.headerScale}rem` }}>{playerB.playerName}</h1>
-                              <h1 className={`absolute top-[2px] left-[2px] font-black text-fuchsia-500 uppercase leading-none tracking-tighter mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3 : 6) * visualConfig.headerScale}rem` }}>{playerB.playerName}</h1>
-                              <h1 className={`relative font-black text-white uppercase leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${(isPortrait ? 3 : 6) * visualConfig.headerScale}rem` }}>{playerB.playerName}</h1>
-                          </div>
-                          <div className="text-xl font-mono text-white/50 uppercase tracking-widest mt-1" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{playerB.teamName}</div>
-                      </div>
-                  </div>
-
-                  {/* Main Comparison Area */}
-                  <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'items-stretch'} relative z-10`}>
-                      {/* Player A Stats */}
-                      <div className={`flex-1 flex ${isPortrait ? 'flex-row justify-around order-1' : 'flex-col justify-center items-end pr-16 order-1'}`} style={{ gap: `${2 * visualConfig.itemSpacing}rem` }}>
-                          <div className={isPortrait ? 'text-center' : 'text-right group'}>
-                              <div className="text-[10px] font-bold text-white/50 uppercase tracking-[0.4em] mb-1" style={{ fontSize: `${0.625 * visualConfig.fontScale}rem` }}>Kills</div>
-                              <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-cyan-500 drop-shadow-[0_0_15px_rgba(6,182,212,0.8)] leading-none`} style={{ fontSize: `${(isPortrait ? 3.75 : 8) * visualConfig.fontScale}rem` }}>{playerA.finishes}</div>
-                          </div>
-                          <div className={isPortrait ? 'text-center' : 'text-right group'}>
-                              <div className="text-[10px] font-bold text-white/50 uppercase tracking-[0.4em] mb-1" style={{ fontSize: `${0.625 * visualConfig.fontScale}rem` }}>Damage</div>
-                              <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-cyan-500 drop-shadow-[0_0_15px_rgba(6,182,212,0.8)] leading-none`} style={{ fontSize: `${(isPortrait ? 3.75 : 8) * visualConfig.fontScale}rem` }}>{(playerA.damage / 1000).toFixed(1)}<span className="text-4xl opacity-50">k</span></div>
-                          </div>
-                          <div className={isPortrait ? 'text-center' : 'text-right group'}>
-                              <div className="text-[10px] font-bold text-white/50 uppercase tracking-[0.4em] mb-1" style={{ fontSize: `${0.625 * visualConfig.fontScale}rem` }}>Impact</div>
-                              <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-cyan-500 drop-shadow-[0_0_15px_rgba(6,182,212,0.8)] leading-none`} style={{ fontSize: `${(isPortrait ? 3.75 : 8) * visualConfig.fontScale}rem` }}>{playerA.impactScore.toFixed(0)}</div>
-                          </div>
-                      </div>
-
-                      {/* Radar Chart */}
-                      <div className={`flex-[1.5] relative ${isPortrait ? 'order-3 h-[400px]' : 'order-2'}`}>
-                          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-30"></div>
-                          <ResponsiveContainer width="100%" height="100%">
-                              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                                  <PolarGrid stroke="rgba(255,255,255,0.2)" />
-                                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#fff', fontSize: 14, fontWeight: 'bold', fontFamily: 'monospace' }} />
-                                  <Radar name={playerA.playerName} dataKey="A" stroke="#06b6d4" strokeWidth={3} fill="#06b6d4" fillOpacity={0.4} isAnimationActive={!isExporting} />
-                                  <Radar name={playerB.playerName} dataKey="B" stroke="#d946ef" strokeWidth={3} fill="#d946ef" fillOpacity={0.4} isAnimationActive={!isExporting} />
-                              </RadarChart>
-                          </ResponsiveContainer>
-                      </div>
-
-                      {/* Player B Stats */}
-                      <div className={`flex-1 flex ${isPortrait ? 'flex-row justify-around order-2 mt-8' : 'flex-col justify-center items-start pl-16 order-3'}`} style={{ gap: `${2 * visualConfig.itemSpacing}rem` }}>
-                          <div className={isPortrait ? 'text-center' : 'text-left group'}>
-                              <div className="text-[10px] font-bold text-white/50 uppercase tracking-[0.4em] mb-1" style={{ fontSize: `${0.625 * visualConfig.fontScale}rem` }}>Kills</div>
-                              <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-fuchsia-500 drop-shadow-[0_0_15px_rgba(217,70,239,0.8)] leading-none`} style={{ fontSize: `${(isPortrait ? 3.75 : 8) * visualConfig.fontScale}rem` }}>{playerB.finishes}</div>
-                          </div>
-                          <div className={isPortrait ? 'text-center' : 'text-left group'}>
-                              <div className="text-[10px] font-bold text-white/50 uppercase tracking-[0.4em] mb-1" style={{ fontSize: `${0.625 * visualConfig.fontScale}rem` }}>Damage</div>
-                              <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-fuchsia-500 drop-shadow-[0_0_15px_rgba(217,70,239,0.8)] leading-none`} style={{ fontSize: `${(isPortrait ? 3.75 : 8) * visualConfig.fontScale}rem` }}>{(playerB.damage / 1000).toFixed(1)}<span className="text-4xl opacity-50">k</span></div>
-                          </div>
-                          <div className={isPortrait ? 'text-center' : 'text-left group'}>
-                              <div className="text-[10px] font-bold text-white/50 uppercase tracking-[0.4em] mb-1" style={{ fontSize: `${0.625 * visualConfig.fontScale}rem` }}>Impact</div>
-                              <div className={`${isPortrait ? 'text-6xl' : 'text-9xl'} font-black text-fuchsia-500 drop-shadow-[0_0_15px_rgba(217,70,239,0.8)] leading-none`} style={{ fontSize: `${(isPortrait ? 3.75 : 8) * visualConfig.fontScale}rem` }}>{playerB.impactScore.toFixed(0)}</div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          );
-      }
 
       return (
           <div className={`flex-1 flex flex-col relative ${isPortrait ? 'p-8' : 'p-16'}`}>
@@ -1495,90 +1111,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
       if (!topDog) return null;
 
-      if (layout === 'cyber_glitch') {
-          return (
-              <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-8 relative p-8`}>
-                  {/* Top Dog */}
-                  <div className={`flex flex-col ${isPortrait ? 'w-full' : 'w-2/5'} relative bg-black/80 border-l-4 overflow-hidden group cursor-pointer p-8 items-center justify-center text-center`} style={{ borderColor: '#EAB308' }} onClick={() => onElementClick?.('player', { playerName: topDog.playerName })}>
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, #EAB308 0%, transparent 100%)` }}></div>
-                      <div className="absolute top-0 left-0 w-full h-[1px] bg-white/20"></div>
-                      <div className="absolute bottom-0 left-0 w-full h-[1px] bg-white/20"></div>
-                      <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
-
-                      <div className="relative z-10 w-full flex flex-col items-center">
-                          <div className="mb-6 relative">
-                              <div className="absolute -inset-4 blur-xl opacity-30 bg-yellow-500 rounded-full"></div>
-                              <Skull className={`${isPortrait ? 'w-32 h-32' : 'w-48 h-48'} mx-auto text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)]`} strokeWidth={1} />
-                              <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black italic px-4 py-1 text-2xl">MVP</div>
-                          </div>
-                          
-                          <div className={`font-black uppercase leading-none mb-2 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] relative`} style={{ fontSize: `${(isPortrait ? 3 : 4) * visualConfig.headerScale}rem` }}>
-                              <span className="absolute -left-[2px] top-[2px] text-cyan-500 opacity-50 mix-blend-screen">{topDog.playerName}</span>
-                              <span className="absolute -right-[2px] -top-[2px] text-fuchsia-500 opacity-50 mix-blend-screen">{topDog.playerName}</span>
-                              <span className="relative z-10">{topDog.playerName}</span>
-                          </div>
-                          <div className={`text-2xl font-mono text-white/50 uppercase tracking-widest ${isPortrait ? 'mb-6' : 'mb-10'}`}>{topDog.teamName}</div>
-                          
-                          <div className="flex gap-12 w-full justify-center">
-                              <div className="text-center">
-                                  <div className="text-[10px] font-mono text-yellow-500/80 tracking-[0.3em] uppercase mb-1">Total Kills</div>
-                                  <div className={`text-8xl font-black text-yellow-500 drop-shadow-[0_0_20px_rgba(234,179,8,0.8)] leading-none`}>{topDog.finishes}</div>
-                              </div>
-                              <div className="w-px bg-white/20"></div>
-                              <div className="text-center">
-                                  <div className="text-[10px] font-mono text-white/40 tracking-[0.3em] uppercase mb-1">Damage</div>
-                                  <div className={`text-6xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] leading-none mt-2`}>{(topDog.damage/1000).toFixed(1)}k</div>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* Runners Up */}
-                  <div className={`flex-1 flex flex-col justify-center gap-4`}>
-                      {runnersUp.map((p, idx) => {
-                          const rankColor = idx === 0 ? '#94a3b8' : idx === 1 ? '#C2410C' : 'rgba(255,255,255,0.2)';
-                          return (
-                              <div key={idx} className={`relative flex items-center justify-between p-4 bg-black/80 border-l-4 overflow-hidden group cursor-pointer`} style={{ borderColor: rankColor }} onClick={() => onElementClick?.('player', { playerName: p.playerName })}>
-                                  <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, ${rankColor} 0%, transparent 100%)` }}></div>
-                                  <div className="absolute top-0 left-0 w-full h-[1px] bg-white/20"></div>
-                                  <div className="absolute bottom-0 left-0 w-full h-[1px] bg-white/20"></div>
-                                  <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
-
-                                  <div className="flex items-center gap-6 relative z-10">
-                                      <div className={`text-5xl font-black italic tracking-tighter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)] w-16`} style={{ color: rankColor, fontSize: `${2.5 * visualConfig.fontScale}rem` }}>
-                                          0{idx + 2}
-                                      </div>
-                                      <div>
-                                          <div className={`text-3xl font-black uppercase text-white drop-shadow-md relative`} style={{ fontSize: `${2 * visualConfig.fontScale}rem` }}>
-                                              <span className="absolute -left-[1px] top-[1px] text-cyan-500 opacity-50 mix-blend-screen">{p.playerName}</span>
-                                              <span className="absolute -right-[1px] -top-[1px] text-fuchsia-500 opacity-50 mix-blend-screen">{p.playerName}</span>
-                                              <span className="relative z-10">{p.playerName}</span>
-                                          </div>
-                                          <div className={`text-sm font-mono text-white/50 uppercase tracking-widest`}>{p.teamName}</div>
-                                      </div>
-                                  </div>
-                                  
-                                  <div className="relative z-10 flex items-center gap-8 text-right">
-                                      <div>
-                                          <div className="text-[10px] font-mono text-white/40 tracking-[0.3em] uppercase mb-1">Kills</div>
-                                          <div className={`text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${3 * visualConfig.fontScale}rem` }}>{p.finishes}</div>
-                                      </div>
-                                      <div className="w-32">
-                                          <div className="text-[10px] font-mono text-white/40 tracking-[0.3em] uppercase mb-1">Damage</div>
-                                          <div className={`text-3xl font-bold text-white/80`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>{(p.damage).toLocaleString()}</div>
-                                          <div className={`h-1 bg-white/10 mt-2 overflow-hidden`}>
-                                              <div className="h-full bg-white/50" style={{ width: `${(p.damage / topDog.damage) * 100}%`, backgroundColor: rankColor }}></div>
-                                          </div>
-                                      </div>
-                                  </div>
-                              </div>
-                          );
-                      })}
-                  </div>
-              </div>
-          );
-      }
-
       return (
           <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-12 relative`}>
               <div className={`flex flex-col ${isPortrait ? 'w-full' : 'w-1/3'} p-8 border-l-8 items-center justify-center text-center ${themeStyles.cardBg} cursor-pointer hover:brightness-125 transition-all`} style={accentBorder} onClick={() => onElementClick?.('player', { playerName: topDog.playerName })}>
@@ -1645,81 +1177,11 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
       const endIdx = startIdx + rowsPerPage;
       const displayPlayers = allPlayers.slice(startIdx, endIdx);
 
-      if (layout === 'cyber_glitch') {
-          return (
-              <div className="relative z-10 flex-1 flex flex-col gap-3 p-8">
-                  {displayPlayers.map((player, idx) => {
-                      const absoluteRank = startIdx + idx + 1;
-                      const isTop3 = absoluteRank <= 3;
-                      
-                      let rankColor = themeStyles.accent;
-                      if (absoluteRank === 1) rankColor = '#EAB308';
-                      else if (absoluteRank === 2) rankColor = '#94a3b8';
-                      else if (absoluteRank === 3) rankColor = '#C2410C';
-
-                      return (
-                          <div key={`${player.teamName}-${player.playerName}`} className={`relative flex items-center justify-between p-4 bg-black/80 border-l-4 overflow-hidden group cursor-pointer`} style={{ borderColor: rankColor }} onClick={() => onElementClick?.('player', { playerName: player.playerName })}>
-                              {/* Glitch Background Effect */}
-                              <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, ${rankColor} 0%, transparent 100%)` }}></div>
-                              <div className="absolute top-0 left-0 w-full h-[1px] bg-white/20"></div>
-                              <div className="absolute bottom-0 left-0 w-full h-[1px] bg-white/20"></div>
-                              
-                              {/* Scanline */}
-                              <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
-
-                              <div className="flex items-center gap-6 relative z-10">
-                                  <div className="relative">
-                                      <div className={`text-5xl font-black italic tracking-tighter ${isTop3 ? 'text-white' : themeStyles.subText} drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]`} style={{ color: isTop3 ? rankColor : undefined, fontSize: `${(isPortrait ? 2 : 3.5) * visualConfig.rankScale}rem` }}>
-                                          {String(absoluteRank).padStart(2, '0')}
-                                      </div>
-                                      {isTop3 && <div className="absolute -inset-2 blur-md opacity-50" style={{ backgroundColor: rankColor, zIndex: -1 }}></div>}
-                                  </div>
-                                  
-                                  <div className="flex flex-col">
-                                      <div className={`text-3xl font-black uppercase tracking-widest text-white drop-shadow-md relative`} style={{ fontSize: `${(isPortrait ? 1.5 : 2.5) * visualConfig.headerScale}rem` }}>
-                                          <span className="absolute -left-[1px] top-[1px] text-cyan-500 opacity-50 mix-blend-screen">{player.playerName}</span>
-                                          <span className="absolute -right-[1px] -top-[1px] text-fuchsia-500 opacity-50 mix-blend-screen">{player.playerName}</span>
-                                          <span className="relative z-10">{player.playerName}</span>
-                                      </div>
-                                      <div className="flex items-center gap-3 text-xs font-mono text-white/50 mt-1">
-                                          <span className="bg-white/10 px-2 py-0.5 rounded-sm">TEAM: <span className="text-white font-bold">{player.teamName}</span></span>
-                                          <span className="bg-white/10 px-2 py-0.5 rounded-sm">DMG: <span className="text-white font-bold">{player.damage}</span></span>
-                                          {player.carryClass === 'SYSTEM_COLLAPSE' && <span className="text-red-400 flex items-center gap-1"><Zap className="w-3 h-3"/> CARRY</span>}
-                                      </div>
-                                  </div>
-                              </div>
-                              
-                              <div className="relative z-10 flex items-center gap-8">
-                                  <div className="text-right flex items-center gap-4">
-                                      <div className="flex flex-col items-end">
-                                          <div className="text-[10px] font-mono text-white/40 tracking-[0.3em] uppercase mb-1 flex items-center gap-2">
-                                              <span className="opacity-50">ELIMS</span>
-                                              Total Kills
-                                          </div>
-                                          <div className={`text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] relative`} style={{ fontSize: `${(isPortrait ? 3 : 5) * visualConfig.fontScale}rem` }}>
-                                              <span className="absolute -left-[2px] top-[1px] text-cyan-500 opacity-50 mix-blend-screen">{player.finishes}</span>
-                                              <span className="absolute -right-[2px] -top-[1px] text-fuchsia-500 opacity-50 mix-blend-screen">{player.finishes}</span>
-                                              <span className="relative z-10">{player.finishes}</span>
-                                          </div>
-                                      </div>
-                                      <div className="w-1 h-16 bg-white/20 flex flex-col justify-between">
-                                          <div className="w-full h-1/3 bg-white/50"></div>
-                                          <div className="w-full h-1/4 bg-white/80" style={{ backgroundColor: rankColor }}></div>
-                                      </div>
-                                  </div>
-                              </div>
-                          </div>
-                      );
-                  })}
-              </div>
-          );
-      }
-
       return (
         <div className="relative z-10 flex-1">
             <table className="w-full text-left border-collapse">
             <thead>
-                <tr className="border-b-2" style={{ borderColor: (theme === 'slate' || theme === 'violet') ? themeStyles.accent : theme === 'paper' ? '#0f172a' : 'rgba(255,255,255,0.2)' }}>
+                <tr className="border-b-2" style={{ borderColor: theme === 'paper' ? '#0f172a' : 'rgba(255,255,255,0.2)' }}>
                     <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest text-center`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Pos</th>
                     <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest pl-4`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Operator</th>
                     <th className={`py-4 text-2xl font-black ${themeStyles.subText} uppercase tracking-widest`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Team</th>
@@ -1768,59 +1230,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   const WinnerLayout = () => {
     const team = data.find(t => t.name === config.focusTeamId) || data[0];
     if (!team) return null;
-
-    if (layout === 'cyber_glitch') {
-        return (
-            <div className="flex-1 flex flex-col items-center justify-center relative cursor-pointer p-8" onClick={() => onElementClick?.('team', { teamId: team.name })}>
-                {/* Glitchy Crown Background */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none mix-blend-screen">
-                    <Crown className={`${isPortrait ? 'w-[600px] h-[600px]' : 'w-[800px] h-[800px]'} absolute text-cyan-500 translate-x-2`} />
-                    <Crown className={`${isPortrait ? 'w-[600px] h-[600px]' : 'w-[800px] h-[800px]'} absolute text-fuchsia-500 -translate-x-2`} />
-                    <Crown className={`${isPortrait ? 'w-[600px] h-[600px]' : 'w-[800px] h-[800px]'} absolute text-white`} />
-                </div>
-                
-                <div className={`relative z-10 text-center ${isPortrait ? 'w-full' : 'w-3/4'} bg-black/80 border-l-4 border-r-4 border-yellow-500 rounded-lg backdrop-blur-sm shadow-[0_0_50px_rgba(234,179,8,0.3)] overflow-hidden group`} style={{ padding: `${(isPortrait ? 2 : 3) * visualConfig.padding}rem`, gap: `${(isPortrait ? 1 : 2) * visualConfig.spacing}rem`, display: 'flex', flexDirection: 'column' }}>
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, #EAB308 0%, transparent 100%)` }}></div>
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-white/20"></div>
-                    <div className="absolute bottom-0 left-0 w-full h-[1px] bg-white/20"></div>
-                    <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
-
-                    <div className="relative z-10">
-                        <div className={`inline-block px-8 py-3 bg-yellow-500 text-black text-3xl font-black uppercase tracking-widest rounded-sm mb-8 shadow-[0_0_20px_rgba(234,179,8,0.8)]`} style={{ fontSize: `${(isPortrait ? 1.5 : 1.875) * visualConfig.fontScale}rem` }}>
-                            #1 Victory Royale
-                        </div>
-                        
-                        <div className="relative mb-8">
-                            <h1 className={`absolute -top-[2px] -left-[2px] font-black text-cyan-500 uppercase tracking-tighter mix-blend-screen opacity-50 leading-none`} style={{ fontSize: `${isPortrait ? 4.5 * visualConfig.headerScale : 8 * visualConfig.headerScale}rem` }}>{team.name}</h1>
-                            <h1 className={`absolute top-[2px] left-[2px] font-black text-fuchsia-500 uppercase tracking-tighter mix-blend-screen opacity-50 leading-none`} style={{ fontSize: `${isPortrait ? 4.5 * visualConfig.headerScale : 8 * visualConfig.headerScale}rem` }}>{team.name}</h1>
-                            <h1 className={`relative font-black text-white uppercase tracking-tighter drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] leading-none`} style={{ fontSize: `${isPortrait ? 4.5 * visualConfig.headerScale : 8 * visualConfig.headerScale}rem` }}>{team.name}</h1>
-                        </div>
-                        
-                        <div className={`flex ${isPortrait ? 'flex-col' : 'justify-center'} border-t border-b border-white/20`} style={{ padding: `${(isPortrait ? 1 : 2) * visualConfig.padding}rem 0`, margin: `${(isPortrait ? 1 : 2) * visualConfig.spacing}rem 0`, gap: `${(isPortrait ? 2 : 4) * visualConfig.spacing}rem` }}>
-                            <div className="text-center">
-                                <div className="text-2xl font-mono uppercase tracking-widest mb-2 text-yellow-500" style={{ fontSize: `${(isPortrait ? 1.25 : 1.5) * visualConfig.fontScale}rem` }}>Total Points</div>
-                                <div className={`text-8xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${(isPortrait ? 4 : 6) * visualConfig.fontScale}rem` }}>{team.totalPoints}</div>
-                            </div>
-                            {!isPortrait && <div className={`w-px bg-white/20`}></div>}
-                            <div className="text-center">
-                                <div className="text-2xl font-mono uppercase tracking-widest mb-2 text-yellow-500" style={{ fontSize: `${(isPortrait ? 1.25 : 1.5) * visualConfig.fontScale}rem` }}>Eliminations</div>
-                                <div className={`text-8xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${(isPortrait ? 4 : 6) * visualConfig.fontScale}rem` }}>{team.totalFinishes}</div>
-                            </div>
-                        </div>
-                        
-                        <div className={`grid ${isPortrait ? 'grid-cols-2' : 'grid-cols-4'} mt-8`} style={{ gap: `${1.5 * visualConfig.itemSpacing}rem` }}>
-                            {team.players.map(p => (
-                                <div key={p.playerName} className={`bg-white/5 rounded-sm flex justify-between items-center border border-white/10 hover:border-yellow-500/50 transition-colors`} style={{ padding: `${(isPortrait ? 0.5 : 1) * visualConfig.padding}rem` }}>
-                                    <div className={`text-2xl font-bold text-white`} style={{ fontSize: `${(isPortrait ? 1.125 : 1.5) * visualConfig.fontScale}rem` }}>{p.playerName}</div>
-                                    <div className={`text-xl font-mono text-yellow-500`} style={{ fontSize: `${(isPortrait ? 1 : 1.25) * visualConfig.fontScale}rem` }}>{p.finishes} K</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="flex-1 flex flex-col items-center justify-center relative cursor-pointer" onClick={() => onElementClick?.('team', { teamId: team.name })}>
@@ -1883,7 +1292,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
     const maxPlacement = Math.max(...data.map(t => t.placementPoints)) || 1;
     
     const normalize = (val: number, max: number) => (max > 0 ? (val / max) * 100 : 0);
-
     const radarData = [
       { subject: 'DMG', A: normalize(teamA.totalDamage, maxDmg), B: normalize(teamB.totalDamage, maxDmg), fullMark: 100 },
       { subject: 'KILLS', A: normalize(teamA.totalFinishes, maxKills), B: normalize(teamB.totalFinishes, maxKills), fullMark: 100 },
@@ -1891,127 +1299,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
       { subject: 'PLACE', A: normalize(teamA.placementPoints, maxPlacement), B: normalize(teamB.placementPoints, maxPlacement), fullMark: 100 },
       { subject: 'AGG', A: Math.min(100, teamA.aggressionIndex), B: Math.min(100, teamB.aggressionIndex), fullMark: 100 },
     ];
-
-    if (layout === 'cyber_glitch') {
-        const StatButterfly = ({ label, valA, valB, unit = '', inverse = false }: any) => {
-            const winA = inverse ? valA < valB : valA > valB;
-            const colorA = winA ? '#EAB308' : 'rgba(255,255,255,0.2)';
-            const colorB = !winA && valA !== valB ? '#3b82f6' : 'rgba(255,255,255,0.2)';
-            
-            const max = Math.max(valA, valB, 1) * 1.2;
-            const widthA = (valA / max) * 100;
-            const widthB = (valB / max) * 100;
-
-            return (
-                <div className="flex items-center gap-4 mb-4 relative z-10">
-                    <div className="flex-1 flex justify-end items-center gap-3">
-                        <span className={`text-2xl font-black ${winA ? 'text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]' : 'text-white/50'}`}>{valA.toFixed(unit ? 1 : 0)}{unit}</span>
-                        <div className={`h-4 flex-1 flex justify-end bg-white/5 rounded-sm overflow-hidden max-w-[200px] border border-white/10`}>
-                            <div className="h-full" style={{ width: `${widthA}%`, backgroundColor: colorA }}></div>
-                        </div>
-                    </div>
-                    <div className={`w-32 text-center text-xl font-bold uppercase tracking-widest text-white/50`}>{label}</div>
-                    <div className="flex-1 flex justify-start items-center gap-3">
-                        <div className={`h-4 flex-1 bg-white/5 rounded-sm overflow-hidden max-w-[200px] border border-white/10`}>
-                            <div className="h-full" style={{ width: `${widthB}%`, backgroundColor: colorB }}></div>
-                        </div>
-                        <span className={`text-2xl font-black ${!winA && valA !== valB ? 'text-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]' : 'text-white/50'}`}>{valB.toFixed(unit ? 1 : 0)}{unit}</span>
-                    </div>
-                </div>
-            );
-        };
-
-        return (
-            <div className="flex-1 flex flex-col justify-between p-8 relative">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
-                
-                <div className={`grid ${isPortrait ? 'grid-cols-1 gap-4' : 'grid-cols-5 gap-8'} items-end mb-8 relative z-10`}>
-                    <div className={`${isPortrait ? 'text-center' : 'col-span-2 text-left'}`}>
-                        <div className={`flex items-center gap-4 mb-2 ${isPortrait ? 'justify-center' : ''}`}>
-                            <span className={`text-3xl font-black px-4 py-1 rounded-sm text-black bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.8)]`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>#{teamA.rank}</span>
-                            <span className={`text-xl font-mono uppercase text-white/50`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{teamA.flags[0] || 'CONTENDER'}</span>
-                        </div>
-                        <div className="relative">
-                            <h1 className={`absolute -top-[2px] -left-[2px] font-black text-cyan-500 uppercase leading-none truncate mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamA.name}</h1>
-                            <h1 className={`absolute top-[2px] left-[2px] font-black text-fuchsia-500 uppercase leading-none truncate mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamA.name}</h1>
-                            <h1 className={`relative font-black text-white uppercase leading-none truncate drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamA.name}</h1>
-                        </div>
-                    </div>
-                    
-                    {!isPortrait && (
-                        <div className="col-span-1 flex flex-col items-center justify-center pb-4">
-                            <div className="text-6xl font-black italic text-white/20">VS</div>
-                            <div className="text-xs font-mono text-white/50 mt-2 bg-white/10 px-3 py-1 rounded-sm">{styleBadge}</div>
-                        </div>
-                    )}
-
-                    <div className={`${isPortrait ? 'text-center mt-8' : 'col-span-2 text-right'}`}>
-                        <div className={`flex items-center gap-4 mb-2 ${isPortrait ? 'justify-center' : 'justify-end'}`}>
-                            <span className={`text-xl font-mono uppercase text-white/50`} style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>{teamB.flags[0] || 'CHALLENGER'}</span>
-                            <span className={`text-3xl font-black px-4 py-1 rounded-sm text-white bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]`} style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>#{teamB.rank}</span>
-                        </div>
-                        <div className="relative">
-                            <h1 className={`absolute -top-[2px] -left-[2px] font-black text-cyan-500 uppercase leading-none truncate mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamB.name}</h1>
-                            <h1 className={`absolute top-[2px] left-[2px] font-black text-fuchsia-500 uppercase leading-none truncate mix-blend-screen opacity-50`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamB.name}</h1>
-                            <h1 className={`relative font-black text-white uppercase leading-none truncate drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${(isPortrait ? 3.5 : 4.5) * visualConfig.headerScale}rem` }}>{teamB.name}</h1>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex-1 bg-black/80 border border-white/10 rounded-lg p-8 relative overflow-hidden backdrop-blur-sm">
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-yellow-500 via-white to-blue-500"></div>
-                    
-                    <div className="flex justify-between items-center mb-12">
-                        <div className="text-center">
-                            <div className="text-sm font-mono text-white/50 uppercase tracking-widest mb-1">Win Probability</div>
-                            <div className="text-6xl font-black text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)]">{winProbs.probA}%</div>
-                        </div>
-                        <div className="flex-1 px-12">
-                            <div className="h-4 bg-white/10 rounded-full overflow-hidden flex">
-                                <div className="h-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]" style={{ width: `${winProbs.probA}%` }}></div>
-                                <div className="h-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]" style={{ width: `${winProbs.probB}%` }}></div>
-                            </div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-sm font-mono text-white/50 uppercase tracking-widest mb-1">Win Probability</div>
-                            <div className="text-6xl font-black text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]">{winProbs.probB}%</div>
-                        </div>
-                    </div>
-
-                    <div className="mb-12">
-                        <StatButterfly label="Total Points" valA={teamA.totalPoints} valB={teamB.totalPoints} />
-                        <StatButterfly label="Eliminations" valA={teamA.totalFinishes} valB={teamB.totalFinishes} />
-                        <StatButterfly label="Damage" valA={teamA.totalDamage} valB={teamB.totalDamage} />
-                        <StatButterfly label="Survival Time" valA={teamA.avgSurvivalTime} valB={teamB.avgSurvivalTime} unit="m" />
-                        <StatButterfly label="Placement" valA={teamA.placementPoints} valB={teamB.placementPoints} />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-12 border-t border-white/10 pt-8">
-                        <div className="flex items-center gap-6">
-                            <div className="w-20 h-20 rounded-full bg-yellow-500/20 border-2 border-yellow-500 flex items-center justify-center text-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.5)]">
-                                <Star className="w-10 h-10" />
-                            </div>
-                            <div>
-                                <div className="text-sm font-mono text-white/50 uppercase tracking-widest mb-1">Key Player</div>
-                                <div className="text-3xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] uppercase">{starA.playerName}</div>
-                                <div className="text-yellow-500 font-bold">{starA.finishes} Kills / {starA.damage} Dmg</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-end gap-6 text-right">
-                            <div>
-                                <div className="text-sm font-mono text-white/50 uppercase tracking-widest mb-1">Key Player</div>
-                                <div className="text-3xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] uppercase">{starB.playerName}</div>
-                                <div className="text-blue-500 font-bold">{starB.finishes} Kills / {starB.damage} Dmg</div>
-                            </div>
-                            <div className="w-20 h-20 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center text-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                                <Star className="w-10 h-10" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     const StatButterfly = ({ label, valA, valB, unit = '', inverse = false }: any) => {
         const winA = inverse ? valA < valB : valA > valB;
@@ -2140,58 +1427,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
     if (!focusPlayer || !team) return null;
 
-    if (layout === 'cyber_glitch') {
-        return (
-            <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-16 items-center relative p-8`}>
-                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
-                 
-                 <div className={`${isPortrait ? 'w-full h-1/3' : 'w-1/3 h-full'} bg-black/80 p-8 border-l-8 relative flex flex-col justify-center items-center shadow-[0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-sm`} style={{ borderColor: themeStyles.accent }}>
-                     <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(180deg, ${themeStyles.accent} 0%, transparent 100%)` }}></div>
-                     <div className="absolute top-0 left-0 w-full h-[2px] bg-white/20"></div>
-                     <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/20"></div>
-                     
-                     <div className={`w-48 h-48 bg-white/5 rounded-full flex items-center justify-center mb-8 border-4 relative z-10`} style={{ borderColor: themeStyles.accent }}>
-                        <div className="absolute -inset-4 blur-xl opacity-50 rounded-full" style={{ backgroundColor: themeStyles.accent }}></div>
-                        <Skull className="w-24 h-24 relative z-10" style={{ color: themeStyles.accent, filter: `drop-shadow(0 0 10px ${themeStyles.accent})` }} />
-                     </div>
-                     
-                     <div className="relative mb-4">
-                         <h1 className={`absolute -top-[2px] -left-[2px] text-6xl font-black text-cyan-500 uppercase text-center leading-none mix-blend-screen opacity-50`}>{focusPlayer.playerName}</h1>
-                         <h1 className={`absolute top-[2px] left-[2px] text-6xl font-black text-fuchsia-500 uppercase text-center leading-none mix-blend-screen opacity-50`}>{focusPlayer.playerName}</h1>
-                         <h1 className="relative text-6xl font-black text-white uppercase text-center leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">{focusPlayer.playerName}</h1>
-                     </div>
-                     
-                     <div className="text-2xl font-mono font-bold uppercase tracking-widest relative z-10" style={{ color: themeStyles.accent, textShadow: `0 0 10px ${themeStyles.accent}` }}>{team.name}</div>
-                 </div>
-
-                 <div className="flex-1 grid grid-cols-2 gap-8 w-full relative z-10">
-                     <div className="bg-black/80 border-l-4 border-white/20 relative overflow-hidden backdrop-blur-sm" style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                        <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Kills</div>
-                        <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.finishes}</div>
-                     </div>
-                     <div className="bg-black/80 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: themeStyles.accent, padding: `${2 * visualConfig.padding}rem` }}>
-                        <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${themeStyles.accent} 0%, transparent 100%)` }}></div>
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                        <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2 relative z-10`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>Damage</div>
-                        <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] relative z-10`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{(focusPlayer.damage/1000).toFixed(1)}k</div>
-                     </div>
-                     <div className="bg-black/80 border-l-4 border-white/20 relative overflow-hidden backdrop-blur-sm" style={{ padding: `${2 * visualConfig.padding}rem` }}>
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                        <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2`} style={{ fontSize: `${1.5 * visualConfig.fontScale}rem` }}>KPM</div>
-                        <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]`} style={{ fontSize: `${6 * visualConfig.fontScale}rem` }}>{focusPlayer.kpm.toFixed(2)}</div>
-                     </div>
-                     <div className="bg-black/80 p-8 border-l-4 relative overflow-hidden backdrop-blur-sm" style={{ borderColor: themeStyles.accent }}>
-                        <div className="absolute inset-0 opacity-10" style={{ background: `linear-gradient(90deg, ${themeStyles.accent} 0%, transparent 100%)` }}></div>
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                        <div className={`text-2xl text-white/50 font-mono uppercase tracking-widest mb-2 relative z-10`}>Impact</div>
-                        <div className={`text-8xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] relative z-10`}>{focusPlayer.impactScore.toFixed(0)}</div>
-                     </div>
-                 </div>
-            </div>
-        );
-    }
-
     return (
         <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-16 items-center`}>
              <div className={`${isPortrait ? 'w-full h-1/3' : 'w-1/3 h-full'} ${theme === 'paper' ? 'bg-slate-800' : 'bg-gradient-to-b from-gray-900 to-black'} p-8 border-l-8 relative flex flex-col justify-center items-center`} style={{ borderColor: themeStyles.accent }}>
@@ -2234,38 +1469,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
         { title: "The Backpack", val: "Most Impact", p: [...allPlayers].sort((a,b) => b.damageShare - a.damageShare)[0], icon: <Zap className="w-12 h-12" />, color: '#eab308' }
     ];
 
-    if (layout === 'cyber_glitch') {
-        return (
-            <div className={`flex-1 grid ${isPortrait ? 'grid-cols-1' : 'grid-cols-2'} items-center relative p-8`} style={{ gap: `${2 * visualConfig.itemSpacing}rem` }}>
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
-                {awards.map((a, idx) => a.p && (
-                    <div key={idx} className="bg-black/80 border-l-4 relative overflow-hidden backdrop-blur-sm group shadow-[0_0_20px_rgba(0,0,0,0.5)]" style={{ borderColor: a.color, padding: `${2 * visualConfig.padding}rem` }}>
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300" style={{ background: `linear-gradient(90deg, ${a.color} 0%, transparent 100%)` }}></div>
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-white/10"></div>
-                        
-                        <div className="absolute right-0 top-0 p-6 opacity-5 scale-150 group-hover:opacity-20 group-hover:scale-[1.7] transition-all duration-500" style={{color: a.color}}>{a.icon}</div>
-                        
-                        <div className="flex items-center gap-6 relative z-10">
-                            <div className="w-20 h-20 rounded-full flex items-center justify-center border-2 relative" style={{borderColor: a.color, color: a.color, backgroundColor: 'rgba(255,255,255,0.05)'}}>
-                                <div className="absolute inset-0 blur-md opacity-30 rounded-full" style={{ backgroundColor: a.color }}></div>
-                                <div className="relative z-10">{a.icon}</div>
-                            </div>
-                            <div>
-                                <div className="text-xl font-mono uppercase tracking-widest mb-1" style={{color: a.color, fontSize: `${1.25 * visualConfig.fontScale}rem`, textShadow: `0 0 10px ${a.color}44` }}>{a.title}</div>
-                                <div className="relative">
-                                    <div className="absolute -top-[1px] -left-[1px] text-4xl font-black text-cyan-500 uppercase mix-blend-screen opacity-30" style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{a.p.playerName}</div>
-                                    <div className="absolute top-[1px] left-[1px] text-4xl font-black text-fuchsia-500 uppercase mix-blend-screen opacity-30" style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{a.p.playerName}</div>
-                                    <div className={`text-4xl font-black text-white uppercase relative z-10`} style={{ fontSize: `${2.25 * visualConfig.fontScale}rem` }}>{a.p.playerName}</div>
-                                </div>
-                                <div className={`text-lg font-mono text-white/40 uppercase tracking-widest mt-1`} style={{ fontSize: `${1.125 * visualConfig.fontScale}rem` }}>{a.p.teamName}</div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
     return (
         <div className={`flex-1 grid ${isPortrait ? 'grid-cols-1' : 'grid-cols-2'} items-center`} style={{ gap: `${2 * visualConfig.itemSpacing}rem` }}>
             {awards.map((a, idx) => a.p && (
@@ -2299,96 +1502,6 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
 
     // Auto-generate group name if not provided
     const defaultSubtitle = `Group ${String.fromCharCode(64 + page)}`; // Page 1 -> Group A, Page 2 -> Group B
-
-    if (layout === 'cyber_glitch') {
-        return (
-            <div className="relative w-full h-full flex flex-col items-center z-10 overflow-hidden p-8">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+Cjwvc3ZnPg==')] opacity-50 pointer-events-none mix-blend-overlay"></div>
-                
-                {/* Top Ribbon (Diagonal Banner) */}
-                <div className="absolute top-0 left-0 -translate-x-1/3 -translate-y-1/2 w-[600px] h-20 rotate-[-15deg] flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.5)] z-0 opacity-80 bg-yellow-500">
-                    <span className="text-black font-black italic text-2xl tracking-widest uppercase">System Override</span>
-                </div>
-
-                {/* Side Branding (Top Right Logo) */}
-                <div className="absolute top-8 right-8 z-20">
-                    {branding.logoUrl ? (
-                        <img src={branding.logoUrl} alt="Logo" className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
-                    ) : (
-                        <div className="w-32 h-32 border-4 flex items-center justify-center rounded-lg bg-black/80 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.3)]">
-                            <Shield className="w-16 h-16 text-yellow-500" />
-                        </div>
-                    )}
-                </div>
-
-                {/* Header Section */}
-                <div className="w-full flex flex-col items-center mb-12 mt-8 z-20 relative">
-                    <div className="relative">
-                        <h1 className={`absolute -top-[2px] -left-[2px] font-black uppercase tracking-wider text-center text-cyan-500 mix-blend-screen opacity-50`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem`, lineHeight: 1 }}>
-                            {config.title || 'Playing Teams'}
-                        </h1>
-                        <h1 className={`absolute top-[2px] left-[2px] font-black uppercase tracking-wider text-center text-fuchsia-500 mix-blend-screen opacity-50`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem`, lineHeight: 1 }}>
-                            {config.title || 'Playing Teams'}
-                        </h1>
-                        <h1 className={`relative font-black uppercase tracking-wider text-center text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]`} style={{ fontSize: `${4.5 * visualConfig.headerScale}rem`, lineHeight: 1 }}>
-                            {config.title || 'Playing Teams'}
-                        </h1>
-                    </div>
-                    <div className="mt-4 px-10 py-2 font-black uppercase tracking-[0.2em] text-black shadow-[0_0_20px_rgba(234,179,8,0.6)] skew-x-[-10deg] bg-yellow-500" style={{ fontSize: `${1.875 * visualConfig.fontScale}rem` }}>
-                        <div className="skew-x-[10deg]">{config.subtitle || defaultSubtitle}</div>
-                    </div>
-                </div>
-
-                {/* Teams Grid Section */}
-                <div className="flex-1 w-full flex items-center justify-center px-4 z-10">
-                    <div className={`grid ${isPortrait ? 'grid-cols-4' : 'grid-cols-8'} w-full`} style={{ gap: `${1.5 * visualConfig.itemSpacing}rem` }}>
-                        {displayTeams.map((team, idx) => (
-                            <div key={idx} className="flex flex-col items-center w-full animate-in fade-in zoom-in duration-500 group" style={{ animationDelay: `${idx * 50}ms` }}>
-                                {/* Logo Container */}
-                                <div className="w-full aspect-square bg-black/80 rounded-tr-[2rem] flex items-center justify-center shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden border-b-4 border-white/10 backdrop-blur-sm group-hover:border-yellow-500 transition-colors duration-300" style={{ padding: `${1.2 * visualConfig.padding}rem` }}>
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-yellow-500"></div>
-                                    {team.logoUrl ? (
-                                        <img src={team.logoUrl} alt={team.name} className="w-full h-full object-contain relative z-10" />
-                                    ) : (
-                                        <div className="w-full h-full border-2 border-dashed border-white/20 flex items-center justify-center text-white/20 font-bold text-lg text-center relative z-10">
-                                            {team.name}
-                                        </div>
-                                    )}
-                                    {/* Rank/Index Badge */}
-                                    <div className="absolute top-0 left-0 bg-white/5 text-white/10 font-black text-4xl p-2 select-none group-hover:text-yellow-500/20">
-                                        {String(startIdx + idx + 1).padStart(2, '0')}
-                                    </div>
-                                </div>
-                                {/* Team Name Bar */}
-                                <div className="w-full text-black text-center py-3 mt-2 font-black uppercase tracking-wider shadow-[0_0_15px_rgba(234,179,8,0.4)] truncate px-2 border-t-2 border-white/20 bg-yellow-500 group-hover:bg-white transition-colors duration-300" style={{ fontSize: `${1.25 * visualConfig.fontScale}rem` }}>
-                                    {team.name}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Footer Section / Countdown */}
-                <div className="w-full flex justify-between items-end mt-8 z-20">
-                    <div className="flex flex-col">
-                        <span className="text-xs font-mono uppercase tracking-[0.4em] text-white/50">Tournament Intelligence System</span>
-                        <span className="text-[10px] font-mono text-white/30">SECURE_LINK_ESTABLISHED // {new Date().toLocaleDateString()}</span>
-                    </div>
-                    
-                    <div className="flex flex-col items-end">
-                        <span className="font-bold uppercase tracking-widest text-xl mb-[-5px] text-yellow-500">Starting In</span>
-                        <div className="relative">
-                            <span className="absolute -top-[2px] -left-[2px] font-black tracking-tighter text-cyan-500 mix-blend-screen opacity-50" style={{ fontSize: `${6 * visualConfig.fontScale}rem`, lineHeight: 1 }}>00:45</span>
-                            <span className="absolute top-[2px] left-[2px] font-black tracking-tighter text-fuchsia-500 mix-blend-screen opacity-50" style={{ fontSize: `${6 * visualConfig.fontScale}rem`, lineHeight: 1 }}>00:45</span>
-                            <span className="relative font-black tracking-tighter text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]" style={{ fontSize: `${6 * visualConfig.fontScale}rem`, lineHeight: 1 }}>
-                                00:45
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="relative w-full h-full flex flex-col items-center z-10 overflow-hidden" style={{ padding: `${2 * visualConfig.padding}rem` }}>
@@ -2467,31 +1580,22 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
   return (
     <div 
         id="export-container" 
-        className={`${themeStyles.bg} ${themeStyles.text} font-sans relative flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar ${isExporting ? 'disable-blurs' : ''}`}
+        className={`${visualConfig.templateMode ? 'bg-transparent' : themeStyles.bg} ${themeStyles.text} font-sans relative flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar ${isExporting ? 'disable-blurs' : ''}`}
         style={{ 
             ...containerDimensions, 
-            backgroundColor: themeBgHex, 
+            backgroundColor: (visualConfig.templateMode && branding.customBackground) ? 'transparent' : themeBgHex, 
             backgroundImage: branding.customBackground ? `url(${branding.customBackground})` : undefined,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            animation: isExporting ? 'none' : undefined,
-            filter: `contrast(${visualConfig.filterContrast ?? 100}%) saturate(${(visualConfig.filterSaturation ?? 100) * (visualConfig.colorProfile === 'cmyk' ? 0.85 : 1)}%) brightness(${(visualConfig.filterBrightness ?? 100) * (visualConfig.colorProfile === 'cmyk' ? 0.96 : 1)}%) ${visualConfig.colorProfile === 'pantone' ? 'sepia(4%) contrast(105%)' : ''}`
+            animation: isExporting ? 'none' : undefined
         }}
     >
         {/* Background Texture */}
-        <div className={`absolute inset-0 z-0 opacity-20 ${themeStyles.gradient} pointer-events-none`}></div>
-        {/* Only apply Cyber grid if specific theme requires pattern, otherwise subtle gradient is fine for Slate/Violet */}
-        {theme === 'slate' && <div className="absolute inset-0 z-0 opacity-5 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none"></div>}
-        
-        {/* Cyber Glitch Global Background */}
-        {mode === 'standings' && layout === 'cyber_glitch' && (
-            <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden mix-blend-overlay opacity-40">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz4KPC9zdmc+')]"></div>
-                <div className="absolute top-[15%] left-0 w-full h-px bg-cyan-500 shadow-[0_0_15px_cyan] opacity-50"></div>
-                <div className="absolute top-[65%] left-0 w-full h-px bg-fuchsia-500 shadow-[0_0_15px_fuchsia] opacity-50"></div>
-                <div className="absolute top-[40%] left-0 w-full h-[2px] bg-white shadow-[0_0_10px_white] opacity-20"></div>
-            </div>
+        {!visualConfig.templateMode && (
+            <div className={`absolute inset-0 z-0 opacity-20 ${themeStyles.gradient} pointer-events-none`}></div>
         )}
+        
+        {/* Cyber Glitch Global Background - Removed */}
 
         {mode === 'sdrr' ? (
             <div className="w-full h-full relative z-10">
@@ -2541,77 +1645,7 @@ const ExportRenderer: React.FC<ExportRendererProps> = ({ data, mode, aspectRatio
             </LayoutWrapper>
         )}
 
-        {/* Pro Vignette Overlay (Non-destructive shadow layer) */}
-        {visualConfig.vignetteOverlay && (
-            <div className="absolute inset-0 z-40 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0)_40%,rgba(0,0,0,0.6)_100%)]"></div>
-        )}
-
         {/* Pro Grain Overlay (Procedural noise texture) */}
-        {visualConfig.noiseOverlay && (
-            <div className="absolute inset-0 z-40 pointer-events-none opacity-[0.04] bg-[repeat] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiB2aWV3Qm94PSIwIDAgMTIwIDEyMCI+CjxmaWx0ZXIgaWQ9Im4iPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aWNoeVRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj4KPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI24pIi8+Cjwvc3ZnPg==')]"></div>
-        )}
-
-        {/* Pro Vector Paths & Brackets */}
-        {visualConfig.vectorOverlay && visualConfig.vectorOverlay !== 'none' && (
-            <svg className="absolute inset-0 z-45 w-full h-full pointer-events-none text-cyan-400 select-none pb-4" viewBox={`0 0 ${containerDimensions.width} ${containerDimensions.height}`} fill="none" xmlns="http://www.w3.org/2000/svg">
-                {visualConfig.vectorOverlay === 'tech_nodes' && (
-                    <>
-                        {/* Anchor point path decoration */}
-                        <path d={`M 40 100 L ${containerDimensions.width - 40} 100`} stroke="white" strokeWidth="1" strokeDasharray="4 8" opacity="0.15" />
-                        <path d={`M 100 40 L 100 ${containerDimensions.height - 40}`} stroke="white" strokeWidth="1" strokeDasharray="4 8" opacity="0.15" />
-                        <path d={`M ${containerDimensions.width - 100} 40 L ${containerDimensions.width - 100} ${containerDimensions.height - 40}`} stroke="white" strokeWidth="1" strokeDasharray="4 8" opacity="0.15" />
-                        
-                        {/* Corner vector loops */}
-                        <rect x="25" y="25" width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-                        <circle cx="35" cy="35" r="3" fill="currentColor" opacity="0.8" />
-                        
-                        <rect x={containerDimensions.width - 45} y="25" width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-                        <circle cx={containerDimensions.width - 35} cy="35" r="3" fill="currentColor" opacity="0.8" />
-                        
-                        <rect x="25" y={containerDimensions.height - 45} width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-                        <circle cx="35" cy={containerDimensions.height - 35} r="3" fill="currentColor" opacity="0.8" />
-
-                        <rect x={containerDimensions.width - 45} y={containerDimensions.height - 45} width="20" height="20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-                        <circle cx={containerDimensions.width - 35} cy={containerDimensions.height - 35} r="3" fill="currentColor" opacity="0.8" />
-
-                        {/* Bezier decorative spline curves */}
-                        <path d={`M 150 150 Q ${containerDimensions.width / 2} ${containerDimensions.height / 2 - 100} ${containerDimensions.width - 150} 150`} stroke="currentColor" strokeWidth="1.5" strokeDasharray="5,5" fill="none" opacity="0.2" />
-                        <path d={`M 150 ${containerDimensions.height - 150} Q ${containerDimensions.width / 2} ${containerDimensions.height / 2 + 100} ${containerDimensions.width - 150} ${containerDimensions.height - 150}`} stroke="currentColor" strokeWidth="1.5" strokeDasharray="5,5" fill="none" opacity="0.2" />
-                    </>
-                )}
-                {visualConfig.vectorOverlay === 'crosshair_grids' && (
-                    <>
-                        {/* Tactical Crosshair coordinates and radar indicators */}
-                        <circle cx={containerDimensions.width / 2} cy={containerDimensions.height / 2} r="150" stroke="currentColor" strokeWidth="1" strokeDasharray="3 6" opacity="0.15" />
-                        <circle cx={containerDimensions.width / 2} cy={containerDimensions.height / 2} r="5" fill="currentColor" opacity="0.6" />
-                        
-                        <line x1={containerDimensions.width / 2 - 200} y1={containerDimensions.height / 2} x2={containerDimensions.width / 2 + 200} y2={containerDimensions.height / 2} stroke="currentColor" strokeWidth="1" opacity="0.2" />
-                        <line x1={containerDimensions.width / 2} y1={containerDimensions.height / 2 - 200} x2={containerDimensions.width / 2} y2={containerDimensions.height / 2 + 200} stroke="currentColor" strokeWidth="1" opacity="0.2" />
-                        
-                        {/* Math points indicator boxes */}
-                        <rect x={containerDimensions.width / 2 - 6} y={containerDimensions.height / 2 - 200 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
-                        <rect x={containerDimensions.width / 2 - 6} y={containerDimensions.height / 2 + 200 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
-                        <rect x={containerDimensions.width / 2 - 200 - 6} y={containerDimensions.height / 2 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
-                        <rect x={containerDimensions.width / 2 + 200 - 6} y={containerDimensions.height / 2 - 6} width="12" height="12" stroke="currentColor" strokeWidth="1" fill="black" opacity="0.6" />
-                    </>
-                )}
-                {visualConfig.vectorOverlay === 'brutalist_bracket' && (
-                    <>
-                        {/* Thick industrial crop frame brackets and anchor targets */}
-                        <path d="M 50 120 L 50 50 L 120 50" stroke="white" strokeWidth="5" opacity="0.6" />
-                        <path d={`M ${containerDimensions.width - 50} 120 L ${containerDimensions.width - 50} 50 L ${containerDimensions.width - 120} 50`} stroke="white" strokeWidth="5" opacity="0.6" />
-                        <path d={`M 50 ${containerDimensions.height - 120} L 50 ${containerDimensions.height - 50} L 120 ${containerDimensions.height - 50}`} stroke="white" strokeWidth="5" opacity="0.6" />
-                        <path d={`M ${containerDimensions.width - 50} ${containerDimensions.height - 120} L ${containerDimensions.width - 50} ${containerDimensions.height - 50} L ${containerDimensions.width - 120} ${containerDimensions.height - 50}`} stroke="white" strokeWidth="5" opacity="0.6" />
-
-                        {/* Anchor dots indicating vectors */}
-                        <circle cx="50" cy="50" r="4.5" fill="#f43f5e" />
-                        <circle cx={containerDimensions.width - 50} cy="50" r="4.5" fill="#f43f5e" />
-                        <circle cx="50" cy={containerDimensions.height - 50} r="4.5" fill="#f43f5e" />
-                        <circle cx={containerDimensions.width - 50} cy={containerDimensions.height - 50} r="4.5" fill="#f43f5e" />
-                    </>
-                )}
-            </svg>
-        )}
     </div>
   );
 };

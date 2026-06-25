@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { PlayerDerived, TeamData } from '../types';
+import { PlayerDerived, TeamData, ScoringRules } from '../types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { generatePlayerProfileJSON, generatePlayerHistoryCSV } from '../services/exportEngine';
@@ -13,17 +13,21 @@ interface PlayerProfileProps {
   player: PlayerDerived;
   team: TeamData;
   onBack: () => void;
-  onOpenStudio?: () => void; // New Prop
+  onOpenStudio?: () => void;
+  scoringRules?: ScoringRules;
 }
 
-const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onOpenStudio }) => {
+const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onOpenStudio, scoringRules }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isSnapshotting, setIsSnapshotting] = useState(false);
   const [snapDone, setSnapDone] = useState(false);
   const [scoutingReport, setScoutingReport] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const showDamage = activeMetrics.damage ?? true;
+  const showTime = activeMetrics.time ?? true;
+
   // Calculate Avg Team Stats for comparison
   const avgDmg = team.totalDamage / team.players.length;
   const avgKills = team.totalFinishes / team.players.length;
@@ -36,16 +40,24 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
   }).length || 0;
   const winRate = player.matchesPlayed > 0 ? (wins / player.matchesPlayed) * 100 : 0;
 
-  const radarData = [
+  const radarData = !showDamage ? [
+    { subject: 'Finishes', A: (player.finishes / Math.max(1, avgKills)) * 100, fullMark: 150 },
+    { subject: 'Survival', A: (player.playTimeMinutes / Math.max(1, avgTime)) * 100, fullMark: 150 },
+    { subject: 'Impact', A: Math.min(150, (player.impactScore / (team.totalPoints / team.players.length)) * 100), fullMark: 150 },
+    { subject: 'Share', A: player.killShare * 100 * 2.5, fullMark: 150 },
+    { subject: 'Wins', A: winRate * 1.5, fullMark: 150 },
+  ] : [
     { subject: 'Damage', A: (player.damage / Math.max(1, avgDmg)) * 100, fullMark: 150 },
     { subject: 'Kills', A: (player.finishes / Math.max(1, avgKills)) * 100, fullMark: 150 },
     { subject: 'Survival', A: (player.playTimeMinutes / Math.max(1, avgTime)) * 100, fullMark: 150 },
     { subject: 'Impact', A: Math.min(150, (player.impactScore / (team.totalPoints / team.players.length)) * 100), fullMark: 150 },
-    { subject: 'Share', A: player.damageShare * 2, fullMark: 150 }, // Scale share to look good on radar
+    { subject: 'Share', A: player.damageShare * 2, fullMark: 150 },
   ];
 
   // Current Overall Z-Scores (for the single bar chart)
-  const zScoreData = [
+  const zScoreData = !showDamage ? [
+    { name: 'Finishes', val: player.zScoreKills },
+  ] : [
     { name: 'Damage', val: player.zScoreDamage },
     { name: 'Kills', val: player.zScoreKills },
   ];
@@ -82,16 +94,18 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
                   <div className="space-y-2">
                       {isDeviation ? (
                           <>
-                            <div>
-                                <div className="flex items-center gap-2 text-[9px] font-mono text-tactical-light uppercase">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                    Damage Deviation
-                                </div>
-                                <div className="flex justify-between items-baseline pl-3">
-                                    <span className="text-white font-bold text-xs">{data.zDmg.toFixed(2)}σ</span>
-                                    <span className="text-tactical-gray text-[9px]">{data.rawDmg.toLocaleString()} raw</span>
-                                </div>
-                            </div>
+                            {showDamage && (
+                              <div>
+                                  <div className="flex items-center gap-2 text-[9px] font-mono text-tactical-light uppercase">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                      Damage Deviation
+                                  </div>
+                                  <div className="flex justify-between items-baseline pl-3">
+                                      <span className="text-white font-bold text-xs">{data.zDmg.toFixed(2)}σ</span>
+                                      <span className="text-tactical-gray text-[9px]">{data.rawDmg.toLocaleString()} raw</span>
+                                  </div>
+                              </div>
+                            )}
                             <div>
                                 <div className="flex items-center gap-2 text-[9px] font-mono text-tactical-light uppercase">
                                     <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
@@ -151,7 +165,7 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
       try {
           const dataUrl = await toPng(containerRef.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
           const link = document.createElement('a');
-          link.download = `scarfall_player_profile_${player.playerName}_${Date.now()}.png`;
+          link.download = `player_profile_${player.playerName}_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setSnapDone(true);
@@ -288,13 +302,23 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
         {/* Left Col: Stats & Z-Score */}
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-                <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
-                    <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Crosshair className="w-3 h-3"/> Damage Output</div>
-                    <div className="text-2xl font-bold text-white">{player.damage.toLocaleString()}</div>
-                    <div className={`text-[10px] mt-1 ${player.damage > avgDmg ? 'text-tactical-green' : 'text-tactical-red'}`}>
-                        {player.damage > avgDmg ? '+' : ''}{((player.damage - avgDmg)).toFixed(0)} vs Avg
+                {showDamage ? (
+                    <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
+                        <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Crosshair className="w-3 h-3"/> Damage Output</div>
+                        <div className="text-2xl font-bold text-white">{player.damage.toLocaleString()}</div>
+                        <div className={`text-[10px] mt-1 ${player.damage > avgDmg ? 'text-tactical-green' : 'text-tactical-red'}`}>
+                            {player.damage > avgDmg ? '+' : ''}{((player.damage - avgDmg)).toFixed(0)} vs Avg
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
+                        <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Crosshair className="w-3 h-3"/> Avg Kills</div>
+                        <div className="text-2xl font-bold text-white">{(player.finishes / Math.max(1, player.matchesPlayed)).toFixed(2)}</div>
+                        <div className={`text-[10px] mt-1 ${player.finishes / Math.max(1, player.matchesPlayed) > avgKills ? 'text-tactical-green' : 'text-tactical-red'}`}>
+                            {player.finishes / Math.max(1, player.matchesPlayed) > avgKills ? '+' : ''}{((player.finishes / Math.max(1, player.matchesPlayed)) - avgKills).toFixed(2)} vs Squad Avg
+                        </div>
+                    </div>
+                )}
                 <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
                     <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Skull className="w-3 h-3"/> Confirmed Kills</div>
                     <div className="text-2xl font-bold text-white">{player.finishes}</div>
@@ -312,45 +336,87 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
                     <div className="text-2xl font-bold text-white">{winRate.toFixed(0)}%</div>
                     <div className="text-[10px] mt-1 text-tactical-gray">{wins} Wins</div>
                 </div>
-                <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
-                    <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Activity className="w-3 h-3"/> Survival Time</div>
-                    <div className="text-2xl font-bold text-white">{player.playTimeMinutes.toFixed(1)}m</div>
-                </div>
+                {showTime ? (
+                    <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
+                        <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Activity className="w-3 h-3"/> Survival Time</div>
+                        <div className="text-2xl font-bold text-white">{player.playTimeMinutes.toFixed(1)}m</div>
+                        <div className="text-[10px] mt-1 text-tactical-gray">Average survival</div>
+                    </div>
+                ) : (
+                    <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
+                        <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Activity className="w-3 h-3"/> Kill Share</div>
+                        <div className="text-2xl font-bold text-white">{((player.finishes / Math.max(1, team.totalFinishes)) * 100).toFixed(0)}%</div>
+                        <div className="text-[10px] mt-1 text-tactical-gray">Of Team Total</div>
+                    </div>
+                )}
                 <div className="bg-tactical-dark p-4 border border-tactical-gray rounded-sm">
                     <div className="text-tactical-light text-[10px] uppercase font-mono mb-1 flex items-center gap-1"><Zap className="w-3 h-3"/> Impact Score</div>
                     <div className="text-2xl font-bold text-white">{player.impactScore.toFixed(0)}</div>
+                    <div className="text-[10px] mt-1 text-tactical-gray">Weighted performance</div>
                 </div>
             </div>
 
-            {/* Radar Chart */}
-            <div className="bg-tactical-dark border border-tactical-gray rounded-sm p-4 flex flex-col items-center justify-center relative h-[300px]">
-                 <div className="absolute top-4 left-4 text-xs font-mono text-tactical-light uppercase">
-                    vs Team Average
-                 </div>
-                 <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="55%" outerRadius="65%" data={radarData}>
-                    <PolarGrid stroke="#2A2A2A" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#7A7A7A', fontSize: 10, fontFamily: 'monospace' }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 150]} tick={false} axisLine={false} />
-                    <Radar
-                        name={player.playerName}
-                        dataKey="A"
-                        stroke="#fff"
-                        strokeWidth={2}
-                        fill="#fff"
-                        fillOpacity={0.1}
-                    />
-                    <Tooltip contentStyle={{backgroundColor: '#0E0E0E', borderColor: '#333'}} />
-                    </RadarChart>
-                </ResponsiveContainer>
-                 {/* Outlier Warning */}
-                 {player.isOutlier && (
-                     <div className="absolute bottom-4 flex items-center gap-2 bg-tactical-red/10 border border-tactical-red/30 px-3 py-1.5 rounded-full">
-                         <ShieldAlert className="w-3 h-3 text-tactical-red" />
-                         <span className="text-[10px] text-tactical-red font-bold uppercase">{player.outlierReason || 'Anomaly'}</span>
-                     </div>
-                 )}
-            </div>
+            {/* Radar Chart or Highlights */}
+            {!showDamage ? (
+               <div className="bg-tactical-dark border border-tactical-gray rounded-sm p-5 flex flex-col justify-center relative h-[300px]">
+                  <div className="absolute top-4 left-4 text-xs font-mono text-tactical-light uppercase">
+                     Performance Highlights
+                  </div>
+                  <div className="space-y-4 pt-6 font-mono text-xs text-tactical-light">
+                    <div className="flex justify-between border-b border-tactical-gray/30 pb-2">
+                       <span>TOURNAMENT KILLS</span>
+                       <span className="text-white font-bold">{player.finishes}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-tactical-gray/30 pb-2">
+                       <span>AVG KILLS / MATCH</span>
+                       <span className="text-white font-bold">{(player.finishes / Math.max(1, player.matchesPlayed)).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-tactical-gray/30 pb-2">
+                       <span>SQUAD KILL SHARE</span>
+                       <span className="text-white font-bold">{((player.finishes / Math.max(1, team.totalFinishes)) * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="flex justify-between border-b border-tactical-gray/30 pb-2">
+                       <span>ESTIMATED KNOCKOUTS</span>
+                       <span className="text-white font-bold">{Math.floor(player.finishes * 0.8)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                       <span>SQUAD ENGAGEMENT</span>
+                       <span className="text-tactical-green font-bold uppercase">
+                          {player.finishes / Math.max(1, player.matchesPlayed) >= 2 ? 'PRIMARY ENGAGER' : 'SUPPORT SPECIALIST'}
+                       </span>
+                    </div>
+                  </div>
+               </div>
+            ) : (
+               <div className="bg-tactical-dark border border-tactical-gray rounded-sm p-4 flex flex-col items-center justify-center relative h-[300px]">
+                    <div className="absolute top-4 left-4 text-xs font-mono text-tactical-light uppercase">
+                       vs Team Average
+                    </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                       <RadarChart cx="50%" cy="55%" outerRadius="65%" data={radarData}>
+                       <PolarGrid stroke="#2A2A2A" />
+                       <PolarAngleAxis dataKey="subject" tick={{ fill: '#7A7A7A', fontSize: 10, fontFamily: 'monospace' }} />
+                       <PolarRadiusAxis angle={30} domain={[0, 150]} tick={false} axisLine={false} />
+                       <Radar
+                           name={player.playerName}
+                           dataKey="A"
+                           stroke="#fff"
+                           strokeWidth={2}
+                           fill="#fff"
+                           fillOpacity={0.1}
+                       />
+                       <Tooltip contentStyle={{backgroundColor: '#0E0E0E', borderColor: '#333'}} />
+                       </RadarChart>
+                   </ResponsiveContainer>
+                    {/* Outlier Warning */}
+                    {player.isOutlier && (
+                        <div className="absolute bottom-4 flex items-center gap-2 bg-tactical-red/10 border border-tactical-red/30 px-3 py-1.5 rounded-full">
+                            <ShieldAlert className="w-3 h-3 text-tactical-red" />
+                            <span className="text-[10px] text-tactical-red font-bold uppercase">{player.outlierReason || 'Anomaly'}</span>
+                        </div>
+                    )}
+               </div>
+            )}
         </div>
 
         {/* Right Col: Advanced Charts */}
@@ -370,12 +436,15 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
                                 <YAxis stroke="#555" tick={{fill: '#777', fontSize: 10}} domain={[-3, 3]} />
                                 <Tooltip content={<CustomTrendTooltip />} />
                                 <ReferenceLine y={0} stroke="#777" strokeDasharray="3 3" />
-                                <Bar dataKey="zDmg" name="Damage σ" barSize={20}>
-                                    {deviationData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.zDmg >= 0 ? '#10b981' : '#ef4444'} fillOpacity={0.8} />
-                                    ))}
+                                <Bar dataKey={!showDamage ? "zKills" : "zDmg"} name={!showDamage ? "Kills σ" : "Damage σ"} barSize={20}>
+                                    {deviationData.map((entry, index) => {
+                                        const val = !showDamage ? entry.zKills : entry.zDmg;
+                                        return (
+                                            <Cell key={`cell-${index}`} fill={val >= 0 ? '#10b981' : '#ef4444'} fillOpacity={0.8} />
+                                        );
+                                    })}
                                 </Bar>
-                                <Line type="monotone" dataKey="zKills" name="Kills σ" stroke="#fff" strokeWidth={2} dot={{fill: '#000', strokeWidth: 2}} />
+                                {showDamage && <Line type="monotone" dataKey="zKills" name="Kills σ" stroke="#fff" strokeWidth={2} dot={{fill: '#000', strokeWidth: 2}} />}
                                 {deviationData.length > 8 && (
                                     <Brush 
                                         dataKey="match" 
@@ -399,7 +468,7 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
             {/* Combat Volume (Original Trend) */}
             <div className="bg-tactical-dark border border-tactical-gray rounded-sm p-5 h-[280px] flex flex-col">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-tactical-red" /> Output Volume
+                    <TrendingUp className="w-4 h-4 text-tactical-red" /> {showDamage ? 'Output Volume' : 'Kills Operations'}
                 </h3>
                 <div className="flex-1 w-full">
                     {hasHistory ? (
@@ -407,8 +476,8 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
                             <ComposedChart data={player.history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorDmg" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                        <stop offset="5%" stopColor={!showDamage ? "#00FF00" : "#ef4444"} stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor={!showDamage ? "#00FF00" : "#ef4444"} stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" vertical={false} />
@@ -421,10 +490,10 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
                                         return parts ? `M${parts[2]}` : val;
                                     }}
                                 />
-                                <YAxis yAxisId="left" stroke="#ef4444" tick={{fill: '#ef4444', fontSize: 10}} />
+                                <YAxis yAxisId="left" stroke={!showDamage ? "#00FF00" : "#ef4444"} tick={{fill: !showDamage ? "#00FF00" : '#ef4444', fontSize: 10}} />
                                 <YAxis yAxisId="right" orientation="right" stroke="#fff" tick={{fill: '#fff', fontSize: 10}} />
                                 <Tooltip content={<CustomTrendTooltip />} />
-                                <Area yAxisId="left" type="monotone" dataKey="damage" stroke="#ef4444" fillOpacity={1} fill="url(#colorDmg)" name="Damage" />
+                                <Area yAxisId="left" type="monotone" dataKey={!showDamage ? "finishes" : "damage"} stroke={!showDamage ? "#00FF00" : "#ef4444"} fillOpacity={1} fill="url(#colorDmg)" name={!showDamage ? "Kills" : "Damage"} />
                                 <Line yAxisId="right" type="monotone" dataKey="impact" stroke="#fff" strokeWidth={2} dot={{fill: '#000', strokeWidth: 2}} name="Impact Score" />
                             </ComposedChart>
                         </ResponsiveContainer>
@@ -456,15 +525,26 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ player, team, onBack, onO
                               <span className="text-tactical-gray">Kills</span>
                               <span className="text-white group-hover:text-tactical-red font-bold">{h.finishes}</span>
                           </div>
-                          <div className="flex justify-between text-xs font-mono">
-                              <span className="text-tactical-gray">Dmg</span>
-                              <span className="text-white">{h.damage}</span>
-                          </div>
-                          {(h.zScoreDamage !== undefined) && (
-                              <div className="flex justify-between text-[10px] font-mono border-t border-tactical-gray/30 pt-1 mt-1">
-                                  <span className="text-tactical-gray">Dev.</span>
-                                  <span className={h.zScoreDamage >= 0 ? 'text-tactical-green' : 'text-tactical-red'}>{h.zScoreDamage > 0 ? '+' : ''}{h.zScoreDamage.toFixed(2)}σ</span>
+                          {showDamage && (
+                              <div className="flex justify-between text-xs font-mono">
+                                  <span className="text-tactical-gray">Dmg</span>
+                                  <span className="text-white">{h.damage}</span>
                               </div>
+                          )}
+                          {showDamage ? (
+                                (h.zScoreDamage !== undefined) && (
+                                    <div className="flex justify-between text-[10px] font-mono border-t border-tactical-gray/30 pt-1 mt-1">
+                                        <span className="text-tactical-gray">Dev.</span>
+                                        <span className={h.zScoreDamage >= 0 ? 'text-tactical-green' : 'text-tactical-red'}>{h.zScoreDamage > 0 ? '+' : ''}{h.zScoreDamage.toFixed(2)}σ</span>
+                                    </div>
+                                )
+                          ) : (
+                                (h.zScoreKills !== undefined) && (
+                                    <div className="flex justify-between text-[10px] font-mono border-t border-tactical-gray/30 pt-1 mt-1">
+                                        <span className="text-tactical-gray">Dev.</span>
+                                        <span className={h.zScoreKills >= 0 ? 'text-tactical-green' : 'text-tactical-red'}>{h.zScoreKills > 0 ? '+' : ''}{h.zScoreKills.toFixed(2)}σ</span>
+                                    </div>
+                                )
                           )}
                       </div>
                   </div>

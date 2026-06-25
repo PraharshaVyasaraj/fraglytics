@@ -13,7 +13,13 @@ export const DEFAULT_SCORING_RULES: ScoringRules = {
     7: 1,
     8: 1
   },
-  belowThresholdPoints: 0
+  belowThresholdPoints: 0,
+  activeMetrics: {
+    kills: true,
+    assists: true,
+    damage: true,
+    time: true,
+  }
 };
 
 // --- MATH HELPERS ---

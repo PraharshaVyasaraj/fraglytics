@@ -23,27 +23,32 @@ export const SDRRGraphic: React.FC<SDRRGraphicProps> = ({
   teamName,
   players,
   isPortrait = false,
-  visualConfig = { fontScale: 1, containerPadding: 1, spacing: 1 },
+  visualConfig = { fontScale: 1, containerPadding: 1, spacing: 1, templateMode: false },
   layout = 'classic'
 }) => {
   const scale = visualConfig.fontScale || 1;
   const padding = (visualConfig.containerPadding || 1) * 2;
   const spacing = (visualConfig.spacing || 1) * 1;
+  const isTemplate = visualConfig.templateMode;
 
   if (layout === 'cyber_glitch') {
     return (
-      <div className="w-full h-full bg-[#050505] p-8 flex flex-col items-center justify-between text-white font-sans overflow-hidden relative border-l-8 border-yellow-500" style={{ padding: `${padding}rem` }}>
+      <div className={`w-full h-full ${isTemplate ? 'bg-transparent' : 'bg-[#050505]'} p-8 flex flex-col items-center justify-between text-white font-sans overflow-hidden relative border-l-8 border-yellow-500`} style={{ padding: `${padding}rem` }}>
         {/* Background Decorative Text */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none opacity-[0.05] whitespace-nowrap z-0">
-            <h1 className="font-black italic uppercase tracking-tighter" style={{ fontSize: `${15 * scale}rem` }}>SDRR_SYSTEM</h1>
-        </div>
+        {!isTemplate && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none opacity-[0.05] whitespace-nowrap z-0">
+                <h1 className="font-black italic uppercase tracking-tighter" style={{ fontSize: `${15 * scale}rem` }}>SDRR_SYSTEM</h1>
+            </div>
+        )}
 
         {/* Glitch Overlay */}
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden mix-blend-overlay opacity-30">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz4KPC9zdmc+')]"></div>
-            <div className="absolute top-[20%] left-0 w-full h-px bg-cyan-500 shadow-[0_0_15px_cyan] opacity-50"></div>
-            <div className="absolute top-[80%] left-0 w-full h-px bg-fuchsia-500 shadow-[0_0_15px_fuchsia] opacity-50"></div>
-        </div>
+        {!isTemplate && (
+            <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden mix-blend-overlay opacity-30">
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCIvPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz4KPC9zdmc+')]"></div>
+                <div className="absolute top-[20%] left-0 w-full h-px bg-cyan-500 shadow-[0_0_15px_cyan] opacity-50"></div>
+                <div className="absolute top-[80%] left-0 w-full h-px bg-fuchsia-500 shadow-[0_0_15px_fuchsia] opacity-50"></div>
+            </div>
+        )}
 
         {/* Header */}
         <div className={`w-full flex ${isPortrait ? 'flex-col items-center gap-4 text-center' : 'justify-between items-start'} z-10`}>
@@ -66,8 +71,8 @@ export const SDRRGraphic: React.FC<SDRRGraphicProps> = ({
 
         {/* Player Cards */}
         <div className={`w-full grid ${isPortrait ? 'grid-cols-2' : 'grid-cols-4'} z-10`} style={{ gap: `${spacing * 2}rem` }}>
-          {players.map((player, index) => (
-            <div key={index} className="bg-black/60 border-l-2 border-white/10 p-6 flex flex-col items-center relative group hover:border-yellow-500 transition-all backdrop-blur-md">
+          {(players || []).map((player, index) => (
+            <div key={index} className={`${isTemplate ? 'bg-transparent border-transparent' : 'bg-black/60 border-l-2 border-white/10'} p-6 flex flex-col items-center relative group hover:border-yellow-500 transition-all backdrop-blur-md`}>
               <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-gradient-to-b from-yellow-500 to-transparent"></div>
               
               <div className="w-full aspect-square bg-white/5 border border-white/10 rounded-none mb-6 overflow-hidden relative">
@@ -139,7 +144,7 @@ export const SDRRGraphic: React.FC<SDRRGraphicProps> = ({
 
       {/* Player Cards */}
       <div className={`w-full grid ${isPortrait ? 'grid-cols-2' : 'grid-cols-4'} z-10`} style={{ gap: `${spacing}rem` }}>
-        {players.map((player, index) => (
+        {(players || []).map((player, index) => (
           <div key={index} className="bg-white/5 border border-white/10 p-4 flex flex-col items-center relative group hover:border-[#00FF00]/50 transition-colors">
             {/* Brutalist accents */}
             <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#00FF00]"></div>

@@ -97,8 +97,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
       try {
           setSnapStatus(prev => ({ ...prev, [id]: true }));
           const dataUrl = await toPng(ref.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
+          const gamePrefix = localStorage.getItem('fraglab_game_mode') === 'bgmi' ? 'bgmi' : 'scarfall';
           const link = document.createElement('a');
-          link.download = `scarfall_chart_${id}_${Date.now()}.png`;
+          link.download = `${gamePrefix}_chart_${id}_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
       } catch(e) { console.error(e); } 
@@ -141,16 +142,42 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
     return chartData;
   }, [data, hasHistory]);
 
+  const isBgmi = typeof window !== 'undefined' && localStorage.getItem('fraglab_game_mode') === 'bgmi';
+
   const radarData = useMemo(() => {
     const selectedTeam = data.find(t => t.name === selectedTeamName);
     if (!selectedTeam) return [];
     
+    const normalize = (val: number, max: number) => (max > 0 ? (val / max) * 100 : 0);
+
+    if (isBgmi) {
+      const getWWCDCount = (team: TeamData) => team.history?.filter(h => h.rank === 1).length || 0;
+      const getLobbyWWCD = () => data.reduce((s, t) => s + getWWCDCount(t), 0) / data.length;
+      
+      const maxFinishes = Math.max(...data.map(t => t.totalFinishes)) || 1;
+      const maxPlacement = Math.max(...data.map(t => t.placementPoints)) || 1;
+      const maxWWCD = Math.max(...data.map(t => getWWCDCount(t))) || 1;
+      const maxPoints = Math.max(...data.map(t => t.totalPoints)) || 1;
+      
+      const lobbyAvg = {
+        kills: data.reduce((s, t) => s + t.totalFinishes, 0) / data.length,
+        placement: data.reduce((s, t) => s + t.placementPoints, 0) / data.length,
+        points: data.reduce((s, t) => s + t.totalPoints, 0) / data.length,
+      };
+
+      return [
+        { subject: 'Finishes', A: normalize(selectedTeam.totalFinishes, maxFinishes), B: normalize(lobbyAvg.kills, maxFinishes), fullMark: 100 },
+        { subject: 'Placement Pts', A: normalize(selectedTeam.placementPoints, maxPlacement), B: normalize(lobbyAvg.placement, maxPlacement), fullMark: 100 },
+        { subject: 'SDRR (Wins)', A: normalize(getWWCDCount(selectedTeam), maxWWCD), B: normalize(getLobbyWWCD(), maxWWCD), fullMark: 100 },
+        { subject: 'Consistency', A: normalize(selectedTeam.totalPoints, maxPoints), B: normalize(lobbyAvg.points, maxPoints), fullMark: 100 },
+      ];
+    }
+
     const maxDmg = Math.max(...data.map(t => t.totalDamage)) || 1;
     const maxKills = Math.max(...data.map(t => t.totalFinishes)) || 1;
     const maxSurvival = Math.max(...data.map(t => t.avgSurvivalTime)) || 1;
     const maxPlacement = Math.max(...data.map(t => t.placementPoints)) || 1;
     
-    const normalize = (val: number, max: number) => (max > 0 ? (val / max) * 100 : 0);
     const lobbyAvg = {
       damage: data.reduce((s, t) => s + t.totalDamage, 0) / data.length,
       kills: data.reduce((s, t) => s + t.totalFinishes, 0) / data.length,
@@ -165,12 +192,12 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
       { subject: 'Placement', A: normalize(selectedTeam.placementPoints, maxPlacement), B: normalize(lobbyAvg.placement, maxPlacement), fullMark: 100 },
       { subject: 'Aggression', A: Math.min(100, selectedTeam.aggressionIndex), B: Math.min(100, data.reduce((s,t) => s + t.aggressionIndex, 0) / data.length), fullMark: 100 },
     ];
-  }, [data, selectedTeamName]);
+  }, [data, selectedTeamName, isBgmi]);
 
   const { scatterData, regressionLine, rSquared } = useMemo(() => {
      const points = data.map(team => ({
         name: team.name,
-        x: team.totalDamage,
+        x: isBgmi ? team.placementPoints : team.totalDamage,
         y: team.totalFinishes,
         z: team.totalPoints, 
         idx: team.aggressionIndex,
@@ -205,9 +232,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
           }
       }
       return { scatterData: points, regressionLine: linePoints, rSquared: r2 };
-  }, [data]);
+  }, [data, isBgmi]);
 
-  const avgDmg = data.reduce((s, t) => s + t.totalDamage, 0) / data.length || 0;
+  const avgDmg = isBgmi 
+    ? (data.reduce((s, t) => s + t.placementPoints, 0) / data.length || 0)
+    : (data.reduce((s, t) => s + t.totalDamage, 0) / data.length || 0);
   const avgKills = data.reduce((s, t) => s + t.totalFinishes, 0) / data.length || 0;
 
   const topOperators = useMemo(() => {
@@ -296,8 +325,8 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
       <div ref={scatterRef} className="bg-tactical-dark p-5 rounded-sm border border-tactical-gray flex flex-col h-[350px] relative">
          <SectionHeader 
             icon={<Crosshair className="w-4 h-4" />} 
-            title="Conversion Efficiency" 
-            subtitle="Damage vs. Kills (Bubble Size = Total Points)" 
+            title={isBgmi ? "Strategic Quadrants" : "Conversion Efficiency"} 
+            subtitle={isBgmi ? "Placement Points vs. Finishes" : "Damage vs. Kills (Bubble Size = Total Points)"} 
             onSnapshot={() => handleSnapshot(scatterRef, 'scatter')}
             isSnapping={snapStatus['scatter']}
             rightContent={
@@ -313,14 +342,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" opacity={0.5} />
-              <XAxis type="number" dataKey="x" name="Damage" tick={{ fontSize: 10, fill: '#7A7A7A', fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#2A2A2A' }} label={{ value: 'TOTAL DAMAGE', position: 'insideBottom', offset: -10, fill: '#444', fontSize: 10 }} domain={[0, 'auto']} />
-              <YAxis type="number" dataKey="y" name="Kills" tick={{ fontSize: 10, fill: '#7A7A7A', fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#2A2A2A' }} label={{ value: 'TOTAL KILLS', angle: -90, position: 'insideLeft', offset: 10, fill: '#444', fontSize: 10 }} domain={[0, 'auto']} />
+              <XAxis type="number" dataKey="x" name={isBgmi ? "Placement Pts" : "Damage"} tick={{ fontSize: 10, fill: '#7A7A7A', fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#2A2A2A' }} label={{ value: isBgmi ? 'PLACEMENT POINTS' : 'TOTAL DAMAGE', position: 'insideBottom', offset: -10, fill: '#444', fontSize: 10 }} domain={[0, 'auto']} />
+              <YAxis type="number" dataKey="y" name={isBgmi ? "Finishes" : "Kills"} tick={{ fontSize: 10, fill: '#7A7A7A', fontFamily: 'monospace' }} tickLine={false} axisLine={{ stroke: '#2A2A2A' }} label={{ value: isBgmi ? 'TOTAL FINISHES' : 'TOTAL KILLS', angle: -90, position: 'insideLeft', offset: 10, fill: '#444', fontSize: 10 }} domain={[0, 'auto']} />
               <ZAxis type="number" dataKey="z" range={[50, 400]} name="Points" />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
-              <ReferenceArea x1={avgDmg} y1={avgKills} fill="rgba(16, 185, 129, 0.05)" strokeOpacity={0}><Label value="DOMINANT" position="insideTopRight" offset={10} fill="rgba(16, 185, 129, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
-              <ReferenceArea x1={avgDmg} y1={0} y2={avgKills} fill="rgba(245, 158, 11, 0.05)" strokeOpacity={0}><Label value="FARMERS" position="insideBottomRight" offset={10} fill="rgba(245, 158, 11, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
-              <ReferenceArea x1={0} x2={avgDmg} y1={avgKills} fill="rgba(59, 130, 246, 0.05)" strokeOpacity={0}><Label value="OPPORTUNISTS" position="insideTopLeft" offset={10} fill="rgba(59, 130, 246, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
-              <ReferenceArea x1={0} x2={avgDmg} y1={0} y2={avgKills} fill="rgba(239, 68, 68, 0.05)" strokeOpacity={0}><Label value="PASSIVE" position="insideBottomLeft" offset={10} fill="rgba(239, 68, 68, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
+              <ReferenceArea x1={avgDmg} y1={avgKills} fill="rgba(16, 185, 129, 0.05)" strokeOpacity={0}><Label value={isBgmi ? "DOMINANT" : "DOMINANT"} position="insideTopRight" offset={10} fill="rgba(16, 185, 129, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
+              <ReferenceArea x1={avgDmg} y1={0} y2={avgKills} fill="rgba(245, 158, 11, 0.05)" strokeOpacity={0}><Label value={isBgmi ? "STRATEGISTS" : "FARMERS"} position="insideBottomRight" offset={10} fill="rgba(245, 158, 11, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
+              <ReferenceArea x1={0} x2={avgDmg} y1={avgKills} fill="rgba(59, 130, 246, 0.05)" strokeOpacity={0}><Label value={isBgmi ? "AGGRESSIVE" : "OPPORTUNISTS"} position="insideTopLeft" offset={10} fill="rgba(59, 130, 246, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
+              <ReferenceArea x1={0} x2={avgDmg} y1={0} y2={avgKills} fill="rgba(239, 68, 68, 0.05)" strokeOpacity={0}><Label value={isBgmi ? "PASSIVE" : "PASSIVE"} position="insideBottomLeft" offset={10} fill="rgba(239, 68, 68, 0.5)" fontSize={10} fontWeight="900" style={{fontFamily: 'monospace'}} /></ReferenceArea>
               <ReferenceLine x={avgDmg} stroke="#3f3f46" strokeDasharray="3 3" />
               <ReferenceLine y={avgKills} stroke="#3f3f46" strokeDasharray="3 3" />
               {regressionLine && regressionLine.length > 0 && <Scatter name="Trend Line" data={regressionLine} line={{ stroke: '#555', strokeWidth: 1, strokeDasharray: '4 4' }} shape={() => null} legendType="none" />}
@@ -335,8 +364,8 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
       <div ref={barRef} className="bg-tactical-dark p-5 rounded-sm border border-tactical-gray flex flex-col h-[350px]">
         <SectionHeader 
           icon={<Shield className="w-4 h-4" />} 
-          title="Fragger Leaderboard" 
-          subtitle="Top 10 by Impact Score" 
+          title={isBgmi ? "Fragger Leaderboard" : "Fragger Leaderboard"} 
+          subtitle={isBgmi ? "Top 10 by Impact Score" : "Top 10 by Impact Score"} 
           onSnapshot={() => handleSnapshot(barRef, 'operators')}
           isSnapping={snapStatus['operators']}
         />
@@ -353,7 +382,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ data, onPlayerClick }) => {
                             <div className="bg-tactical-black p-2 border border-tactical-gray text-xs font-mono">
                                 <div className="text-white font-bold">{p.playerName}</div>
                                 <div className="text-tactical-light">{p.team}</div>
-                                <div className="mt-1 pt-1 border-t border-white/10 flex gap-2"><span>DMG: {p.damage}</span><span>K: {p.finishes}</span></div>
+                                <div className="mt-1 pt-1 border-t border-white/10 flex gap-2">
+                                  {!isBgmi && <span>DMG: {p.damage}</span>}
+                                  <span>F: {p.finishes}</span>
+                                </div>
                             </div>
                         )
                     }

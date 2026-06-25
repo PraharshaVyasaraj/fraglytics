@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { TeamData, PlayerDerived } from '../types';
+import { TeamData, PlayerDerived, ScoringRules } from '../types';
 import { Trophy, Crosshair, LayoutGrid, Table as TableIcon, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Copy, MessageSquare, MonitorPlay, Check, Download, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -8,7 +8,8 @@ interface PointsTableProps {
   data: TeamData[];
   onTeamClick?: (team: TeamData) => void;
   onPlayerClick?: (player: PlayerDerived) => void;
-  onOpenStudio?: () => void;
+  onOpenStudio?: (mode?: string, context?: { teamId?: string; playerName?: string }) => void;
+  scoringRules?: ScoringRules;
 }
 
 const TrendIcon = ({ trend }: { trend: TeamData['trend'] }) => {
@@ -17,7 +18,16 @@ const TrendIcon = ({ trend }: { trend: TeamData['trend'] }) => {
     return <Minus className="w-4 h-4 text-tactical-gray" />;
 };
 
-const SquadCard: React.FC<{ team: TeamData; displayRank: number; onTeamClick?: (t: TeamData) => void; onPlayerClick?: (p: PlayerDerived) => void }> = ({ team, displayRank, onTeamClick, onPlayerClick }) => {
+const SquadCard: React.FC<{ 
+  team: TeamData; 
+  displayRank: number; 
+  onTeamClick?: (t: TeamData) => void; 
+  onPlayerClick?: (p: PlayerDerived) => void;
+  scoringRules?: ScoringRules;
+}> = ({ team, displayRank, onTeamClick, onPlayerClick, scoringRules }) => {
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const showDamage = activeMetrics.damage ?? true;
+  
   return (
     <div className={`bg-tactical-dark rounded-sm border mb-4 overflow-hidden transition-all hover:border-tactical-light/50 ${displayRank === 1 ? 'border-tactical-white/40 shadow-lg shadow-white/5' : 'border-tactical-gray'}`}>
       {/* Header / Macro Stats */}
@@ -38,7 +48,7 @@ const SquadCard: React.FC<{ team: TeamData; displayRank: number; onTeamClick?: (
             </h3>
             <div className="flex gap-2 text-xs font-mono mt-1">
               {team.flags.map(f => (
-                  <span key={f} className="text-[9px] px-1.5 py-0.5 border rounded-sm uppercase tracking-wider bg-black/50 border-tactical-gray text-tactical-light">
+                   <span key={f} className="text-[9px] px-1.5 py-0.5 border rounded-sm uppercase tracking-wider bg-black/50 border-tactical-gray text-tactical-light">
                       {f}
                   </span>
               ))}
@@ -58,32 +68,34 @@ const SquadCard: React.FC<{ team: TeamData; displayRank: number; onTeamClick?: (
         </div>
 
         {/* Aggression / Efficiency Index */}
-        <div className="flex-1 w-full md:w-auto grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 px-0 sm:px-4 border-l-0 sm:border-l sm:border-r border-tactical-gray/30 my-2 sm:mx-4">
-          <div className="flex flex-col justify-center gap-1">
-            <div className="flex justify-between text-[10px] uppercase font-bold text-tactical-light tracking-wider">
-                <span>Aggression</span>
-                <span className="text-white">{team.aggressionIndex?.toFixed(0) || 0}</span>
+        {showDamage && (
+          <div className="flex-1 w-full md:w-auto grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 px-0 sm:px-4 border-l-0 sm:border-l sm:border-r border-tactical-gray/30 my-2 sm:mx-4">
+            <div className="flex flex-col justify-center gap-1">
+              <div className="flex justify-between text-[10px] uppercase font-bold text-tactical-light tracking-wider">
+                  <span>Aggression</span>
+                  <span className="text-white">{team.aggressionIndex?.toFixed(0) || 0}</span>
+              </div>
+              <div className="h-1.5 bg-black rounded-full overflow-hidden flex">
+                  <div 
+                      className="h-full bg-tactical-red transition-all duration-500" 
+                      style={{ width: `${Math.min(100, team.aggressionIndex || 0)}%` }} 
+                  />
+              </div>
             </div>
-            <div className="h-1.5 bg-black rounded-full overflow-hidden flex">
-                <div 
-                    className="h-full bg-tactical-red transition-all duration-500" 
-                    style={{ width: `${Math.min(100, team.aggressionIndex || 0)}%` }} 
-                />
+            <div className="flex flex-col justify-center gap-1">
+              <div className="flex justify-between text-[10px] uppercase font-bold text-tactical-light tracking-wider">
+                  <span>Efficiency</span>
+                  <span className="text-white">{team.efficiencyRating?.toFixed(0) || 0}</span>
+              </div>
+              <div className="h-1.5 bg-black rounded-full overflow-hidden flex">
+                  <div 
+                      className="h-full bg-tactical-green transition-all duration-500" 
+                      style={{ width: `${Math.min(100, (team.efficiencyRating || 0) / 30 * 100)}%` }} 
+                  />
+              </div>
             </div>
           </div>
-          <div className="flex flex-col justify-center gap-1">
-            <div className="flex justify-between text-[10px] uppercase font-bold text-tactical-light tracking-wider">
-                <span>Efficiency</span>
-                <span className="text-white">{team.efficiencyRating?.toFixed(0) || 0}</span>
-            </div>
-            <div className="h-1.5 bg-black rounded-full overflow-hidden flex">
-                <div 
-                    className="h-full bg-tactical-green transition-all duration-500" 
-                    style={{ width: `${Math.min(100, (team.efficiencyRating || 0) / 30 * 100)}%` }} 
-                />
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Total Score */}
         <div className="text-right min-w-[60px] sm:min-w-[80px] w-full sm:w-auto flex sm:flex-col justify-between sm:justify-center items-center sm:items-end border-t sm:border-t-0 border-tactical-gray/30 pt-2 sm:pt-0">
@@ -99,7 +111,7 @@ const SquadCard: React.FC<{ team: TeamData; displayRank: number; onTeamClick?: (
       <div className="border-t border-tactical-gray/50 p-4 bg-black/20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {team.players.map((player, idx) => (
-            <PlayerStats key={idx} player={player} onClick={() => onPlayerClick?.(player)} />
+            <PlayerStats key={idx} player={player} onClick={() => onPlayerClick?.(player)} scoringRules={scoringRules} />
           ))}
         </div>
       </div>
@@ -107,7 +119,11 @@ const SquadCard: React.FC<{ team: TeamData; displayRank: number; onTeamClick?: (
   );
 };
 
-const PlayerStats: React.FC<{ player: PlayerDerived; onClick?: () => void }> = ({ player, onClick }) => {
+const PlayerStats: React.FC<{ player: PlayerDerived; onClick?: () => void; scoringRules?: ScoringRules }> = ({ player, onClick, scoringRules }) => {
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const showDamage = activeMetrics.damage ?? true;
+  const showAssists = activeMetrics.assists ?? true;
+
   // Carry Colors
   let borderClass = 'border-tactical-gray';
   let badgeClass = '';
@@ -144,28 +160,38 @@ const PlayerStats: React.FC<{ player: PlayerDerived; onClick?: () => void }> = (
       </div>
       
       <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-xs font-mono text-tactical-light">
-        <div className="flex items-center justify-between">
-            <span>DMG</span>
-            <span className={`font-bold ${player.damage > 1500 ? 'text-white' : ''}`}>{player.damage.toLocaleString()}</span>
-        </div>
-        <div className="flex items-center justify-between">
-            <span>KILLS</span>
-            <span className={player.finishes > 3 ? 'text-white font-bold' : ''}>{player.finishes}</span>
-        </div>
-        <div className="flex items-center justify-between mt-1 pt-1 border-t border-tactical-gray/30">
-            <span className="text-[10px] opacity-70">Z-SCR</span>
-            <span className={`text-[10px] font-bold ${zColor}`}>{zVal > 0 ? '+' : ''}{zVal.toFixed(2)}σ</span>
-        </div>
-        <div className="flex items-center justify-between mt-1 pt-1 border-t border-tactical-gray/30">
-            <span className="text-[10px] opacity-70">SHARE</span>
-            <span className="text-[10px]">{player.damageShare.toFixed(0)}%</span>
-        </div>
+          {showDamage && (
+            <div className="flex items-center justify-between">
+                <span>DMG</span>
+                <span className={`font-bold ${player.damage > 1500 ? 'text-white' : ''}`}>{player.damage.toLocaleString()}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+              <span>KILLS</span>
+              <span className={player.finishes > 3 ? 'text-white font-bold' : ''}>{player.finishes}</span>
+          </div>
+          {showDamage && (
+            <>
+              <div className="flex items-center justify-between mt-1 pt-1 border-t border-tactical-gray/30">
+                  <span className="text-[10px] opacity-70">Z-SCR</span>
+                  <span className={`text-[10px] font-bold ${zColor}`}>{zVal > 0 ? '+' : ''}{zVal.toFixed(2)}σ</span>
+              </div>
+              <div className="flex items-center justify-between mt-1 pt-1 border-t border-tactical-gray/30">
+                  <span className="text-[10px] opacity-70">SHARE</span>
+                  <span className="text-[10px]">{player.damageShare.toFixed(0)}%</span>
+              </div>
+            </>
+          )}
       </div>
     </div>
   );
 };
 
 // --- TABLE VIEW COMPONENTS ---
+
+const MobileScrollIndicator: React.FC<{ containerRef: React.RefObject<HTMLDivElement | null> }> = ({ containerRef }) => {
+  return null;
+};
 
 type SortKey = keyof TeamData | 'wwcd' | 'avgPts' | 'avgDmg' | 'displayRank' | 'rollingAvgPoints' | 'efficiencyRating';
 type SortDirection = 'asc' | 'desc';
@@ -174,7 +200,15 @@ interface TableRowData extends TeamData {
   displayRank: number;
 }
 
-const StandingsTable: React.FC<{ data: TableRowData[]; onTeamClick?: (t: TeamData) => void }> = ({ data, onTeamClick }) => {
+const StandingsTable: React.FC<{ 
+  data: TableRowData[]; 
+  onTeamClick?: (t: TeamData) => void;
+  onOpenStudio?: (mode?: string, context?: { teamId?: string; playerName?: string }) => void;
+  scoringRules?: ScoringRules;
+}> = ({ data, onTeamClick, onOpenStudio, scoringRules }) => {
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const showDamage = activeMetrics.damage ?? true;
+  
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'displayRank', direction: 'asc' });
 
   const getWWCD = (team: TeamData) => team.history?.filter(h => h.rank === 1).length || 0;
@@ -233,64 +267,84 @@ const StandingsTable: React.FC<{ data: TableRowData[]; onTeamClick?: (t: TeamDat
     </th>
   );
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="overflow-x-auto bg-tactical-dark border border-tactical-gray rounded-sm shadow-xl">
-      <table className="w-full text-sm">
-        <thead className="bg-black border-b border-tactical-gray">
-          <tr>
-            <HeaderCell label="Rank" sortKey="displayRank" align="left" className="w-16" />
-            <HeaderCell label="Team" sortKey="name" align="left" />
-            <HeaderCell label="Trend" sortKey="trend" />
-            <HeaderCell label="M" sortKey="matchesPlayed" />
-            <HeaderCell label="SDRR" sortKey="wwcd" />
-            <HeaderCell label="Avg Pts (L5)" sortKey="rollingAvgPoints" className="hidden lg:table-cell" />
-            <HeaderCell label="Place Pts" sortKey="placementPoints" />
-            <HeaderCell label="Kill Pts" sortKey="killPoints" />
-            <HeaderCell label="Total Pts" sortKey="totalPoints" className="text-white bg-white/5" />
-            <HeaderCell label="Avg Dmg" sortKey="avgDmg" className="hidden md:table-cell" />
-            <HeaderCell label="Eff. Rating" sortKey="efficiencyRating" className="hidden sm:table-cell" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-tactical-gray/20">
-          {sortedData.map((team) => {
-             const wwcd = getWWCD(team);
-             return (
-              <tr 
-                key={team.name} 
-                className="hover:bg-white/5 transition-colors font-mono cursor-pointer"
-                onClick={() => onTeamClick?.(team)}
-              >
-                <td className="px-4 py-3 text-white font-bold">
-                  <div className={`w-8 h-8 flex items-center justify-center rounded-sm ${team.displayRank <= 3 ? 'bg-tactical-red text-white' : 'bg-tactical-gray/30 text-tactical-light'}`}>
-                    #{team.displayRank}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                    <div className="font-bold text-white flex items-center gap-2">
-                        {team.name}
-                        {team.flags.includes("DOMINANT") && <span className="w-1.5 h-1.5 rounded-full bg-tactical-red animate-pulse" title="Dominant"></span>}
+    <div className="relative">
+      <div ref={containerRef} className="overflow-x-auto bg-tactical-dark border border-tactical-gray rounded-sm shadow-xl">
+        <table className="w-full text-sm">
+          <thead className="bg-black border-b border-tactical-gray">
+            <tr>
+              <HeaderCell label="Rank" sortKey="displayRank" align="left" className="w-16" />
+              <HeaderCell label="Team" sortKey="name" align="left" />
+              <HeaderCell label="Trend" sortKey="trend" />
+              <HeaderCell label="M" sortKey="matchesPlayed" />
+              <HeaderCell label="SDRR" sortKey="wwcd" />
+              <HeaderCell label="Avg Pts (L5)" sortKey="rollingAvgPoints" className="hidden lg:table-cell" />
+              <HeaderCell label="Place Pts" sortKey="placementPoints" />
+              <HeaderCell label="Kill Pts" sortKey="killPoints" />
+              <HeaderCell label="Total Pts" sortKey="totalPoints" className="text-white bg-white/5" />
+              {showDamage && <HeaderCell label="Avg Dmg" sortKey="avgDmg" className="hidden md:table-cell" />}
+              {showDamage && <HeaderCell label="Eff. Rating" sortKey="efficiencyRating" className="hidden sm:table-cell" />}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-tactical-gray/20">
+            {sortedData.map((team) => {
+               const wwcd = getWWCD(team);
+               return (
+                <tr 
+                  key={team.name} 
+                  className="hover:bg-white/5 transition-colors font-mono cursor-pointer"
+                  onClick={() => onTeamClick?.(team)}
+                >
+                  <td className="px-4 py-3 text-white font-bold">
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-sm ${team.displayRank <= 3 ? 'bg-tactical-red text-white' : 'bg-tactical-gray/30 text-tactical-light'}`}>
+                      #{team.displayRank}
                     </div>
-                </td>
-                <td className="px-4 py-3 text-center"><div className="flex justify-center"><TrendIcon trend={team.trend} /></div></td>
-                <td className="px-4 py-3 text-center text-tactical-light">{team.matchesPlayed}</td>
-                <td className="px-4 py-3 text-center text-white font-bold">{wwcd > 0 ? wwcd : '-'}</td>
-                <td className="px-4 py-3 text-center text-tactical-light hidden lg:table-cell">{team.rollingAvgPoints?.toFixed(1) || '-'}</td>
-                <td className="px-4 py-3 text-center text-tactical-light font-bold text-white/80">{team.placementPoints}</td>
-                <td className="px-4 py-3 text-center text-tactical-light">{team.killPoints}</td>
-                <td className="px-4 py-3 text-center text-white font-black text-lg bg-white/5">{team.totalPoints}</td>
-                <td className="px-4 py-3 text-center text-tactical-light hidden md:table-cell">{(team.totalDamage / (team.matchesPlayed || 1)).toFixed(0)}</td>
-                <td className="px-4 py-3 text-center text-tactical-light hidden sm:table-cell">{team.efficiencyRating?.toFixed(0) || '-'}</td>
-              </tr>
-             );
-          })}
-        </tbody>
-      </table>
+                  </td>
+                  <td className="px-4 py-3">
+                      <div className="font-bold text-white flex items-center gap-2">
+                          {team.name}
+                          {team.flags.includes("DOMINANT") && <span className="w-1.5 h-1.5 rounded-full bg-tactical-red animate-pulse" title="Dominant"></span>}
+                          {onOpenStudio && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenStudio("team_profile", { teamId: team.name });
+                              }}
+                              className="p-1 text-white/40 hover:text-tactical-red hover:bg-tactical-red/15 border border-transparent hover:border-tactical-red/30 rounded-sm transition-all ml-1 inline-flex items-center"
+                              title="Direct design graphics card"
+                            >
+                              <MonitorPlay className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                      </div>
+                  </td>
+                  <td className="px-4 py-3 text-center"><div className="flex justify-center"><TrendIcon trend={team.trend} /></div></td>
+                  <td className="px-4 py-3 text-center text-tactical-light">{team.matchesPlayed}</td>
+                  <td className="px-4 py-3 text-center text-white font-bold">{wwcd > 0 ? wwcd : '-'}</td>
+                  <td className="px-4 py-3 text-center text-tactical-light hidden lg:table-cell">{team.rollingAvgPoints?.toFixed(1) || '-'}</td>
+                  <td className="px-4 py-3 text-center text-tactical-light font-bold text-white/80">{team.placementPoints}</td>
+                  <td className="px-4 py-3 text-center text-tactical-light">{team.killPoints}</td>
+                  <td className="px-4 py-3 text-center text-white font-black text-lg bg-white/5">{team.totalPoints}</td>
+                  {showDamage && <td className="px-4 py-3 text-center text-tactical-light hidden md:table-cell">{(team.totalDamage / (team.matchesPlayed || 1)).toFixed(0)}</td>}
+                  {showDamage && <td className="px-4 py-3 text-center text-tactical-light hidden sm:table-cell">{team.efficiencyRating?.toFixed(0) || '-'}</td>}
+                </tr>
+               );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <MobileScrollIndicator containerRef={containerRef} />
     </div>
   );
 };
 
 
-const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerClick, onOpenStudio }) => {
+const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerClick, onOpenStudio, scoringRules }) => {
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const isBgmi = typeof window !== 'undefined' && localStorage.getItem('fraglab_game_mode') === 'bgmi';
+  const showDamage = activeMetrics.damage ?? true;
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
 
   useEffect(() => {
@@ -351,7 +405,7 @@ const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerCl
       try {
           const dataUrl = await toPng(tableRef.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
           const link = document.createElement('a');
-          link.download = `scarfall_standings_${Date.now()}.png`;
+          link.download = `standings_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setCopyStatus('snapshot');
@@ -395,7 +449,7 @@ const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerCl
                  </button>
                  <div className="w-px h-3 bg-tactical-gray mx-1"></div>
                  <button 
-                    onClick={onOpenStudio}
+                    onClick={() => onOpenStudio?.()}
                     className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase hover:bg-white/10 rounded-sm transition-colors text-white"
                     title="Open in Broadcast Studio"
                  >
@@ -431,7 +485,7 @@ const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerCl
       
       <div id="points-table" className="animate-in fade-in duration-500 p-2 bg-tactical-black" ref={tableRef}>
         {viewMode === 'table' ? (
-           <StandingsTable data={processedData} onTeamClick={onTeamClick} />
+           <StandingsTable data={processedData} onTeamClick={onTeamClick} onOpenStudio={onOpenStudio} scoringRules={scoringRules} />
         ) : (
           <div className="space-y-4">
             {processedData.map((team) => (
@@ -441,6 +495,7 @@ const PointsTable: React.FC<PointsTableProps> = ({ data, onTeamClick, onPlayerCl
                 displayRank={team.displayRank} 
                 onTeamClick={onTeamClick}
                 onPlayerClick={onPlayerClick}
+                scoringRules={scoringRules}
               />
             ))}
           </div>

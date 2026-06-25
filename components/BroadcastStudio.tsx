@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { TeamData, BrandingConfig, ExportMode, AspectRatio, ExportTheme, ExportLayout } from '../types';
+import { TeamData, BrandingConfig, ExportMode, AspectRatio, ExportTheme, ExportLayout, MatchData, PlayerDerived, CarryClass } from '../types';
 import ExportRenderer from './ExportRenderer';
-import { X, Download, LayoutTemplate, Trophy, User, Swords, ChevronDown, MonitorPlay, Smartphone, Monitor, Square, Crown, LogOut, ChevronLeft, ChevronRight, ListOrdered, Crosshair, Copy, Palette, Layout, Type, Contact, Users, Sliders, Zap, ArrowRightLeft, Shield, Settings, ImageIcon } from 'lucide-react';
+import { X, Download, LayoutTemplate, Trophy, User, Swords, ChevronDown, MonitorPlay, Smartphone, Monitor, Square, Crown, LogOut, ChevronLeft, ChevronRight, ListOrdered, Crosshair, Copy, Palette, Layout, Type, Contact, Users, Sliders, Zap, ArrowRightLeft, Shield, Settings, ImageIcon, Edit, Plus, Trash2, CheckCircle2, RotateCcw, FileText } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 interface BroadcastStudioProps {
@@ -15,6 +15,8 @@ interface BroadcastStudioProps {
   initialMode?: ExportMode;
   initialFocusTeamId?: string;
   initialFocusPlayerName?: string;
+  rawMatches?: MatchData[];
+  onRawMatchesUpdate?: (matches: MatchData[]) => void;
 }
 
 export interface VisualConfig {
@@ -31,17 +33,44 @@ export interface VisualConfig {
     tracking?: number; // Kerning/tracking adjustments (-5px to 15px)
     leading?: number;  // Typography line height (0.8 to 2)
     kerning?: boolean; // Toggle typographical ligature kerning
-    colorProfile?: 'rgb' | 'cmyk' | 'pantone'; // RGB / CMYK / Pantone Color simulation profiles
-    noiseOverlay?: boolean; // Non-destructive retro grain noise layer
-    vignetteOverlay?: boolean; // Non-destructive vignette vignette master mask layer
-    filterContrast?: number; // Non-destructive adjustments
-    filterBrightness?: number;
-    filterSaturation?: number;
-    vectorOverlay?: 'none' | 'tech_nodes' | 'crosshair_grids' | 'brutalist_bracket'; // Pen Tool & Vector Paths
     exportDelay?: number; // Added export delay forcefulness
+    templateMode?: boolean; // Overlay mode for custom PNG templates
 }
 
-const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data, defaultTitle, defaultSubtitle, branding, initialMode, initialFocusTeamId, initialFocusPlayerName }) => {
+const getDefaultHeaderForMode = (mode: ExportMode, fallbackTitle: string, fallbackSubtitle: string) => {
+  switch (mode) {
+    case 'standings':
+      return { title: fallbackTitle || "Tournament Standings", subtitle: fallbackSubtitle || "Grand Finals - Cumulative" };
+    case 'winner':
+      return { title: "Tournament Winner", subtitle: "Grand Champion Victory" };
+    case 'faceoff':
+      return { title: "Team Face-off", subtitle: "Head-to-head Clash" };
+    case 'mvp':
+      return { title: "Tournament MVP", subtitle: "Most Valuable Player" };
+    case 'hall_of_fame':
+      return { title: "Awards & Hall of Fame", subtitle: "Elite Performance Recognitions" };
+    case 'player_leaderboard':
+      return { title: "Player Leaderboard", subtitle: "Individual Overall Performance" };
+    case 'top_fraggers':
+      return { title: "Top Fraggers", subtitle: "Elimination Leaders" };
+    case 'team_profile':
+      return { title: "Team Profile", subtitle: "Tactical & Statistical Breakdown" };
+    case 'player_profile':
+      return { title: "Player Profile", subtitle: "Individual Career Snapshot" };
+    case 'team_grid':
+      return { title: "Playing Teams", subtitle: "Participating Squads" };
+    case 'player_comparison':
+      return { title: "Player Comparison", subtitle: "Statistical Head-to-Head" };
+    case 'sdrr':
+      return { title: "Strategic Performance SDRR", subtitle: "Advanced Metric Distribution" };
+    case 'intelligence':
+      return { title: "Intelligence Briefing", subtitle: "AI Analysis & Insights" };
+    default:
+      return { title: fallbackTitle || "Tournament Standings", subtitle: fallbackSubtitle || "Report" };
+  }
+};
+
+const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data, defaultTitle, defaultSubtitle, branding, initialMode, initialFocusTeamId, initialFocusPlayerName, rawMatches = [], onRawMatchesUpdate }) => {
   const [mode, setMode] = useState<ExportMode>('standings');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   
@@ -64,18 +93,19 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
       tracking: 0,
       leading: 1.2,
       kerning: true,
-      colorProfile: 'rgb',
-      noiseOverlay: false,
-      vignetteOverlay: false,
-      filterContrast: 100,
-      filterBrightness: 100,
-      filterSaturation: 100,
-      vectorOverlay: 'none',
-      exportDelay: 2000
+      exportDelay: 2000,
+      templateMode: false
   });
 
   const [title, setTitle] = useState(defaultTitle);
   const [subtitle, setSubtitle] = useState(defaultSubtitle);
+  
+  const handleModeChange = (newMode: ExportMode) => {
+    setMode(newMode);
+    const defaultHeader = getDefaultHeaderForMode(newMode, defaultTitle, defaultSubtitle);
+    setTitle(defaultHeader.title);
+    setSubtitle(defaultHeader.subtitle);
+  };
   
   // Selection State
   const [focusTeamId, setFocusTeamId] = useState<string>(data[0]?.name || '');
@@ -134,16 +164,32 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
 
+  const getPreviewDimensions = (ratio: AspectRatio) => {
+    switch (ratio) {
+        case '9:16': return { width: 1080, height: 1920 };
+        case '1:1': return { width: 1080, height: 1080 };
+        case '4:3': return { width: 1440, height: 1080 };
+        case '21:9': return { width: 2560, height: 1080 };
+        case '16:9': 
+        default: return { width: 1920, height: 1080 };
+    }
+  };
+
   // Constants
-  const ROWS_PER_PAGE_STANDINGS = 8; 
-  const ROWS_PER_PAGE_PLAYERS = 8; 
+  const ROWS_PER_PAGE_STANDINGS = 12; 
+  const ROWS_PER_PAGE_PLAYERS = 14; 
 
   const getRowsPerPage = () => {
       if (mode === 'standings') {
-          if (theme === 'intelligence') {
-              return aspectRatio === '9:16' ? 12 : 8;
+          // Responsive row counts for optimal structural density
+          switch (aspectRatio) {
+              case '16:9': return 8;
+              case '9:16': return 12;
+              case '1:1': return 6;
+              case '4:3': return 5;
+              case '21:9': return 12;
+              default: return 8;
           }
-          return ROWS_PER_PAGE_STANDINGS;
       }
       if (mode === 'player_leaderboard') return ROWS_PER_PAGE_PLAYERS;
       if (mode === 'team_grid') return 16;
@@ -176,9 +222,13 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
 
   useEffect(() => {
     if (isOpen) {
-        setMode(initialMode || 'standings');
-        setTitle(defaultTitle);
-        setSubtitle(defaultSubtitle);
+        const targetMode = initialMode || 'standings';
+        setMode(targetMode);
+        
+        const defaultHeader = getDefaultHeaderForMode(targetMode, defaultTitle, defaultSubtitle);
+        setTitle(defaultHeader.title);
+        setSubtitle(defaultHeader.subtitle);
+        
         setPage(1); 
         
         if (initialFocusTeamId) setFocusTeamId(initialFocusTeamId);
@@ -198,10 +248,7 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
     const updateScale = () => {
         if (containerRef.current) {
             const { clientWidth, clientHeight } = containerRef.current;
-            let targetW = 1920; 
-            let targetH = 1080;
-            if (aspectRatio === '9:16') { targetW = 1080; targetH = 1920; }
-            if (aspectRatio === '1:1') { targetW = 1080; targetH = 1080; }
+            const { width: targetW, height: targetH } = getPreviewDimensions(aspectRatio);
             
             const padding = 32; // Reduced from 64
             const availableW = clientWidth - padding;
@@ -229,9 +276,8 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
   // Helper to ensure correct background color is captured in PNG
   const getThemeHexBg = (theme: ExportTheme): string => {
         switch (theme) {
-            case 'slate': return '#1C2333';
             case 'paper': return '#F1F5F9';
-            case 'violet': return '#1E1B2E';
+            case 'rose': return '#881337';
             case 'intelligence': return '#0A0A0A';
             case 'protocol': default: return '#0E0E0E';
         }
@@ -269,10 +315,7 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
       const originalPage = page; 
 
       try {
-          let width = 1920;
-          let height = 1080;
-          if (aspectRatio === '9:16') { width = 1080; height = 1920; }
-          if (aspectRatio === '1:1') { width = 1080; height = 1080; }
+          const { width, height } = getPreviewDimensions(aspectRatio);
 
           const capture = async (suffix: string) => {
               // Standard minimum delay for visual assets to load completely
@@ -294,8 +337,9 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                       transition: 'none'
                   }
               });
+              const gamePrefix = localStorage.getItem('fraglab_game_mode') === 'bgmi' ? 'bgmi' : 'scarfall';
               const link = document.createElement('a');
-              link.download = `scarfall_${mode}_${theme}_${suffix}_${Date.now()}.png`;
+              link.download = `${gamePrefix}_${mode}_${theme}_${suffix}_${Date.now()}.png`;
               link.href = dataUrl;
               link.click();
           };
@@ -370,13 +414,17 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                     setVisualConfig({
                                         headerScale: 1,
                                         rankScale: 1.2, 
-                                        statPriority: 'combat',
+                                        statPriority: 'combat' as const,
                                         spacing: 1,
                                         padding: 1,
                                         itemSpacing: 1,
                                         containerPadding: 1,
                                         rowHeight: 1,
-                                        fontScale: 1
+                                        fontScale: 1,
+                                        tracking: 0,
+                                        leading: 1.2,
+                                        kerning: true,
+                                        exportDelay: 2000
                                     });
                                 }}
                                 className="text-[10px] font-bold uppercase tracking-widest text-tactical-red hover:underline"
@@ -695,84 +743,84 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                         <label className="text-xs font-mono uppercase text-tactical-light font-bold">Graphic Mode</label>
                         <div className="grid grid-cols-2 gap-2">
                             <button 
-                                onClick={() => setMode('standings')}
+                                onClick={() => handleModeChange('standings')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'standings' ? 'bg-tactical-red text-white border-tactical-red' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <LayoutTemplate className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Standings</span>
                             </button>
                             <button 
-                                onClick={() => setMode('team_profile')}
+                                onClick={() => handleModeChange('team_profile')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'team_profile' ? 'bg-blue-500 text-white border-blue-500' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Users className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Team Profile</span>
                             </button>
                             <button 
-                                onClick={() => setMode('player_profile')}
+                                onClick={() => handleModeChange('player_profile')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'player_profile' ? 'bg-green-500 text-white border-green-500' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Contact className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Player Card</span>
                             </button>
                             <button 
-                                onClick={() => setMode('player_leaderboard')}
+                                onClick={() => handleModeChange('player_leaderboard')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'player_leaderboard' ? 'bg-purple-600 text-white border-purple-600' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <ListOrdered className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Stats</span>
                             </button>
                             <button 
-                                onClick={() => setMode('top_fraggers')}
+                                onClick={() => handleModeChange('top_fraggers')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'top_fraggers' ? 'bg-orange-600 text-white border-orange-600' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Crosshair className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Fraggers</span>
                             </button>
                             <button 
-                                onClick={() => setMode('winner')}
+                                onClick={() => handleModeChange('winner')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'winner' ? 'bg-yellow-600 text-white border-yellow-600' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Trophy className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Winner</span>
                             </button>
                             <button 
-                                onClick={() => setMode('mvp')}
+                                onClick={() => handleModeChange('mvp')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'mvp' ? 'bg-[#F2C94C] text-black border-[#F2C94C]' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Crown className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">MVP</span>
                             </button>
                             <button 
-                                onClick={() => setMode('faceoff')}
+                                onClick={() => handleModeChange('faceoff')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'faceoff' ? 'bg-blue-600 text-white border-blue-600' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Swords className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Faceoff</span>
                             </button>
                             <button 
-                                onClick={() => setMode('hall_of_fame')}
+                                onClick={() => handleModeChange('hall_of_fame')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'hall_of_fame' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Crown className="w-5 h-5 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Awards</span>
                             </button>
                             <button 
-                                onClick={() => setMode('player_comparison')}
+                                onClick={() => handleModeChange('player_comparison')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'player_comparison' ? 'bg-pink-600 text-white border-pink-600' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Swords className="w-6 h-6 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Compare</span>
                             </button>
                             <button 
-                                onClick={() => setMode('team_grid')}
+                                onClick={() => handleModeChange('team_grid')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'team_grid' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <LayoutTemplate className="w-5 h-5 mb-1" />
                                 <span className="text-[10px] uppercase font-bold">Groups</span>
                             </button>
                             <button 
-                                onClick={() => setMode('sdrr')}
+                                onClick={() => handleModeChange('sdrr')}
                                 className={`flex flex-col items-center justify-center p-3 rounded-sm border transition-all ${mode === 'sdrr' ? 'bg-[#00FF00] text-black border-[#00FF00]' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
                             >
                                 <Trophy className="w-5 h-5 mb-1" />
@@ -957,6 +1005,17 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
 
                 {activeTab === 'assets' && (
                     <div className="space-y-6 animate-in slide-in-from-left-2">
+                        {/* Overlay Guidance Block */}
+                        <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-sm space-y-1.5">
+                            <div className="flex items-center gap-2 text-blue-400">
+                                <FileText className="w-4 h-4" />
+                                <span className="text-[10px] font-mono uppercase font-bold tracking-wider">Template Overlay Guide</span>
+                            </div>
+                            <p className="text-[10px] text-tactical-light leading-relaxed">
+                                Upload a custom branding PNG template image below, then activate <strong className="text-white">Template Mode</strong>. This clears default backgrounds, overlaying fresh live stats directly on top of your graphic asset for instant high-end social media exports!
+                            </p>
+                        </div>
+
                         {/* Global Background */}
                         <div className="space-y-3">
                             <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
@@ -1002,7 +1061,21 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                         </button>
                                     )}
                                 </div>
-                                <p className="text-[9px] text-tactical-light font-mono uppercase">Recommended: 1920x1080 PNG/JPG</p>
+                                <div className="flex items-center justify-between mt-2">
+                                    <p className="text-[9px] text-tactical-light font-mono uppercase">Recommended: 1920x1080 PNG/JPG</p>
+                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                        <div className="relative">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={visualConfig.templateMode}
+                                                onChange={() => setVisualConfig(prev => ({ ...prev, templateMode: !prev.templateMode }))}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-8 h-4 bg-tactical-gray rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                        </div>
+                                        <span className="text-[10px] font-bold uppercase text-tactical-light group-hover:text-white">Template Mode</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -1073,23 +1146,31 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                          {/* Aspect Ratio Selector */}
                         <div className="space-y-3">
                             <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2"><MonitorPlay className="w-3 h-3"/> Canvas Format</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                <button onClick={() => setAspectRatio('16:9')} className={`flex flex-col items-center p-2 rounded-sm border ${aspectRatio === '16:9' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
-                                    <Monitor className="w-5 h-5 mb-1" />
-                                    <span className="text-[9px] font-bold">16:9</span>
+                            <div className="grid grid-cols-5 gap-1">
+                                <button onClick={() => setAspectRatio('16:9')} className={`flex flex-col items-center p-1 rounded-sm border ${aspectRatio === '16:9' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
+                                    <Monitor className="w-4 h-4 mb-1" />
+                                    <span className="text-[8px] font-bold">16:9</span>
                                 </button>
-                                <button onClick={() => setAspectRatio('9:16')} className={`flex flex-col items-center p-2 rounded-sm border ${aspectRatio === '9:16' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
-                                    <Smartphone className="w-5 h-5 mb-1" />
-                                    <span className="text-[9px] font-bold">9:16</span>
+                                <button onClick={() => setAspectRatio('9:16')} className={`flex flex-col items-center p-1 rounded-sm border ${aspectRatio === '9:16' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
+                                    <Smartphone className="w-4 h-4 mb-1" />
+                                    <span className="text-[8px] font-bold">9:16</span>
                                 </button>
-                                <button onClick={() => setAspectRatio('1:1')} className={`flex flex-col items-center p-2 rounded-sm border ${aspectRatio === '1:1' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
-                                    <Square className="w-5 h-5 mb-1" />
-                                    <span className="text-[9px] font-bold">1:1</span>
+                                <button onClick={() => setAspectRatio('1:1')} className={`flex flex-col items-center p-1 rounded-sm border ${aspectRatio === '1:1' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
+                                    <Square className="w-4 h-4 mb-1" />
+                                    <span className="text-[8px] font-bold">1:1</span>
+                                </button>
+                                <button onClick={() => setAspectRatio('4:3')} className={`flex flex-col items-center p-1 rounded-sm border ${aspectRatio === '4:3' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
+                                    <Monitor className="w-4 h-4 mb-1 text-cyan-400" />
+                                    <span className="text-[8px] font-bold">4:3</span>
+                                </button>
+                                <button onClick={() => setAspectRatio('21:9')} className={`flex flex-col items-center p-1 rounded-sm border ${aspectRatio === '21:9' ? 'bg-white text-black border-white' : 'bg-black text-tactical-light border-tactical-gray hover:border-white'}`}>
+                                    <Monitor className="w-4 h-4 mb-1 text-purple-400" />
+                                    <span className="text-[8px] font-bold">21:9</span>
                                 </button>
                             </div>
                         </div>
                         
-                        {/* Theme Selector */}
+    {/* Theme Selector */}
                         <div className="space-y-3 pt-4 border-t border-tactical-gray/30">
                             <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2"><Palette className="w-3 h-3"/> Visual Theme</label>
                             <div className="grid grid-cols-2 gap-2">
@@ -1097,33 +1178,13 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                     <div className="w-3 h-3 bg-tactical-black border border-white rounded-full"></div>
                                     <span className="text-xs font-bold uppercase">Protocol</span>
                                 </button>
-                                <button onClick={() => setTheme('slate')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'slate' ? 'bg-[#1C2333] border-[#94A3B8] text-[#E2E8F0]' : 'bg-black border-tactical-gray text-tactical-light'}`}>
-                                    <div className="w-3 h-3 bg-[#94A3B8] rounded-full"></div>
-                                    <span className="text-xs font-bold uppercase">Steel</span>
-                                </button>
                                 <button onClick={() => setTheme('paper')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'paper' ? 'bg-white border-blue-600 text-black' : 'bg-black border-tactical-gray text-tactical-light'}`}>
                                     <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                                     <span className="text-xs font-bold uppercase">Paper</span>
                                 </button>
-                                <button onClick={() => setTheme('violet')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'violet' ? 'bg-[#1E1B2E] border-[#A78BFA] text-[#F5F3FF]' : 'bg-black border-tactical-gray text-tactical-light'}`}>
-                                    <div className="w-3 h-3 bg-[#A78BFA] rounded-full"></div>
-                                    <span className="text-xs font-bold uppercase">Dusk</span>
-                                </button>
-                                <button onClick={() => setTheme('emerald')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'emerald' ? 'bg-emerald-950 border-emerald-400 text-emerald-50' : 'bg-black border-tactical-gray text-tactical-light'}`}>
-                                    <div className="w-3 h-3 bg-emerald-400 rounded-full"></div>
-                                    <span className="text-xs font-bold uppercase">Toxic</span>
-                                </button>
-                                <button onClick={() => setTheme('amber')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'amber' ? 'bg-amber-950 border-amber-400 text-amber-50' : 'bg-black border-tactical-gray text-tactical-light'}`}>
-                                    <div className="w-3 h-3 bg-amber-400 rounded-full"></div>
-                                    <span className="text-xs font-bold uppercase">Hazard</span>
-                                </button>
                                 <button onClick={() => setTheme('rose')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'rose' ? 'bg-rose-950 border-rose-400 text-rose-50' : 'bg-black border-tactical-gray text-tactical-light'}`}>
                                     <div className="w-3 h-3 bg-rose-400 rounded-full"></div>
                                     <span className="text-xs font-bold uppercase">Crimson</span>
-                                </button>
-                                <button onClick={() => setTheme('cyan')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'cyan' ? 'bg-cyan-950 border-cyan-400 text-cyan-50' : 'bg-black border-tactical-gray text-tactical-light'}`}>
-                                    <div className="w-3 h-3 bg-cyan-400 rounded-full"></div>
-                                    <span className="text-xs font-bold uppercase">Neon</span>
                                 </button>
                                 <button onClick={() => setTheme('intelligence')} className={`p-3 border text-left flex items-center gap-2 ${theme === 'intelligence' ? 'bg-[#1A1A1A] border-[#C5A073] text-white' : 'bg-black border-tactical-gray text-tactical-light'}`}>
                                     <div className="w-3 h-3 bg-[#C5A073] rounded-full"></div>
@@ -1141,7 +1202,7 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                         <div className="h-1 bg-current w-full"></div>
                                         <div className="h-3 bg-current w-full opacity-50"></div>
                                     </div>
-                                    <span className="text-[10px] font-bold uppercase">Classic</span>
+                                    <span className="text-[10px] font-bold uppercase">★ FragLab Pro</span>
                                 </button>
                                 <button onClick={() => setLayout('sidebar')} className={`p-3 border text-left flex flex-col items-center gap-2 ${layout === 'sidebar' ? 'bg-white text-black border-white' : 'bg-black border-tactical-gray text-tactical-light'}`}>
                                     <div className="w-full h-8 border border-current opacity-30 flex p-1 gap-1">
@@ -1165,16 +1226,6 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                     </div>
                                     <span className="text-[10px] font-bold uppercase">Analyst</span>
                                 </button>
-                                <button onClick={() => setLayout('broadcast_hero')} className={`p-3 border text-left flex flex-col items-center gap-2 ${layout === 'broadcast_hero' ? 'bg-white text-black border-white' : 'bg-black border-tactical-gray text-tactical-light'}`}>
-                                    <div className="w-full h-8 border border-current opacity-30 flex flex-col p-1 gap-1 bg-purple-900/50">
-                                        <div className="h-2 bg-current w-full mb-1"></div>
-                                        <div className="flex gap-1 h-full">
-                                            <div className="w-1/2 bg-current opacity-50"></div>
-                                            <div className="w-1/2 bg-current opacity-50"></div>
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] font-bold uppercase">Hero</span>
-                                </button>
                                 <button onClick={() => setLayout('statistics')} className={`p-3 border text-left flex flex-col items-center gap-2 ${layout === 'statistics' ? 'bg-white text-black border-white' : 'bg-black border-tactical-gray text-tactical-light'}`}>
                                     <div className="w-full h-8 border border-current opacity-30 flex gap-1 p-1">
                                         <div className="w-2/3 bg-current opacity-50"></div>
@@ -1186,99 +1237,8 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                                     </div>
                                     <span className="text-[10px] font-bold uppercase">Stats</span>
                                 </button>
-                                <button onClick={() => setLayout('cyber_glitch')} className={`p-3 border text-left flex flex-col items-center gap-2 ${layout === 'cyber_glitch' ? 'bg-white text-black border-white' : 'bg-black border-tactical-gray text-tactical-light'}`}>
-                                    <div className="w-full h-8 border border-current opacity-30 flex flex-col p-1 gap-1 relative overflow-hidden">
-                                        <div className="h-2 bg-current w-full"></div>
-                                        <div className="h-2 bg-current w-full opacity-50 translate-x-1"></div>
-                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                                    </div>
-                                    <span className="text-[10px] font-bold uppercase">Cyber Glitch</span>
-                                </button>
                             </div>
                         </div>
-
-                        {/* Pro Creative Studio Preset Templates */}
-                        <div className="space-y-3 pt-4 border-t border-tactical-gray/30">
-                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
-                                <Zap className="w-3 h-3 text-yellow-400" /> Style Presets
-                            </label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button 
-                                    onClick={() => setVisualConfig(prev => ({
-                                        ...prev,
-                                        fontScale: 1.1,
-                                        headerScale: 1.1,
-                                        tracking: 4,
-                                        leading: 1.15,
-                                        kerning: true,
-                                        noiseOverlay: false,
-                                        vignetteOverlay: true,
-                                        filterContrast: 105,
-                                        filterSaturation: 110,
-                                        vectorOverlay: 'tech_nodes'
-                                    }))}
-                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
-                                >
-                                    ⚡ Esports Pro
-                                </button>
-                                <button 
-                                    onClick={() => setVisualConfig(prev => ({
-                                        ...prev,
-                                        fontScale: 0.85,
-                                        headerScale: 0.9,
-                                        tracking: 10,
-                                        leading: 1.4,
-                                        kerning: true,
-                                        noiseOverlay: false,
-                                        vignetteOverlay: false,
-                                        filterContrast: 100,
-                                        filterSaturation: 80,
-                                        vectorOverlay: 'none'
-                                    }))}
-                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
-                                >
-                                    📰 Editorial Clean
-                                </button>
-                                <button 
-                                    onClick={() => setVisualConfig(prev => ({
-                                        ...prev,
-                                        fontScale: 1.15,
-                                        headerScale: 1.2,
-                                        tracking: -2,
-                                        leading: 0.95,
-                                        kerning: false,
-                                        noiseOverlay: true,
-                                        vignetteOverlay: true,
-                                        filterContrast: 125,
-                                        filterSaturation: 140,
-                                        vectorOverlay: 'crosshair_grids'
-                                    }))}
-                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
-                                >
-                                    🔋 Cyberpunk Glitch
-                                </button>
-                                <button 
-                                    onClick={() => setVisualConfig(prev => ({
-                                        ...prev,
-                                        fontScale: 1.0,
-                                        headerScale: 1.0,
-                                        tracking: 0,
-                                        leading: 1.2,
-                                        kerning: true,
-                                        noiseOverlay: false,
-                                        vignetteOverlay: false,
-                                        filterContrast: 100,
-                                        filterBrightness: 100,
-                                        filterSaturation: 100,
-                                        vectorOverlay: 'none'
-                                    }))}
-                                    className="p-2 border text-[10px] font-bold uppercase text-left bg-black border-tactical-gray text-tactical-light hover:border-yellow-400 hover:text-white"
-                                >
-                                    🔄 Clear Reset
-                                </button>
-                            </div>
-                        </div>
-
                         {/* Typography Control */}
                         <div className="space-y-4 pt-4 border-t border-tactical-gray/30">
                             <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
@@ -1332,116 +1292,6 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                         </div>
 
                         {/* Color Simulation Profiles */}
-                        <div className="space-y-3 pt-4 border-t border-tactical-gray/30">
-                            <label className="text-xs font-mono uppercase text-[#A78BFA] font-bold flex items-center gap-2">
-                                <Palette className="w-3 h-3 text-purple-400" /> Color Profiles
-                            </label>
-                            <div className="grid grid-cols-3 gap-1">
-                                <button 
-                                    onClick={() => setVisualConfig(prev => ({ ...prev, colorProfile: 'rgb' }))}
-                                    className={`py-2 px-1 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.colorProfile === 'rgb' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
-                                >
-                                    sRGB Web
-                                </button>
-                                <button 
-                                    onClick={() => setVisualConfig(prev => ({ ...prev, colorProfile: 'cmyk' }))}
-                                    className={`py-2 px-1 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.colorProfile === 'cmyk' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
-                                    title="Calibrated CMYK press profile simulation"
-                                >
-                                    Press CMYK
-                                </button>
-                                <button 
-                                    onClick={() => setVisualConfig(prev => ({ ...prev, colorProfile: 'pantone' }))}
-                                    className={`py-2 px-1 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.colorProfile === 'pantone' ? 'bg-pink-600 border-pink-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
-                                    title="Pantone ink system spot proofing"
-                                >
-                                    Pantone PMS
-                                </button>
-                            </div>
-                            <p className="text-[9px] text-tactical-light font-mono leading-relaxed">
-                                {visualConfig.colorProfile === 'cmyk' ? 'Simulating: Standard Coated FOGRA39 (Print Match)' : visualConfig.colorProfile === 'pantone' ? 'Simulating: Pantone Formula Coated Solid Spot' : 'sRGB screen broadcast mode.'}
-                            </p>
-                        </div>
-
-                        {/* Non-Destructive Effector Layers */}
-                        <div className="space-y-4 pt-4 border-t border-tactical-gray/30">
-                            <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
-                                <Sliders className="w-3 h-3" /> Effects Layers
-                            </label>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={visualConfig.noiseOverlay ?? false}
-                                        onChange={() => setVisualConfig(prev => ({ ...prev, noiseOverlay: !prev.noiseOverlay }))}
-                                        className="rounded border-tactical-gray bg-black text-blue-500 focus:ring-0"
-                                    />
-                                    <span className="text-[10px] font-mono font-bold uppercase text-tactical-light group-hover:text-white">GRAIN NOISE</span>
-                                </label>
-
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={visualConfig.vignetteOverlay ?? false}
-                                        onChange={() => setVisualConfig(prev => ({ ...prev, vignetteOverlay: !prev.vignetteOverlay }))}
-                                        className="rounded border-tactical-gray bg-black text-blue-500 focus:ring-0"
-                                     />
-                                     <span className="text-[10px] font-mono font-bold uppercase text-tactical-light group-hover:text-white">VIGNETTE</span>
-                                 </label>
-                             </div>
-
-                             <div className="space-y-1.5">
-                                 <div className="flex justify-between text-[11px] font-mono text-tactical-light font-bold">
-                                     <span>CONTRAST</span>
-                                     <span className="text-white">{visualConfig.filterContrast ?? 100}%</span>
-                                 </div>
-                                 <input 
-                                     type="range" 
-                                     min="80" 
-                                     max="150" 
-                                     step="5"
-                                     value={visualConfig.filterContrast ?? 100}
-                                     onChange={(e) => setVisualConfig(prev => ({ ...prev, filterContrast: parseInt(e.target.value) }))}
-                                     className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-blue-500" 
-                                 />
-                             </div>
-
-                             <div className="space-y-1.5">
-                                 <div className="flex justify-between text-[11px] font-mono text-tactical-light font-bold">
-                                     <span>SATURATION</span>
-                                     <span className="text-white">{visualConfig.filterSaturation ?? 100}%</span>
-                                 </div>
-                                 <input 
-                                     type="range" 
-                                     min="50" 
-                                     max="150" 
-                                     step="5"
-                                     value={visualConfig.filterSaturation ?? 100}
-                                     onChange={(e) => setVisualConfig(prev => ({ ...prev, filterSaturation: parseInt(e.target.value) }))}
-                                     className="w-full h-1 bg-tactical-gray rounded-lg appearance-none cursor-pointer accent-blue-500" 
-                                 />
-                             </div>
-                         </div>
-
-                         {/* Pen Tool & Vector Paths */}
-                         <div className="space-y-3 pt-4 border-t border-tactical-gray/30 pb-4">
-                             <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
-                                 <Crosshair className="w-3 h-3 text-cyan-400" /> Vector Paths & Brackets
-                             </label>
-                             <div className="grid grid-cols-2 gap-2">
-                                 {(['none', 'tech_nodes', 'crosshair_grids', 'brutalist_bracket'] as const).map(op => (
-                                     <button 
-                                         key={op}
-                                         onClick={() => setVisualConfig(prev => ({ ...prev, vectorOverlay: op }))}
-                                         className={`p-2 text-[9px] font-bold uppercase rounded-sm border text-center ${visualConfig.vectorOverlay === op ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-black border-tactical-gray text-tactical-light hover:border-white'}`}
-                                     >
-                                         {op.replace('_', ' ')}
-                                     </button>
-                                 ))}
-                             </div>
-                         </div>
-                         
                          {/* Render Engine & Snapshots */}
                          <div className="space-y-3 pt-4 border-t border-tactical-gray/30 pb-4">
                              <label className="text-xs font-mono uppercase text-tactical-light font-bold flex items-center gap-2">
@@ -1499,7 +1349,7 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
          {/* Preview Area */}
          <div className="flex-1 bg-black relative overflow-auto" ref={containerRef}>
              {/* Dynamic BG based on theme preview */}
-             <div className={`fixed inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${theme === 'slate' ? 'from-slate-800 to-black' : theme === 'violet' ? 'from-violet-900 to-black' : 'from-tactical-gray to-black'} pointer-events-none`}></div>
+             <div className={`fixed inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-tactical-gray to-black pointer-events-none`}></div>
              
              {/* Zoom Controls */}
              <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 bg-tactical-dark/80 backdrop-blur-md border border-tactical-gray rounded-full px-4 py-2 flex items-center gap-4 text-white shadow-2xl">
@@ -1551,13 +1401,13 @@ const BroadcastStudio: React.FC<BroadcastStudioProps> = ({ isOpen, onClose, data
                  <div 
                     className="relative shadow-2xl shadow-black border border-tactical-gray/50 transition-all duration-300 ease-out flex-shrink-0" 
                     style={{ 
-                        width: (aspectRatio === '9:16' ? 1080 : aspectRatio === '1:1' ? 1080 : 1920) * scale,
-                        height: (aspectRatio === '9:16' ? 1920 : aspectRatio === '1:1' ? 1080 : 1080) * scale,
+                        width: getPreviewDimensions(aspectRatio).width * scale,
+                        height: getPreviewDimensions(aspectRatio).height * scale,
                     }}
                  >
                     <div style={{
-                        width: aspectRatio === '9:16' ? 1080 : aspectRatio === '1:1' ? 1080 : 1920,
-                        height: aspectRatio === '9:16' ? 1920 : aspectRatio === '1:1' ? 1080 : 1080,
+                        width: getPreviewDimensions(aspectRatio).width,
+                        height: getPreviewDimensions(aspectRatio).height,
                         transform: `scale(${scale})`,
                         transformOrigin: 'top left'
                     }}>

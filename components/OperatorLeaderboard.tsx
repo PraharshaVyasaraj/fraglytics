@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { TeamData, PlayerDerived } from '../types';
+import { TeamData, PlayerDerived, ScoringRules } from '../types';
 import { getGlobalPlayerRegistry } from '../services/analyticsEngine';
 import { Search, Filter, ArrowUpDown, ChevronUp, ChevronDown, Crosshair, Skull, Shield, Zap, MonitorPlay, LayoutGrid, List, TrendingUp, ChevronRight, Activity, Target, ArrowRightLeft, Download, Loader2, Check, AlertCircle } from 'lucide-react';
 import { toPng } from 'html-to-image';
@@ -9,6 +9,7 @@ interface OperatorLeaderboardProps {
   data: TeamData[];
   onPlayerClick?: (player: PlayerDerived, teamName: string) => void;
   onOpenStudio?: () => void;
+  scoringRules?: ScoringRules;
 }
 
 type SortField = 'impactScore' | 'finishes' | 'damage' | 'playTimeMinutes' | 'playerName' | 'teamName' | 'consistency' | 'dpk';
@@ -63,7 +64,7 @@ const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
     );
 };
 
-const PlayerCard: React.FC<{ player: any, onClick?: () => void }> = ({ player, onClick }) => {
+const PlayerCard: React.FC<{ player: any, onClick?: () => void, showDamage?: boolean }> = ({ player, onClick, showDamage = true }) => {
     const isTransfer = player.teamName && player.teamName.includes('→');
     
     return (
@@ -112,8 +113,8 @@ const PlayerCard: React.FC<{ player: any, onClick?: () => void }> = ({ player, o
                     <div className="text-sm font-bold text-white">{player.finishes}</div>
                 </div>
                 <div className="bg-black/40 p-2 rounded-sm border border-white/5">
-                    <div className="text-[9px] text-tactical-light uppercase">Dmg</div>
-                    <div className="text-sm font-bold text-white">{(player.damage/1000).toFixed(1)}k</div>
+                    <div className="text-[9px] text-tactical-light uppercase">{showDamage ? 'Damage' : 'Matches'}</div>
+                    <div className="text-sm font-bold text-white">{showDamage ? `${(player.damage/1000).toFixed(1)}k` : player.matchesPlayed}</div>
                 </div>
                 <div className="bg-black/40 p-2 rounded-sm border border-white/5">
                     <div className="text-[9px] text-tactical-light uppercase">KPM</div>
@@ -133,8 +134,17 @@ const PlayerCard: React.FC<{ player: any, onClick?: () => void }> = ({ player, o
 
 // --- MAIN COMPONENT ---
 
-const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlayerClick, onOpenStudio }) => {
+const MobileScrollIndicator: React.FC<{ containerRef: React.RefObject<HTMLDivElement | null> }> = ({ containerRef }) => {
+  return null;
+};
+
+const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlayerClick, onOpenStudio, scoringRules }) => {
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const showDamage = activeMetrics.damage ?? true;
+  const showTime = activeMetrics.time ?? true;
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const tableScrollContainerRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('impactScore');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -223,7 +233,7 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
       try {
           const dataUrl = await toPng(containerRef.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
           const link = document.createElement('a');
-          link.download = `scarfall_operator_leaderboard_${Date.now()}.png`;
+          link.download = `operator_leaderboard_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setSnapDone(true);
@@ -325,6 +335,7 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
                     <PlayerCard 
                         key={player.id} 
                         player={player} 
+                        showDamage={showDamage}
                         onClick={() => onPlayerClick?.(player, player.teamName.split('→').pop()?.trim() || player.teamName)} 
                     />
                 ))}
@@ -333,8 +344,9 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
 
         {/* --- VIEW: TABLE --- */}
         {viewMode === 'table' && (
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm border-collapse">
+            <div className="relative">
+                <div ref={tableScrollContainerRef} className="overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse">
                     <thead className="bg-black text-[10px] font-mono uppercase text-tactical-light tracking-wider border-b border-tactical-gray">
                         <tr>
                             <th className="p-3 w-10 text-center">#</th>
@@ -347,12 +359,14 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
                             <th className="p-3 w-24 text-center cursor-pointer hover:text-white" onClick={() => handleSort('finishes')}>
                                 <div className="flex items-center gap-1 justify-center">Kills <SortIcon field="finishes" /></div>
                             </th>
-                            <th className="p-3 w-28 text-center cursor-pointer hover:text-white" onClick={() => handleSort('damage')}>
-                                <div className="flex items-center gap-1 justify-center">Damage <SortIcon field="damage" /></div>
+                            <th className="p-3 w-28 text-center cursor-pointer hover:text-white" onClick={() => handleSort(showDamage ? 'damage' : 'playTimeMinutes')}>
+                                <div className="flex items-center gap-1 justify-center">{showDamage ? 'Damage' : 'Matches'} <SortIcon field={showDamage ? 'damage' : 'playTimeMinutes'} /></div>
                             </th>
-                            <th className="p-3 w-24 text-center cursor-pointer hover:text-white hidden md:table-cell" onClick={() => handleSort('dpk')}>
-                                <div className="flex items-center gap-1 justify-center">DPK <SortIcon field="dpk" /></div>
-                            </th>
+                            {showDamage && (
+                                <th className="p-3 w-24 text-center cursor-pointer hover:text-white hidden md:table-cell" onClick={() => handleSort('dpk')}>
+                                    <div className="flex items-center gap-1 justify-center">DPK <SortIcon field="dpk" /></div>
+                                </th>
+                            )}
                             <th className="p-3 w-32 text-center cursor-pointer hover:text-white hidden lg:table-cell" onClick={() => handleSort('consistency')}>
                                 <div className="flex items-center gap-1 justify-center">C.Rat <SortIcon field="consistency" /></div>
                             </th>
@@ -418,18 +432,20 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
                                             <div className="text-[9px] text-tactical-gray">{player.kpm.toFixed(2)} /m</div>
                                         </td>
                                         
-                                        {/* Damage Heatmap */}
-                                        <td className="p-3 text-center" style={{ backgroundColor: `rgba(239, 68, 68, ${dmgOpacity * 0.15})` }}>
-                                            <div className="font-bold text-white">{(player.damage).toLocaleString()}</div>
-                                            <div className="text-[9px] text-tactical-gray">Avg: {(player.damage / Math.max(1, player.matchesPlayed || 1)).toFixed(0)}</div>
+                                        {/* Damage Heatmap or Matches */}
+                                        <td className="p-3 text-center" style={{ backgroundColor: !showDamage ? undefined : `rgba(239, 68, 68, ${dmgOpacity * 0.15})` }}>
+                                            <div className="font-bold text-white">{!showDamage ? player.matchesPlayed : (player.damage).toLocaleString()}</div>
+                                            <div className="text-[9px] text-tactical-gray">{!showDamage ? 'Matches Played' : `Avg: ${(player.damage / Math.max(1, player.matchesPlayed || 1)).toFixed(0)}`}</div>
                                         </td>
 
                                         {/* DPK */}
-                                        <td className="p-3 text-center hidden md:table-cell">
-                                            <div className={`font-mono text-xs font-bold ${player.dpk < 300 ? 'text-tactical-green' : player.dpk > 800 ? 'text-tactical-red' : 'text-white'}`}>
-                                                {(player.dpk || 0).toFixed(0)}
-                                            </div>
-                                        </td>
+                                        {showDamage && (
+                                            <td className="p-3 text-center hidden md:table-cell">
+                                                <div className={`font-mono text-xs font-bold ${player.dpk < 300 ? 'text-tactical-green' : player.dpk > 800 ? 'text-tactical-red' : 'text-white'}`}>
+                                                    {(player.dpk || 0).toFixed(0)}
+                                                </div>
+                                            </td>
+                                        )}
 
                                         {/* Consistency */}
                                         <td className="p-3 text-center hidden lg:table-cell">
@@ -486,7 +502,7 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
                                                                 <tr className="text-tactical-gray border-b border-tactical-gray/30">
                                                                     <th className="py-1">Match</th>
                                                                     <th className="py-1">Kills</th>
-                                                                    <th className="py-1">Damage</th>
+                                                                    {showDamage && <th className="py-1">Damage</th>}
                                                                     <th className="py-1">Rating</th>
                                                                 </tr>
                                                             </thead>
@@ -495,7 +511,7 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
                                                                     <tr key={i} className="border-b border-tactical-gray/10 hover:bg-white/5">
                                                                         <td className="py-1 text-tactical-light">{h.matchId}</td>
                                                                         <td className="py-1 text-white">{h.finishes}</td>
-                                                                        <td className="py-1 text-white">{h.damage}</td>
+                                                                        {showDamage && <td className="py-1 text-white">{h.damage}</td>}
                                                                         <td className="py-1 text-yellow-500 font-bold">{h.impact.toFixed(0)}</td>
                                                                     </tr>
                                                                 ))}
@@ -537,6 +553,8 @@ const OperatorLeaderboard: React.FC<OperatorLeaderboardProps> = ({ data, onPlaye
                     </tbody>
                 </table>
             </div>
+            <MobileScrollIndicator containerRef={tableScrollContainerRef} />
+          </div>
         )}
     </div>
   );

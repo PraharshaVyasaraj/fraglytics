@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { TeamData } from '../types';
+import { TeamData, ScoringRules } from '../types';
 import { Trophy, Crown, MonitorPlay, Download, Loader2, Check } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -8,9 +8,10 @@ interface WinnerShowcaseProps {
   data: TeamData[];
   onOpenStudio?: () => void;
   onTeamClick?: (team: TeamData) => void;
+  scoringRules?: ScoringRules;
 }
 
-const WinnerShowcase: React.FC<WinnerShowcaseProps> = ({ data, onOpenStudio, onTeamClick }) => {
+const WinnerShowcase: React.FC<WinnerShowcaseProps> = ({ data, onOpenStudio, onTeamClick, scoringRules }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isSnapshotting, setIsSnapshotting] = useState(false);
   const [snapDone, setSnapDone] = useState(false);
@@ -31,7 +32,7 @@ const WinnerShowcase: React.FC<WinnerShowcaseProps> = ({ data, onOpenStudio, onT
       try {
           const dataUrl = await toPng(containerRef.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
           const link = document.createElement('a');
-          link.download = `scarfall_winner_${winner.name}_${Date.now()}.png`;
+          link.download = `winner_${winner.name}_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setSnapDone(true);

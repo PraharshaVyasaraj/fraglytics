@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 import { StatRow } from './StatRow';
 import { motion } from 'motion/react';
-import { Star } from 'lucide-react';
+import { Star, Eye, Shield, Target, Award, Cpu, Sparkles } from 'lucide-react';
 
 export interface MVPPlayer {
   id: string;
@@ -24,158 +24,211 @@ interface MVPCardProps {
   isPrimary?: boolean;
   accentColor?: string;
   rank?: number;
+  gameMode?: 'bgmi' | 'scarfall';
 }
 
-export const MVPCard: React.FC<MVPCardProps> = ({ player, isPrimary = false, accentColor = '#00FF00', rank }) => {
+export const MVPCard: React.FC<MVPCardProps> = ({ 
+  player, 
+  isPrimary = false, 
+  accentColor = '#00FF00', 
+  rank,
+  gameMode = 'scarfall'
+}) => {
   const displayRank = rank || (isPrimary ? 1 : 2);
-  
+  const isBgmi = gameMode === 'bgmi';
+
+  // Calculate dynamic grades for decorative elements
+  const performanceGrade = player.stats.mvpRating > 300 ? 'S+' : player.stats.mvpRating > 200 ? 'S' : 'A';
+
   return (
     <div className={cn(
-      "flex flex-col relative group transition-all duration-300 shrink-0",
-      isPrimary ? "w-[380px] md:w-[400px] z-10" : "w-[260px] md:w-[280px]"
+      "flex flex-col relative shrink-0 transition-transform duration-500 ease-out select-none",
+      isPrimary 
+        ? "w-[390px] md:w-[410px] z-10 hover:scale-[1.02]" 
+        : "w-[270px] md:w-[290px] opacity-90 hover:opacity-100 hover:scale-[1.03] hover:z-20"
     )}>
-      {/* Brutalist Border Container */}
-      <div className={cn(
-        "relative border-2 bg-black overflow-hidden flex flex-col",
-        isPrimary ? "" : "border-white/20 shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
-      )} style={isPrimary ? { borderColor: accentColor, boxShadow: `8px 8px 0px 0px ${accentColor}4D` } : {}}>
-        
-        {/* Header Bar */}
-        <div className={cn(
-            "h-10 flex-shrink-0 flex items-center px-4 border-b-2",
-            isPrimary ? "" : "bg-white/5 border-white/10 text-white/40"
-        )} style={isPrimary ? { backgroundColor: accentColor, borderColor: accentColor, color: '#000' } : {}}>
-            <div className="flex gap-1">
-                {[1,2,3].map(i => (
-                    <div key={i} className="w-1 h-4 bg-current opacity-40"></div>
-                ))}
-            </div>
-            <div className="ml-3 font-mono text-[9px] uppercase tracking-[0.2em] font-black">
-                {isPrimary ? "PRIORITY_OPERATOR_DETECTED" : "DATA_STREAM_ACTIVE"}
-            </div>
-            <div className="ml-auto font-mono text-[8px] opacity-50">
-                {Math.random().toString(16).slice(2, 10).toUpperCase()}
-            </div>
+      {/* Outer Halo/Glow ring */}
+      {isPrimary && (
+        <div 
+          className="absolute -inset-1.5 opacity-50 rounded-none blur-xl animate-pulse -z-10"
+          style={{
+            background: `linear-gradient(135deg, ${accentColor}, #000000, ${accentColor})`
+          }}
+        />
+      )}
+
+      {/* Cybernetic Container using beautiful styles */}
+      <div 
+        className={cn(
+          "relative bg-[#07070d] overflow-hidden flex flex-col border",
+          isPrimary ? "border-2 shadow-[0_0_25px_rgba(0,0,0,0.8)]" : "border-white/10"
+        )} 
+        style={{ 
+          borderColor: isPrimary ? accentColor : 'rgba(255,255,255,0.15)',
+          clipPath: 'polygon(0px 0px, calc(100% - 20px) 0px, 100% 20px, 100% 100%, 20px 100%, 0% calc(100% - 20px))'
+        }}
+      >
+        {/* Dynamic Scanline Overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,6px_100%]" />
+
+        {/* Diagonal Tech Background Grid */}
+        <div 
+          className="absolute inset-0 pointer-events-none opacity-[0.02]"
+          style={{
+            backgroundImage: `radial-gradient(${accentColor} 1px, transparent 1px)`,
+            backgroundSize: '16px 16px'
+          }}
+        />
+
+        {/* Top Header Bar */}
+        <div 
+          className="h-10 flex-shrink-0 flex items-center px-4 border-b relative overflow-hidden"
+          style={{ 
+            backgroundColor: isPrimary ? `${accentColor}1A` : 'rgba(255,255,255,0.02)',
+            borderColor: isPrimary ? `${accentColor}40` : 'rgba(255,255,255,0.08)'
+          }}
+        >
+          {/* Accent block */}
+          <div 
+            className="w-1.5 h-4 mr-2"
+            style={{ backgroundColor: accentColor }}
+          />
+          
+          <div className="font-mono text-[9px] uppercase tracking-[0.25em] font-black flex items-center gap-2" style={{ color: isPrimary ? '#ffffff' : 'rgba(255,255,255,0.5)' }}>
+            <Cpu className="w-3 h-3 text-cyan-400 animate-spin" style={{ animationDuration: '6s' }} />
+            <span>{isPrimary ? "SUPREME_MVP_GRID" : "TACTICAL_PROFILES"}</span>
+          </div>
+
+          <div className="ml-auto font-mono text-[8px] opacity-40 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+            <span>SYS_ONLINE: {displayRank.toString().padStart(2, '0')}</span>
+          </div>
         </div>
 
-        {/* Image Section */}
-        <div className="relative aspect-[4/5] overflow-hidden bg-[#0a0a0a]">
-            {/* Team Info Overlay */}
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-3">
-                <div className={cn(
-                    "w-10 h-10 border-2 flex items-center justify-center bg-black/80 backdrop-blur-md",
-                    isPrimary ? "" : "border-white/20"
-                )} style={isPrimary ? { borderColor: accentColor } : {}}>
-                    {player.teamLogo ? (
-                        <img src={player.teamLogo} alt={player.teamName} className="w-full h-full object-contain p-1" />
-                    ) : (
-                        <span className="text-xs font-black text-white">{player.teamName.substring(0, 2)}</span>
-                    )}
+        {/* Player Identity and Team Plate (No avatar images) */}
+        <div className="p-4 bg-gradient-to-b from-[#0a0a14] to-[#040408] border-b border-white/5 relative overflow-hidden">
+          {/* S+ Grade Hologram Badge */}
+          <div className="absolute top-4 right-4 z-20">
+            <div 
+              className="px-2 py-0.5 font-mono text-[9px] font-black uppercase flex items-center gap-1 border backdrop-blur-md shadow-lg"
+              style={{ 
+                borderColor: `${accentColor}40`,
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                color: accentColor
+              }}
+            >
+              <Sparkles className="w-2.5 h-2.5 animate-pulse" />
+              <span>GRADE {performanceGrade}</span>
+            </div>
+          </div>
+
+          {/* Team Brand Badge */}
+          <div className="flex items-center gap-3 mb-4">
+            <div 
+              className="w-10 h-10 border flex items-center justify-center bg-black/90 backdrop-blur-md shadow-md"
+              style={{ borderColor: isPrimary ? accentColor : 'rgba(255,255,255,0.15)' }}
+            >
+              {player.teamLogo ? (
+                <img src={player.teamLogo} alt={player.teamName} className="w-8 h-8 object-contain p-1" />
+              ) : (
+                <div 
+                  className="font-mono text-sm font-black text-white"
+                  style={{ textShadow: `0 0 10px ${accentColor}` }}
+                >
+                  {player.teamName.substring(0, 2).toUpperCase()}
                 </div>
-                <div className="bg-black/80 backdrop-blur-md px-2 py-1 border border-white/10">
-                    <p className="text-[10px] font-mono text-white/60 uppercase leading-none mb-0.5">TEAM</p>
-                    <p className="text-xs font-black text-white leading-none uppercase">{player.teamName}</p>
-                </div>
+              )}
             </div>
 
-            {/* Player Image */}
-            <motion.img 
-                whileHover={{ scale: 1.05 }}
-                src={player.playerImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&clothing=graphicShirt&hair=shortHair&accessories=sunglasses`} 
-                alt={player.name}
-                className={cn(
-                    "absolute bottom-0 left-1/2 -translate-x-1/2 object-contain",
-                    isPrimary ? "h-[105%] w-auto" : "h-[90%] w-auto"
-                )}
-            />
-            
-            {/* Scanline Effect */}
-            <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]"></div>
-        </div>
+            <div className="flex flex-col justify-center">
+              <span className="text-[7px] font-mono text-white/40 tracking-wider uppercase leading-none">TEAM</span>
+              <span className="text-xs font-black text-white uppercase tracking-tight leading-none mt-0.5 truncate max-w-[120px]">{player.teamName}</span>
+            </div>
+          </div>
 
-        {/* Player Name Section */}
-        <div className={cn(
-            "p-4 border-t-2 flex-shrink-0 flex items-center justify-between relative overflow-hidden",
-            isPrimary ? "" : "bg-white border-white text-black"
-        )} style={isPrimary ? { backgroundColor: accentColor, borderColor: accentColor, color: '#000' } : {}}>
-            {/* Background Decorative Text */}
-            <div className="absolute -right-4 -bottom-2 opacity-10 font-black text-4xl italic select-none pointer-events-none uppercase">
+          {/* Character Title / Identification Name */}
+          <div className="relative z-10 pt-1">
+            <p className="text-[7.5px] font-mono text-cyan-400 uppercase tracking-[0.4em] leading-none mb-1.5 font-bold">OPERATOR_IDENTITY</p>
+            <div className="flex items-end justify-between">
+              <h3 
+                className="text-4xl font-black uppercase tracking-tighter leading-none italic truncate font-sans text-white"
+                style={{ textShadow: isPrimary ? `0px 0px 15px ${accentColor}40` : 'none' }}
+              >
                 {player.name}
+              </h3>
+              {isPrimary ? (
+                <div className="ml-2 w-6 h-6 rounded-full flex items-center justify-center bg-black/90 border shrink-0 mb-0.5" style={{ borderColor: accentColor }}>
+                  <Star className="w-3.5 h-3.5 fill-white text-white animate-pulse" style={{ color: accentColor }} />
+                </div>
+              ) : (
+                <span className="font-mono text-xs font-black text-white/30 italic">#{displayRank}</span>
+              )}
             </div>
-            
-            <div className="w-full relative z-10">
-                <p className="text-[8px] font-mono uppercase tracking-[0.4em] leading-none opacity-60 mb-1.5">OPERATOR_IDENTIFICATION</p>
-                <h3 className="text-3xl font-black uppercase tracking-tighter leading-none italic truncate w-full group-hover:skew-x-2 transition-transform duration-75">
-                    {player.name}
-                </h3>
-            </div>
-            {isPrimary && <Star className="w-6 h-6 fill-black animate-pulse" />}
+          </div>
         </div>
 
-        {/* Stats Section (List Style) */}
-        <div className={cn(
-            "p-2 flex-1 flex flex-col relative",
-            isPrimary ? "bg-black" : "bg-black"
-        )}>
-            {/* Stat Visualization Bar */}
-            <div className="px-3 py-2 mb-1 flex items-end gap-0.5 h-8">
-                {[...Array(20)].map((_, i) => {
-                    const height = 20 + Math.random() * 80;
-                    return (
-                        <motion.div 
-                            key={i}
-                            initial={{ height: 0 }}
-                            animate={{ height: `${height}%` }}
-                            transition={{ delay: i * 0.02, duration: 0.5 }}
-                            className="flex-1"
-                            style={{ backgroundColor: i < 12 ? accentColor : '#333', opacity: i < 12 ? 0.8 : 0.3 }}
-                        />
-                    );
-                })}
-            </div>
+        {/* Rountine Statistics Stack */}
+        <div className="p-3 bg-black flex-1 flex flex-col relative gap-1">
+          {/* Real-time Telemetry Equalizer Visualizer */}
+          <div className="px-2 py-1.5 mb-2 flex items-end gap-0.5 h-6 bg-[#0c0c16]/50 border border-white/5 rounded-sm overflow-hidden">
+            {[...Array(24)].map((_, i) => {
+              const staticHeight = 15 + (Math.sin(i * 0.8) + 1.2) * 35 + Math.random() * 15;
+              return (
+                <div 
+                  key={i}
+                  className="flex-1 transition-all duration-300"
+                  style={{ 
+                    height: `${staticHeight}%`,
+                    backgroundColor: i < 14 ? accentColor : 'rgba(255,255,255,0.1)',
+                    opacity: i < 14 ? 0.85 : 0.25 
+                  }}
+                />
+              );
+            })}
+          </div>
 
-            <StatRow 
-                label="IMPACT_RATING" 
-                value={player.stats.mvpRating.toFixed(2)} 
-                variant={isPrimary ? 'primary' : 'secondary'} 
-                accentColor={accentColor}
-                color="#fbbf24"
-            />
-            <StatRow 
-                label="TOTAL_FINISHES" 
-                value={player.stats.finishes} 
-                variant={isPrimary ? 'primary' : 'secondary'} 
-                accentColor={accentColor}
-                color="#4ade80"
-            />
-            <StatRow 
-                label="COMBAT_DAMAGE" 
+          <StatRow 
+            label="IMPACT_RATING" 
+            value={player.stats.mvpRating.toFixed(2)} 
+            variant="primary"
+            accentColor={accentColor}
+            color="#fbbf24"
+          />
+          <StatRow 
+            label={isBgmi ? "FINISHES" : "KILLS"} 
+            value={player.stats.finishes} 
+            variant="secondary"
+            accentColor={accentColor}
+            color="#4ade80"
+          />
+          {!isBgmi && (
+            <>
+              <StatRow 
+                label="DAMAGE" 
                 value={player.stats.damage.toLocaleString()} 
-                variant={isPrimary ? 'primary' : 'secondary'} 
+                variant="secondary"
                 accentColor={accentColor}
                 color="#f87171"
-            />
-            <StatRow 
-                label="SURVIVAL_TIME" 
+              />
+              <StatRow 
+                label="SURVIVAL" 
                 value={player.stats.avgSurvival} 
-                variant={isPrimary ? 'primary' : 'secondary'} 
+                variant="secondary"
                 accentColor={accentColor}
                 color="#60a5fa"
-            />
-            <StatRow 
-                label="KNOCKOUTS" 
-                value={player.stats.knocks} 
-                variant={isPrimary ? 'primary' : 'secondary'} 
-                accentColor={accentColor}
-                color="#a78bfa"
                 isLast
-            />
+              />
+            </>
+          )}
         </div>
       </div>
 
-      {/* Decorative ID Number */}
-      <div className="absolute -bottom-6 -right-2 font-mono text-7xl font-black opacity-[0.07] pointer-events-none select-none italic z-0">
-          #{displayRank.toString().padStart(2, '0')}
+      {/* Decorative Ghost Background Index Number */}
+      <div 
+        className="absolute -bottom-6 -right-3 font-mono text-8xl font-black opacity-[0.06] pointer-events-none select-none italic z-0"
+        style={{ color: accentColor }}
+      >
+        #{displayRank.toString().padStart(2, '0')}
       </div>
     </div>
   );

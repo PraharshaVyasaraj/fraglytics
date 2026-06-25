@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { TeamData, PlayerDerived } from '../types';
+import { TeamData, PlayerDerived, ScoringRules } from '../types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { generateTeamProfileJSON, generateTeamHistoryCSV } from '../services/exportEngine';
@@ -13,12 +13,13 @@ interface TeamProfileProps {
   team: TeamData;
   onBack: () => void;
   onPlayerClick: (player: PlayerDerived) => void;
-  onOpenStudio?: () => void; // New Prop
+  onOpenStudio?: () => void;
+  scoringRules?: ScoringRules;
 }
 
 const COLORS = ['#ef4444', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
 
-const PlayerCardModal: React.FC<{ player: PlayerDerived, team: TeamData, onClose: () => void, onViewFull: () => void }> = ({ player, team, onClose, onViewFull }) => {
+const PlayerCardModal: React.FC<{ player: PlayerDerived, team: TeamData, onClose: () => void, onViewFull: () => void, showDamage?: boolean }> = ({ player, team, onClose, onViewFull, showDamage = true }) => {
     // Calculate Win Rate based on match history intersection
     const wins = player.history?.filter(h => {
         const matchRes = team.history.find(th => th.matchId === h.matchId);
@@ -63,13 +64,15 @@ const PlayerCardModal: React.FC<{ player: PlayerDerived, team: TeamData, onClose
                         <div className="text-2xl font-bold text-white">{player.finishes}</div>
                         <div className="text-[10px] text-tactical-gray mt-1">{player.kpm.toFixed(2)} KPM</div>
                     </div>
-                    <div className="bg-black/30 p-3 rounded-sm border border-tactical-gray/50">
-                        <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-tactical-light mb-1">
-                            <Crosshair className="w-3 h-3" /> Total Damage
+                    {showDamage && (
+                        <div className="bg-black/30 p-3 rounded-sm border border-tactical-gray/50">
+                            <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-tactical-light mb-1">
+                                <Crosshair className="w-3 h-3" /> Total Damage
+                            </div>
+                            <div className="text-2xl font-bold text-white">{(player.damage/1000).toFixed(1)}k</div>
+                            <div className="text-[10px] text-tactical-gray mt-1">Avg: {(player.damage / Math.max(1, player.matchesPlayed)).toFixed(0)}</div>
                         </div>
-                        <div className="text-2xl font-bold text-white">{(player.damage/1000).toFixed(1)}k</div>
-                        <div className="text-[10px] text-tactical-gray mt-1">Avg: {(player.damage / Math.max(1, player.matchesPlayed)).toFixed(0)}</div>
-                    </div>
+                    )}
                     <div className="bg-black/30 p-3 rounded-sm border border-tactical-gray/50">
                         <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-tactical-light mb-1">
                             <Trophy className="w-3 h-3 text-yellow-500" /> Win Rate
@@ -103,7 +106,11 @@ const PlayerCardModal: React.FC<{ player: PlayerDerived, team: TeamData, onClose
     );
 };
 
-const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, onOpenStudio }) => {
+const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, onOpenStudio, scoringRules }) => {
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const showDamage = activeMetrics.damage ?? true;
+  const showTime = activeMetrics.time ?? true;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [isSnapshotting, setIsSnapshotting] = useState(false);
   const [snapDone, setSnapDone] = useState(false);
@@ -149,7 +156,7 @@ const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, 
       try {
           const dataUrl = await toPng(containerRef.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
           const link = document.createElement('a');
-          link.download = `scarfall_team_profile_${team.name}_${Date.now()}.png`;
+          link.download = `team_profile_${team.name}_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setSnapDone(true);
@@ -218,6 +225,7 @@ const TeamProfile: React.FC<TeamProfileProps> = ({ team, onBack, onPlayerClick, 
           <PlayerCardModal 
               player={selectedPlayer} 
               team={team} 
+              showDamage={showDamage}
               onClose={() => setSelectedPlayer(null)} 
               onViewFull={() => {
                   onPlayerClick(selectedPlayer);

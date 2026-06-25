@@ -7,7 +7,7 @@
 
 ## 2. Image Export Architecture (PNG / Creative Studio)
 
-The "PNG Studio" (internally encompassing `BroadcastStudio`, `BatchExportManager`, and `ExportRenderer`) is the core engine for generating deployable social and broadcast graphics.
+The "PNG Studio" (internally encompassing `BroadcastStudio` and `ExportRenderer`) is the core engine for generating deployable social and broadcast graphics.
 
 ### 2.1 The Rendering Pipeline (`html2canvas`)
 The platform uses `html2canvas` to serialize live React DOM nodes into a binary Canvas representation, which is then converted to a downloadable PNG.
@@ -23,7 +23,6 @@ The platform uses `html2canvas` to serialize live React DOM nodes into a binary 
 
 ### 2.2 Studio Component Hierarchy
 - **Control Panel (`BroadcastStudio.tsx` / `CreativeStudio`)**: The interactive studio bay. Manages the visual composition state (Theme, Layout, Aspect Ratio, Selected Entities) and acts as the orchestrator. Contains the canvas extraction logic.
-- **The Orchestrator (`BatchExportManager.tsx`)**: Handles mass-rendering (e.g., exporting 16 team cards sequentially). It enforces a strict `await` cycle (minimum 500ms delay) between generating images to prevent memory heap exhaustion and allow the React reconciler to flush DOM updates.
 - **The Payload (`ExportRenderer.tsx`)**: The execution context. This is a **pure, stateless, deterministic component**. It takes `data`, `theme`, and `visualConfig` props and builds a rigid, absolute-positioned container for `html2canvas` to target (via `id="export-container"`).
 
 ### 2.3 Visual Design System

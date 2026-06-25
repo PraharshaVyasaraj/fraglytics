@@ -22,7 +22,6 @@ This document provides a formal architectural description for the Tactical Analy
 The system is built on a **Modular Micro-SPA** architecture, where internal "Modes" operate as isolated logical units within a shared global state container.
 
 - **Ingestion Layer**: Sanitizes raw input (CSV/JSON) into standardized `PlayerAtomic` frames.
-- **League Overview Engine**: A specialized segment for multi-stage hierarchical management (Stages -> Groups -> Matches).
 - **Analytics Core**: Pure functional engine responsible for ELO/Point calculations and performance metrics.
 - **Visualization Tier**: High-contrast, accessibility-compliant UI components rendering processed telemetry.
 
@@ -35,7 +34,7 @@ Data flows through three distinct states of maturity:
 ### 3.3 Development Viewpoint (Structural Implementation)
 ```bash
 /src
-  ├── /components    # Functional modules (LeagueOverview, TeamProfile, etc.)
+  ├── /components    # Functional modules (TeamProfile, etc.)
   ├── /services      # Pure logic (AnalyticsEngine, DataParsers)
   ├── /types.ts      # Domain-driven design (DDD) core interfaces
   └── /App.tsx       # Orchestration layer and view-routing
@@ -43,17 +42,11 @@ Data flows through three distinct states of maturity:
 
 ## 4. Architectural Rationale
 
-### 4.1 State Atomicity (League Overview)
-The "League Overview" segment implements a strict **Atomic Commit Pattern**:
-- **Isolated Ingestion**: Data ingestion for "Match 1" in "Group A" does not impact or leak into other group contexts.
-- **Context Preservation**: Each `MatchData` object persists its own `leagueStage` and `leagueGroup` metadata at the moment of creation, preventing retrospective corruption if the tournament structure changes.
-- **Service-Oriented Logic**: Calculation logic is decoupled from state management, allowing for diverse scoring rules across different league stages.
-
-### 4.2 Structural Hierarchy
+### 4.1 Structural Hierarchy
 The system follows a strict 3-tier indexing model:
-1. **Stage** (e.g., Playoffs)
-2. **Group** (e.g., Group 1)
-3. **Sequence** (e.g., Match 1)
+1. **Day**
+2. **Match**
+3. **Player Sequence**
 
 ## 5. Decision Records (ADR)
 - **ADR-001**: Use of Lucide-React for consistent visual iconography.

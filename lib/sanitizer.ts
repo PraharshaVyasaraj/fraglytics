@@ -10,7 +10,13 @@ const DEFAULT_SCORING_RULES: ScoringRules = {
   rankPoints: {
     1: 10, 2: 6, 3: 5, 4: 4, 5: 3, 6: 2, 7: 1, 8: 1
   },
-  belowThresholdPoints: 0
+  belowThresholdPoints: 0,
+  activeMetrics: {
+    kills: true,
+    assists: true,
+    damage: true,
+    time: true,
+  }
 };
 
 export const sanitizeColor = (color: string | undefined | null, defaultColor: string = "#ef4444"): string => {

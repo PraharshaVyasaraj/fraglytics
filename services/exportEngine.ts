@@ -195,18 +195,14 @@ export const generateAuditCSV = (matches: MatchData[]) => {
 
 export const generateStandingsCSV = (teams: TeamData[]) => {
     const sortedTeams = [...teams].sort((a, b) => a.rank - b.rank);
-    const headers = ['Rank', 'Team', 'Total Points', 'Place Points', 'Kill Points', 'Matches', 'Wins', 'Avg Damage', 'Total Kills', 'Trend'];
+    const headers = ['Team Name', 'MP', 'W', 'Pos', 'Fin', 'Total'];
     const rows = sortedTeams.map(t => [
-        t.rank,
         `"${t.name}"`,
-        t.totalPoints,
-        t.placementPoints,
-        t.killPoints,
         t.matchesPlayed,
         t.history.filter(h => h.rank === 1).length,
-        (t.totalDamage / (t.matchesPlayed || 1)).toFixed(0),
+        t.placementPoints,
         t.totalFinishes,
-        t.trend
+        t.totalPoints
     ].join(','));
     return [headers.join(','), ...rows].join('\n');
 };

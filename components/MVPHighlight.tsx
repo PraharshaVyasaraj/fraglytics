@@ -1,6 +1,6 @@
 
 import React, { useMemo, useRef, useState } from 'react';
-import { TeamData, PlayerDerived } from '../types';
+import { TeamData, PlayerDerived, ScoringRules } from '../types';
 import { Medal, Zap, Skull, Crosshair, MonitorPlay, Download, Loader2, Check, Star, ArrowRight } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { motion } from 'motion/react';
@@ -9,12 +9,15 @@ interface MVPHighlightProps {
   data: TeamData[];
   onOpenStudio?: () => void;
   onPlayerClick?: (player: PlayerDerived, teamName: string) => void;
+  scoringRules?: ScoringRules;
 }
 
-const MVPHighlight: React.FC<MVPHighlightProps> = ({ data, onOpenStudio, onPlayerClick }) => {
+const MVPHighlight: React.FC<MVPHighlightProps> = ({ data, onOpenStudio, onPlayerClick, scoringRules }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isSnapshotting, setIsSnapshotting] = useState(false);
   const [snapDone, setSnapDone] = useState(false);
+  const activeMetrics = scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  const showDamage = activeMetrics.damage ?? true;
 
   const mvp = useMemo(() => {
       if (!data.length) return null;
@@ -35,7 +38,7 @@ const MVPHighlight: React.FC<MVPHighlightProps> = ({ data, onOpenStudio, onPlaye
       try {
           const dataUrl = await toPng(containerRef.current, { backgroundColor: '#050505', pixelRatio: 2 });
           const link = document.createElement('a');
-          link.download = `scarfall_mvp_${mvp.playerName}_${Date.now()}.png`;
+          link.download = `mvp_${mvp.playerName}_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setSnapDone(true);
@@ -124,11 +127,23 @@ const MVPHighlight: React.FC<MVPHighlightProps> = ({ data, onOpenStudio, onPlaye
                 <span className="text-xl font-black text-white font-mono">{mvp.finishes}</span>
             </div>
             <div className="bg-white/5 border border-white/10 p-3 hover:border-[#00FF00]/30 transition-colors">
-                <div className="flex items-center gap-2 mb-1 opacity-40">
-                    <Crosshair className="w-3 h-3"/>
-                    <span className="text-[9px] uppercase font-bold tracking-widest">Damage</span>
-                </div>
-                <span className="text-xl font-black text-white font-mono">{mvp.damage.toLocaleString()}</span>
+                {showDamage ? (
+                    <>
+                        <div className="flex items-center gap-2 mb-1 opacity-40">
+                            <Crosshair className="w-3 h-3"/>
+                            <span className="text-[9px] uppercase font-bold tracking-widest">Damage</span>
+                        </div>
+                        <span className="text-xl font-black text-white font-mono">{mvp.damage.toLocaleString()}</span>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex items-center gap-2 mb-1 opacity-40">
+                            <Crosshair className="w-3 h-3"/>
+                            <span className="text-[9px] uppercase font-bold tracking-widest">Avg Kills</span>
+                        </div>
+                        <span className="text-xl font-black text-white font-mono">{(mvp.finishes / (mvp.matchesPlayed || 1)).toFixed(1)}</span>
+                    </>
+                )}
             </div>
             <div className="col-span-2 bg-[#00FF00]/5 border-2 border-[#00FF00]/20 p-4 flex items-center justify-between group/impact cursor-pointer" onClick={() => onPlayerClick?.(mvp, mvp.teamName)}>
                 <div>

@@ -33,6 +33,71 @@ const CommissionerModal: React.FC<CommissionerModalProps> = ({ isOpen, onClose, 
         </div>
         
         <div className="p-6 max-h-[70vh] overflow-y-auto">
+           {/* Active Telemetry Metrics configuration */}
+           <div className="mb-6 p-4 bg-tactical-dark/30 border border-tactical-gray/30 rounded-sm">
+              <label className="block text-xs font-mono uppercase tracking-widest text-tactical-light mb-3">Active Telemetry Metrics</label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between pb-1">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Kills & Finishes (Base)</span>
+                  <span className="text-[9px] font-mono bg-tactical-red/20 text-tactical-red border border-tactical-red/30 px-1.5 py-0.5 rounded uppercase">Required</span>
+                </div>
+                
+                <label className="flex items-center justify-between cursor-pointer group pt-1 border-t border-tactical-gray/20">
+                  <span className="text-xs text-tactical-light group-hover:text-white transition-colors">Player Assists</span>
+                  <input 
+                    type="checkbox"
+                    checked={rules.activeMetrics?.assists ?? true}
+                    onChange={(e) => setRules(prev => ({
+                      ...prev,
+                      activeMetrics: {
+                        kills: true,
+                        assists: e.target.checked,
+                        damage: prev.activeMetrics?.damage ?? true,
+                        time: prev.activeMetrics?.time ?? true,
+                      }
+                    }))}
+                    className="accent-tactical-red cursor-pointer w-4 h-4 rounded bg-tactical-dark border border-tactical-gray"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer group pt-1 border-t border-tactical-gray/20">
+                  <span className="text-xs text-tactical-light group-hover:text-white transition-colors">Damage Dealt</span>
+                  <input 
+                    type="checkbox"
+                    checked={rules.activeMetrics?.damage ?? true}
+                    onChange={(e) => setRules(prev => ({
+                      ...prev,
+                      activeMetrics: {
+                        kills: true,
+                        assists: prev.activeMetrics?.assists ?? true,
+                        damage: e.target.checked,
+                        time: prev.activeMetrics?.time ?? true,
+                       }
+                    }))}
+                    className="accent-tactical-red cursor-pointer w-4 h-4 rounded bg-tactical-dark border border-tactical-gray"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer group pt-1 border-t border-tactical-gray/20">
+                  <span className="text-xs text-tactical-light group-hover:text-white transition-colors">Survival Time (Seconds)</span>
+                  <input 
+                    type="checkbox"
+                    checked={rules.activeMetrics?.time ?? true}
+                    onChange={(e) => setRules(prev => ({
+                      ...prev,
+                      activeMetrics: {
+                        kills: true,
+                        assists: prev.activeMetrics?.assists ?? true,
+                        damage: prev.activeMetrics?.damage ?? true,
+                        time: e.target.checked,
+                      }
+                    }))}
+                    className="accent-tactical-red cursor-pointer w-4 h-4 rounded bg-tactical-dark border border-tactical-gray"
+                  />
+                </label>
+              </div>
+           </div>
+
            {/* Kill Points */}
            <div className="mb-6">
               <label className="block text-xs font-mono uppercase tracking-widest text-tactical-light mb-2">Kill Point Multiplier</label>

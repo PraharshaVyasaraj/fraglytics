@@ -81,8 +81,9 @@ const HallOfFame: React.FC<HallOfFameProps> = ({ data, onPlayerClick, onOpenStud
       setIsSnapshotting(true);
       try {
           const dataUrl = await toPng(containerRef.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
+          const gamePrefix = localStorage.getItem('fraglab_game_mode') === 'bgmi' ? 'bgmi' : 'scarfall';
           const link = document.createElement('a');
-          link.download = `scarfall_hall_of_fame_${Date.now()}.png`;
+          link.download = `${gamePrefix}_hall_of_fame_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setSnapDone(true);

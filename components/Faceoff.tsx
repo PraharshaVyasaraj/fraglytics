@@ -205,8 +205,9 @@ const Faceoff: React.FC<FaceoffProps> = ({ data, onOpenStudio }) => {
 
       try {
           const dataUrl = await toPng(containerRef.current, { backgroundColor: '#0E0E0E', pixelRatio: 2 });
+          const gamePrefix = localStorage.getItem('fraglab_game_mode') === 'bgmi' ? 'bgmi' : 'scarfall';
           const link = document.createElement('a');
-          link.download = `scarfall_faceoff_${teamA?.name}_vs_${teamB?.name}_${Date.now()}.png`;
+          link.download = `${gamePrefix}_faceoff_${teamA?.name}_vs_${teamB?.name}_${Date.now()}.png`;
           link.href = dataUrl;
           link.click();
           setSnapDone(true);

@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
 } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import Layout from "./components/Layout";
 import Hub from "./components/Hub";
 import DataInput from "./components/DataInput";
@@ -79,8 +80,10 @@ import {
   LogOut,
   LayoutTemplate,
   User,
+  Users,
   Swords,
   Crosshair,
+  Terminal,
 } from "lucide-react";
 import { utils, writeFile } from "xlsx";
 import { generateSnapshot } from "./services/exportEngine";
@@ -88,7 +91,7 @@ import { generateSnapshot } from "./services/exportEngine";
 import LiveMatchLab from "./components/LiveMatchLab";
 import GroupsView from "./components/GroupsView";
 import StatisticsMode from "./components/StatisticsMode";
-import LeagueOverview from "./components/LeagueOverview";
+import FConsole from "./components/FConsole";
 
 // Type for View Control
 type ViewScope =
@@ -108,8 +111,7 @@ type ActiveView =
   | { type: "mvp" }
   | { type: "live-lab" }
   | { type: "groups" }
-  | { type: "statistics" }
-  | { type: "league" };
+  | { type: "statistics" };
 
 const DEFAULT_BRANDING: BrandingConfig = {
   orgName: "FragLab",
@@ -117,12 +119,60 @@ const DEFAULT_BRANDING: BrandingConfig = {
 };
 
 const App: React.FC = () => {
+  const [currentGame, setCurrentGame] = useState<"scarfall" | "bgmi" | "universal">("universal");
+
+  useEffect(() => {
+    // Default to universal tactical mode
+    const savedMode = localStorage.getItem('fraglab_game_mode') as any;
+    if (!savedMode) {
+      localStorage.setItem('fraglab_game_mode', 'universal');
+    } else {
+      setCurrentGame(savedMode);
+    }
+  }, []);
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const selectGame = (game: 'scarfall' | 'bgmi') => {
+    setCurrentGame(game);
+    localStorage.setItem('fraglab_game_mode', game);
+    setBrandingConfig(prev => ({
+      ...prev,
+      currentGame: game
+    }));
+  };
+
+  const handleResetGame = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "RESET WORKSPACE",
+      message: "Are you sure you want to reset your current analytics workspace? This will clear all currently ingested match telemetry.",
+      onConfirm: () => {
+        setRawMatches([]);
+        setInsights([]);
+        setWorkflowStep("ingestion");
+        setBrandingConfig(DEFAULT_BRANDING);
+        setConfirmDialog(null);
+      }
+    });
+  };
+
   const [rawMatches, setRawMatches] = useState<MatchData[]>([]);
   const [scoringRules, setScoringRules] = useState<ScoringRules>(
     DEFAULT_SCORING_RULES,
   );
   const [brandingConfig, setBrandingConfig] =
-    useState<BrandingConfig>(DEFAULT_BRANDING);
+    useState<BrandingConfig>(() => {
+      return {
+        ...DEFAULT_BRANDING,
+        currentGame: undefined
+      };
+    });
   const [insights, setInsights] = useState<Insight[]>([]);
   const [workflowStep, setWorkflowStep] = useState<"ingestion" | "analysis">(
     "ingestion",
@@ -152,6 +202,7 @@ const App: React.FC = () => {
 
   const [isAgencyOpen, setIsAgencyOpen] = useState(false);
   const [isNexusOpen, setIsNexusOpen] = useState(false);
+  const [isFConsoleOpen, setIsFConsoleOpen] = useState(false);
 
   // Snapshot / History Mode
   const [isSnapshotMode, setIsSnapshotMode] = useState(false);
@@ -194,6 +245,12 @@ const App: React.FC = () => {
         setIsStudioOpen(false);
         setIsAgencyOpen(false);
         setIsNexusOpen(false);
+        setIsFConsoleOpen(false);
+      }
+      
+      // Toggle FConsole with Ctrl+`
+      if (e.ctrlKey && e.key === '`') {
+        setIsFConsoleOpen(prev => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -338,23 +395,25 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    if (
-      confirm(
-        "Are you sure you want to reset the current operation? All unsaved data will be lost.",
-      )
-    ) {
-      setWorkflowStep("ingestion");
-      setRawMatches([]);
-      setInsights([]);
-      setScoringRules(DEFAULT_SCORING_RULES);
-      setIsAutoInsightsEnabled(false);
-      setViewScope({ type: "tournament" });
-      setActiveView({ type: "dashboard" });
-      setIsAnalyzing(false);
-      setIsSnapshotMode(false);
-      setSnapshotMeta(null);
-      window.history.pushState(null, "", window.location.pathname); // Clear history
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "RESET CURRENT OP",
+      message: "Are you sure you want to reset the current operation? All unsaved data and active analytics will be cleared. This action is irreversible.",
+      onConfirm: () => {
+        setWorkflowStep("ingestion");
+        setRawMatches([]);
+        setInsights([]);
+        setScoringRules(DEFAULT_SCORING_RULES);
+        setIsAutoInsightsEnabled(false);
+        setViewScope({ type: "tournament" });
+        setActiveView({ type: "dashboard" });
+        setIsAnalyzing(false);
+        setIsSnapshotMode(false);
+        setSnapshotMeta(null);
+        window.history.pushState(null, "", window.location.pathname); // Clear history
+        setConfirmDialog(null);
+      }
+    });
   };
 
   const handleTeamClick = (team: TeamData) => {
@@ -501,6 +560,10 @@ const App: React.FC = () => {
           setOperationMode(snapshot.config.mode);
           setWorkflowStep("analysis");
 
+          const loadedGame = snapshot.config.branding.currentGame || "scarfall";
+          setCurrentGame(loadedGame);
+          localStorage.setItem('fraglab_game_mode', loadedGame);
+
           setIsSnapshotMode(true);
           setSnapshotMeta({
             version: snapshot.meta.version,
@@ -537,6 +600,10 @@ const App: React.FC = () => {
         setInsights(json.insights || []);
         setOperationMode(json.mode || "manual");
         setWorkflowStep("ingestion");
+
+        const loadedGame = json.branding?.currentGame || "scarfall";
+        setCurrentGame(loadedGame);
+        localStorage.setItem('fraglab_game_mode', loadedGame);
 
         setViewScope({ type: "tournament" });
         setActiveView({ type: "dashboard" });
@@ -614,6 +681,8 @@ const App: React.FC = () => {
         activeView={activeView}
         onNavigate={navigateTo}
         onOpenStudio={() => handleOpenStudio("standings")}
+        currentGame={currentGame}
+        onChangeGame={handleResetGame}
         onOpenSettings={() => {
           // Global settings can be implemented here if needed
           // For now, it's a placeholder as requested
@@ -693,6 +762,8 @@ const App: React.FC = () => {
           initialMode={studioMode}
           initialFocusTeamId={studioFocusTeam}
           initialFocusPlayerName={studioFocusPlayer}
+          rawMatches={rawMatches}
+          onRawMatchesUpdate={setRawMatches}
         />
 
         <DataNexus
@@ -701,6 +772,13 @@ const App: React.FC = () => {
           data={currentDisplayData}
           matches={currentFilteredMatches} // Pass filtered matches for scoped exports
           branding={brandingConfig}
+        />
+
+        <FConsole
+          isOpen={isFConsoleOpen}
+          onClose={() => setIsFConsoleOpen(false)}
+          teams={currentDisplayData}
+          matches={rawMatches}
         />
 
         {workflowStep === "ingestion" && (
@@ -724,16 +802,6 @@ const App: React.FC = () => {
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6 px-4">
-                <button
-                  onClick={() => {
-                    setWorkflowStep("analysis");
-                    navigateTo({ type: "league" });
-                  }}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-tactical-dark border border-tactical-red text-tactical-red rounded-sm text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:bg-tactical-red hover:text-white transition-all shadow-[0_0_10px_rgba(239,68,68,0.2)]"
-                  title="League Mode (Stage/Group Setup)"
-                >
-                  <Shield className="w-4 h-4" /> League Mode
-                </button>
                 <button
                   onClick={handlePublishSnapshot}
                   disabled={rawMatches.length === 0}
@@ -776,9 +844,11 @@ const App: React.FC = () => {
                 onDataLoaded={handleDataLoaded}
                 onLoading={handleLoading}
                 mode={operationMode}
+                currentGame={currentGame || 'scarfall'}
                 initialDay={ingestionContext.day}
                 initialMatch={ingestionContext.match}
                 readOnly={isSnapshotMode}
+                scoringRules={scoringRules}
               />
             </div>
           </div>
@@ -908,17 +978,17 @@ const App: React.FC = () => {
 
                   <div className="w-px h-3 bg-tactical-gray hidden sm:block"></div>
 
+                  <button
+                    onClick={() => handleOpenStudio("standings")}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-tactical-red text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 transition-all shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                    title="Launch Broadcast Studio"
+                  >
+                    <MonitorPlay className="w-3 h-3" /> Broadcast Studio
+                  </button>
+
+                  <div className="w-px h-3 bg-tactical-gray hidden sm:block"></div>
+
                   <div className="flex gap-1">
-                    <button
-                      onClick={() => navigateTo({ type: "league" })}
-                      title="League Overview Engine"
-                      className={`px-3 py-1.5 border rounded-sm transition-colors flex items-center gap-2 ${activeView.type === "league" ? "bg-tactical-red/20 border-tactical-red text-tactical-red" : "bg-tactical-dark border-tactical-gray hover:bg-white/10 text-white"}`}
-                    >
-                      <Shield className="w-3 h-3" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">
-                        League Mode
-                      </span>
-                    </button>
                     <button
                       onClick={() => navigateTo({ type: "statistics" })}
                       title="Analyst Workbench (Deep Dive Statistics)"
@@ -939,32 +1009,95 @@ const App: React.FC = () => {
                         Export Data
                       </span>
                     </button>
+                    <button
+                      onClick={() => setIsFConsoleOpen(true)}
+                      title="Open F-Script Terminal (Ctrl+`)"
+                      className="px-3 py-1.5 bg-black border border-tactical-green/50 text-tactical-green rounded-sm hover:bg-tactical-green/10 transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(0,255,204,0.1)]"
+                    >
+                      <Terminal className="w-3 h-3" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">
+                        F-Console
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {activeView.type === "league" && (
-              <div className="relative z-10 min-h-screen bg-black">
-                <button
-                  onClick={() => navigateTo({ type: "dashboard" })}
-                  className="absolute top-4 left-4 z-50 px-4 py-2 bg-black/50 text-white rounded-sm hover:bg-black transition-colors text-xs font-bold uppercase tracking-widest border border-white/20"
-                >
-                  ← Back
-                </button>
-                <div className="pt-16">
-                  <LeagueOverview
-                    rawMatches={rawMatches}
-                    onDataLoaded={handleDataLoaded}
-                    onTeamClick={handleTeamClick}
-                    onPlayerClick={(p, t) => handlePlayerClick(p, t, "dashboard")}
-                  />
+            {["statistics", "live-lab", "groups", "mvp"].includes(activeView.type) && (
+              <div className="sticky top-16 z-40 bg-[#0f0f11] border-b border-white/10 px-4 py-3 flex flex-wrap items-center justify-between gap-4 select-none mb-1 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => navigateTo({ type: "dashboard" })}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-black/50 hover:bg-tactical-red/20 hover:text-white text-white text-[10px] font-bold uppercase tracking-wider border border-white/10 rounded-sm transition-all"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+                    <span>Control Center</span>
+                  </button>
+                  <div className="h-4 w-[1px] bg-white/10" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-tactical-red">
+                    Perspective Engine v1.8
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <button
+                    onClick={() => navigateTo({ type: "statistics" })}
+                    className={`px-3 py-1.5 border rounded-sm transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${
+                      activeView.type === "statistics"
+                        ? "bg-tactical-green/15 border-tactical-green text-tactical-green shadow-[0_0_10px_rgba(0,255,204,0.15)]"
+                        : "bg-black/20 border-transparent hover:bg-white/5 text-tactical-light hover:text-white"
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Stats Mode</span>
+                  </button>
+
+                  <button
+                    onClick={() => navigateTo({ type: "live-lab" })}
+                    className={`px-3 py-1.5 border rounded-sm transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${
+                      activeView.type === "live-lab"
+                        ? "bg-purple-500/15 border-purple-500 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
+                        : "bg-black/20 border-transparent hover:bg-white/5 text-tactical-light hover:text-white"
+                    }`}
+                  >
+                    <MonitorPlay className="w-3.5 h-3.5" />
+                    <span>Live Lab</span>
+                  </button>
+
+                  <button
+                    onClick={() => navigateTo({ type: "groups" })}
+                    className={`px-3 py-1.5 border rounded-sm transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${
+                      activeView.type === "groups"
+                        ? "bg-blue-500/15 border-blue-500 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.15)]"
+                        : "bg-black/20 border-transparent hover:bg-white/5 text-tactical-light hover:text-white"
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Groups</span>
+                  </button>
+
+                  <button
+                    onClick={() => navigateTo({ type: "mvp" })}
+                    className={`px-3 py-1.5 border rounded-sm transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${
+                      activeView.type === "mvp"
+                        ? "bg-yellow-500/15 border-yellow-500 text-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.15)]"
+                        : "bg-black/20 border-transparent hover:bg-white/5 text-tactical-light hover:text-white"
+                    }`}
+                  >
+                    <Trophy className="w-3.5 h-3.5" />
+                    <span>MVP Board</span>
+                  </button>
                 </div>
               </div>
             )}
 
             {activeView.type === "dashboard" && (
-              <>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
                 {/* STUDIO SHORTCUTS */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                   <StudioShortcut
@@ -1006,6 +1139,7 @@ const App: React.FC = () => {
                       data={currentDisplayData}
                       onOpenStudio={() => handleOpenStudio("winner")}
                       onTeamClick={handleTeamClick}
+                      scoringRules={scoringRules}
                     />
                   </div>
                   <div className="md:col-span-1">
@@ -1015,6 +1149,7 @@ const App: React.FC = () => {
                       onPlayerClick={(p, t) =>
                         handlePlayerClick(p, t, "dashboard")
                       }
+                      scoringRules={scoringRules}
                     />
                   </div>
                 </div>
@@ -1102,7 +1237,8 @@ const App: React.FC = () => {
                   onPlayerClick={(p) =>
                     handlePlayerClick(p, undefined, "dashboard")
                   }
-                  onOpenStudio={() => handleOpenStudio("standings")}
+                  onOpenStudio={(mode, context) => handleOpenStudio((mode as any) || "standings", context)}
+                  scoringRules={scoringRules}
                 />
 
                 {/* OPERATOR LEADERBOARD (Always Visible) */}
@@ -1113,126 +1249,210 @@ const App: React.FC = () => {
                       handlePlayerClick(p, t, "dashboard")
                     }
                     onOpenStudio={() => handleOpenStudio("player_leaderboard")}
+                    scoringRules={scoringRules}
                   />
                 </div>
-              </>
+              </motion.div>
             )}
 
             {activeView.type === "team" && activeTeamData && (
-              <TeamProfile
-                team={activeTeamData}
-                onBack={() => navigateTo({ type: "dashboard" })}
-                onPlayerClick={(p) => handlePlayerClick(p, undefined, "team")}
-                onOpenStudio={() =>
-                  handleOpenStudio("team_profile", {
-                    teamId: activeTeamData.name,
-                  })
-                }
-              />
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <TeamProfile
+                  team={activeTeamData}
+                  onBack={() => navigateTo({ type: "dashboard" })}
+                  onPlayerClick={(p) => handlePlayerClick(p, undefined, "team")}
+                  onOpenStudio={() =>
+                    handleOpenStudio("team_profile", {
+                      teamId: activeTeamData.name,
+                    })
+                  }
+                  scoringRules={scoringRules}
+                />
+              </motion.div>
             )}
 
             {activeView.type === "player" &&
               activePlayerData &&
               activeTeamData && (
-                <PlayerProfile
-                  player={activePlayerData}
-                  team={activeTeamData}
-                  onBack={() => {
-                    if (activeView.from === "team") {
-                      navigateTo({
-                        type: "team",
-                        teamName: activeTeamData.name,
-                      });
-                    } else {
-                      navigateTo({ type: "dashboard" });
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <PlayerProfile
+                    player={activePlayerData}
+                    team={activeTeamData}
+                    onBack={() => {
+                      if (activeView.from === "team") {
+                        navigateTo({
+                          type: "team",
+                          teamName: activeTeamData.name,
+                        });
+                      } else {
+                        navigateTo({ type: "dashboard" });
+                      }
+                    }}
+                    onOpenStudio={() =>
+                      handleOpenStudio("player_profile", {
+                        teamId: activeTeamData.name,
+                        playerName: activePlayerData.playerName,
+                      })
                     }
-                  }}
-                  onOpenStudio={() =>
-                    handleOpenStudio("player_profile", {
-                      teamId: activeTeamData.name,
-                      playerName: activePlayerData.playerName,
-                    })
-                  }
-                />
+                    scoringRules={scoringRules}
+                  />
+                </motion.div>
               )}
 
             {activeView.type === "mvp" && (
-              <div className="relative z-10 min-h-screen bg-black">
-                <button
-                  onClick={() => navigateTo({ type: "dashboard" })}
-                  className="absolute top-4 left-4 z-50 px-4 py-2 bg-black/50 text-white rounded-sm hover:bg-black transition-colors text-xs font-bold uppercase tracking-widest border border-white/20"
-                >
-                  ← Back
-                </button>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 min-h-screen bg-black pt-4"
+              >
                 <TournamentMVP
                   data={currentDisplayData}
                   branding={brandingConfig}
                   onClose={() => navigateTo({ type: "dashboard" })}
                 />
-              </div>
+              </motion.div>
             )}
-
+ 
             {activeView.type === "statistics" && (
-              <div className="relative z-10 min-h-screen bg-black">
-                <button
-                  onClick={() => navigateTo({ type: "dashboard" })}
-                  className="absolute top-4 left-4 z-50 px-4 py-2 bg-black/50 text-white rounded-sm hover:bg-black transition-colors text-xs font-bold uppercase tracking-widest border border-white/20"
-                >
-                  ← Back
-                </button>
-                <div className="pt-16 px-4">
-                  <StatisticsMode
-                    data={currentDisplayData}
-                    onOpenStudio={(mode, focusId) => {
-                      if (mode === "mvp") {
-                        handleOpenStudio("mvp", { playerName: focusId });
-                      } else if (mode === "team_profile") {
-                        handleOpenStudio("team_profile", { teamId: focusId });
-                      }
-                    }}
-                  />
-                </div>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 min-h-screen bg-black pt-4 px-4"
+              >
+                <StatisticsMode
+                  data={currentDisplayData}
+                  rawMatches={rawMatches}
+                  onOpenStudio={(mode, focusId) => {
+                    if (mode === "mvp") {
+                      handleOpenStudio("mvp", { playerName: focusId });
+                    } else if (mode === "team_profile") {
+                      handleOpenStudio("team_profile", { teamId: focusId });
+                    }
+                  }}
+                />
+              </motion.div>
             )}
-
+ 
             {activeView.type === "live-lab" && (
-              <div className="relative z-10 min-h-screen bg-black">
-                <button
-                  onClick={() => navigateTo({ type: "dashboard" })}
-                  className="absolute top-4 left-4 z-50 px-4 py-2 bg-black/50 text-white rounded-sm hover:bg-black transition-colors text-xs font-bold uppercase tracking-widest border border-white/20"
-                >
-                  ← Back
-                </button>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 min-h-screen bg-black pt-4"
+              >
                 <LiveMatchLab
                   branding={brandingConfig}
                   currentTeams={currentDisplayData}
                 />
-              </div>
+              </motion.div>
             )}
-
+ 
             {activeView.type === "groups" && (
-              <div className="relative z-10 min-h-screen bg-black">
-                <button
-                  onClick={() => navigateTo({ type: "dashboard" })}
-                  className="absolute top-4 left-4 z-50 px-4 py-2 bg-black/50 text-white rounded-sm hover:bg-black transition-colors text-xs font-bold uppercase tracking-widest border border-white/20"
-                >
-                  ← Back
-                </button>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 min-h-screen bg-black pt-4"
+              >
                 <GroupsView
                   branding={brandingConfig}
                   teams={currentDisplayData}
                 />
-              </div>
+              </motion.div>
             )}
           </div>
         )}
 
         {/* AI Analyst Chatbot */}
-        <AnalystChat
-          teams={currentDisplayData}
-          matches={currentFilteredMatches}
-        />
+        {currentGame !== null && (
+          <AnalystChat
+            teams={currentDisplayData}
+            matches={currentFilteredMatches}
+          />
+        )}
       </Layout>
+
+      {/* Custom Confirmation Modal */}
+      <AnimatePresence>
+        {confirmDialog && confirmDialog.isOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmDialog(null)}
+              className="absolute inset-0 bg-black/85 backdrop-blur-md"
+            />
+
+            {/* Modal Body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              id="confirm-modal-body"
+              className="relative w-full max-w-sm bg-[#0a0a0a]-95 bg-tactical-dark border border-tactical-gray rounded-sm p-6 shadow-2xl z-10 overflow-hidden"
+            >
+              {/* Neon border line accent */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-tactical-red via-red-500 to-tactical-red" />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-tactical-red animate-pulse" />
+                  <h3 className="font-mono text-[9px] tracking-[0.2em] font-bold text-tactical-red uppercase">
+                    {confirmDialog.title}
+                  </h3>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="font-serif text-base font-bold text-white leading-tight">
+                    Confirm Action
+                  </p>
+                  <p className="font-mono text-[10px] text-tactical-light leading-relaxed">
+                    {confirmDialog.message}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-4 border-t border-tactical-gray/30">
+                  <button
+                    id="confirm-modal-cancel-btn"
+                    onClick={() => setConfirmDialog(null)}
+                    className="flex-1 py-1.5 text-center text-[10px] font-mono font-bold uppercase tracking-wider bg-tactical-dark border border-tactical-gray text-tactical-light hover:text-white hover:bg-tactical-gray rounded-sm transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    id="confirm-modal-ok-btn"
+                    onClick={() => {
+                      confirmDialog.onConfirm();
+                    }}
+                    className="flex-1 py-1.5 text-center text-[10px] font-mono font-bold uppercase tracking-wider bg-tactical-red hover:bg-red-600 text-white rounded-sm transition-all cursor-pointer"
+                  >
+                    Proceed
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

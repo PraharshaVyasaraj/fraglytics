@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { TeamData, BrandingConfig } from '../types';
-import { Shield, ArrowUpRight, ArrowDownRight, Minus, Trophy } from 'lucide-react';
+import { Shield, ArrowUpRight, ArrowDownRight, Minus, Trophy, Activity, Crown, TrendingUp } from 'lucide-react';
 
 interface IntelligenceReportViewProps {
     data: TeamData[];
@@ -10,8 +10,10 @@ interface IntelligenceReportViewProps {
     subtitle?: string;
     page?: number;
     totalPages?: number;
+    rowsPerPage?: number;
     isPortrait?: boolean;
     onElementClick?: (element: string, data?: any) => void;
+    visualConfig?: any;
 }
 
 export const IntelligenceReportView: React.FC<IntelligenceReportViewProps> = ({
@@ -21,122 +23,279 @@ export const IntelligenceReportView: React.FC<IntelligenceReportViewProps> = ({
     subtitle = "GRAND FINALS | END OF DAY 3",
     page = 1,
     totalPages = 3,
+    rowsPerPage = 10,
     isPortrait = false,
-    onElementClick
+    onElementClick,
+    visualConfig = {}
 }) => {
     // Sort data for standings by team rank ascending (e.g. 1 to 16)
     const sortedData = [...data].sort((a, b) => a.rank - b.rank);
+    const isTemplate = visualConfig.templateMode;
+
+    const tMode = (classes: string, borderToo = true) => {
+        if (!isTemplate) return classes;
+        let newClasses = classes.replace(/bg-[^\s/]+(?:\/\d+)?/g, 'bg-transparent')
+                                .replace(/backdrop-blur-[^\s]+/g, 'backdrop-blur-none')
+                                .replace(/shadow-[^\s]+/g, 'shadow-none');
+        if (borderToo) {
+            newClasses = newClasses.replace(/border-[^\s/]+(?:\/\d+)?/g, 'border-transparent');
+        }
+        return newClasses;
+    };
 
     return (
-        <div className="w-full h-full bg-[#0A0A0A] p-6 lg:p-12 flex flex-col relative overflow-hidden font-sans">
+        <div className={`w-full h-full ${isTemplate ? 'bg-transparent' : 'bg-[#050505]'} p-4 lg:p-8 flex flex-col relative overflow-hidden font-sans`}>
+            {/* Ambient Background Elements */}
+            {!isTemplate && (
+                <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/10 blur-[120px] rounded-full"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 blur-[120px] rounded-full"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1px,transparent_1px)] [background-size:20px_20px]"></div>
+                </div>
+            )}
+
             <div 
                 onClick={() => onElementClick?.('header')}
-                className={`flex items-center ${isPortrait ? 'gap-4 mb-6' : 'gap-6 mb-8'} cursor-pointer hover:bg-white/5 transition-colors rounded-sm group`}
+                className={`relative z-10 flex items-center justify-between ${isPortrait ? 'mb-6' : 'mb-8'} cursor-pointer group`}
             >
-                <div className={`${isPortrait ? 'w-12 h-12' : 'w-16 h-16'} bg-[#E11D48] flex items-center justify-center rounded-sm`}>
-                    <Shield className={`${isPortrait ? 'w-6 h-6' : 'w-10 h-10'} text-white`} />
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-cyan-500 blur-md opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                        <div className={`${isPortrait ? 'w-10 h-10' : 'w-14 h-14'} bg-black border border-white/20 flex items-center justify-center rounded-sm relative z-10`}>
+                            <Shield className={`${isPortrait ? 'w-5 h-5' : 'w-8 h-8'} text-cyan-400`} />
+                        </div>
+                    </div>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                             <h1 className={`${isPortrait ? 'text-xl' : 'text-4xl'} font-black tracking-tighter text-white uppercase leading-none`}>
+                                FRAGLAB<span className="text-cyan-500">PRO</span>
+                            </h1>
+                            <div className="h-4 w-[2px] bg-white/20 hidden sm:block"></div>
+                            <span className="hidden sm:inline text-[10px] font-mono text-white/40 tracking-widest uppercase italic">Advanced Data Node</span>
+                        </div>
+                        <span className="text-[8px] lg:text-[10px] font-mono tracking-[0.6em] text-white/30 uppercase mt-1.5 flex items-center gap-2">
+                            <span className="w-1 h-1 bg-cyan-500 rounded-full animate-pulse"></span>
+                            INTELLIGENCE_STREAM_INITIATED
+                        </span>
+                    </div>
                 </div>
-                <div className="flex flex-col">
-                    <h1 className={`${isPortrait ? 'text-2xl' : 'text-5xl'} font-bold tracking-tighter text-white uppercase leading-none`}>
-                        FRAGLAB ANALYTICS
-                    </h1>
-                    <span className="text-[8px] lg:text-xs font-mono tracking-[0.5em] text-[#7A7A7A] uppercase mt-1">
-                        INTELLIGENCE REPORT
-                    </span>
+
+                <div className="hidden lg:flex items-center gap-6">
+                    <div className="flex flex-col items-end">
+                        <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest mb-1">Session ID</span>
+                        <span className="text-xs font-bold text-white/60 font-mono tracking-tighter">FLX-2026-BETA-77</span>
+                    </div>
+                    <div className="h-8 w-px bg-white/10"></div>
+                    <div className="flex flex-col items-end">
+                        <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest mb-1">Server Latency</span>
+                        <span className="text-xs font-bold text-emerald-500 font-mono tracking-tighter">14ms</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Main Stage (The Paper) */}
-            <div className={`flex-1 bg-[#F5F2ED] rounded-sm ${isPortrait ? 'p-6' : 'p-12'} flex ${isPortrait ? 'flex-col' : 'gap-12'} relative shadow-2xl overflow-hidden`}>
-                {/* Left Content (The Table) */}
-                <div className="flex-1 flex flex-col min-w-0">
-                    <div className="mb-6">
-                        <h2 className={`${isPortrait ? 'text-4xl' : 'text-7xl'} font-black font-serif text-outline leading-none mb-4`}>
-                            {title}
-                        </h2>
-                        <div className="inline-block bg-[#C5A073] px-4 py-1 rounded-sm">
-                            <span className="text-[10px] lg:text-xs font-bold text-[#1A1A1A] uppercase tracking-widest">
-                                {subtitle}
-                            </span>
+            {/* Main Stage (Modern Web Layout) - Shifting from paper to digital dashboard aesthetic */}
+            <div className={`flex-1 flex ${isPortrait ? 'flex-col' : 'gap-6'} relative overflow-hidden font-sans`}>
+                
+                {/* Left Column (Main Feed) */}
+                <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                    
+                    {/* Page Header / Title Area */}
+                    <div className="mb-4 flex items-end justify-between border-b border-white/5 pb-3">
+                        <div>
+                            <span className="text-[9px] font-mono tracking-[0.4em] text-cyan-400 uppercase mb-1.5 block opacity-60">System Context // Standings_Analytics_v4</span>
+                            <h2 className={`${isPortrait ? 'text-3xl' : 'text-5xl'} font-black text-white italic tracking-tighter leading-none`}>
+                                {title}
+                            </h2>
+                        </div>
+                        <div className="text-right hidden sm:block">
+                            <span className="text-[9px] font-mono text-white/20 block mb-1 uppercase tracking-widest leading-none">Global Sink Status</span>
+                            <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-sm">
+                                <Activity className="w-2.5 h-2.5 text-emerald-500" />
+                                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">Live Connection</span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Standings Table */}
-                    <div className="flex-1 overflow-hidden">
-                        <div className={`grid ${isPortrait ? 'grid-cols-[40px_1fr_60px_60px]' : 'grid-cols-[60px_1fr_120px_120px_120px_120px]'} border-b border-[#1A1A1A]/20 pb-2 mb-2`}>
-                            {(isPortrait ? ['POS', 'TEAM', 'FIN', 'TOT'] : ['POS', 'TEAM NAME', 'MATCHES PLAYED', 'FINISH PTS', 'POSITION PTS', 'TOTAL PTS']).map((h, i) => (
-                                <span key={i} className={`text-[8px] lg:text-[10px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest ${i > 1 ? 'text-right' : ''}`}>
-                                    {h}
-                                </span>
-                            ))}
-                        </div>
-
-                        <div className="space-y-1 overflow-y-auto max-h-full">
-                            {(() => {
-                                const teamsPerPage = isPortrait ? 12 : 8;
-                                const startIndex = (page - 1) * teamsPerPage;
-                                const paginatedTeams = sortedData.slice(startIndex, startIndex + teamsPerPage);
-                                return paginatedTeams.map((team, index) => {
-                                    const overallIndex = startIndex + index;
-                                    // Mock trend logic for visual fidelity
-                                    const trend = overallIndex < 4 ? 'up' : overallIndex > 15 ? 'down' : 'stable';
-                                    const wwcds = team.history.filter(h => h.rank === 1).length;
-
-                                    return (
-                                        <div 
-                                            key={team.name} 
-                                            onClick={() => onElementClick?.('team', { teamId: team.name })}
-                                            className={`grid ${isPortrait ? 'grid-cols-[40px_1fr_60px_60px]' : 'grid-cols-[60px_1fr_120px_120px_120px_120px]'} items-center py-2 lg:py-3 border-b border-[#1A1A1A]/5 group hover:bg-[#1A1A1A]/5 transition-all cursor-pointer ${
-                                                trend === 'up' ? 'border-l-4 border-[#10b981]' : 
-                                                trend === 'down' ? 'border-l-4 border-[#E11D48]' : 'border-l-4 border-[#71717a]'
-                                            } pl-2 lg:pl-4`}
-                                        >
-                                            <span className={`${isPortrait ? 'text-lg' : 'text-2xl'} font-black text-[#1A1A1A]`}>{overallIndex + 1}</span>
+                    {/* Top 3 Hero Cards (Podium) - Editorial "Web Style" Feature */}
+                    {page === 1 && (
+                        <div className={`grid ${isPortrait ? 'grid-cols-1' : 'grid-cols-3'} gap-3 mb-4`}>
+                            {sortedData.slice(0, 3).map((team, idx) => {
+                                const isFirst = team.rank === 1;
+                                const accent = isFirst ? 'from-amber-600/30 to-black/40 border-amber-500/50 shadow-[0_0_20px_rgba(234,179,8,0.15)]' : 
+                                              team.rank === 2 ? 'from-cyan-600/30 to-black/40 border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.1)]' :
+                                              'from-orange-600/30 to-black/40 border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.1)]';
+                                
+                                return (
+                                    <div 
+                                        key={team.name}
+                                        onClick={() => onElementClick?.('team', { teamId: team.name })}
+                                        className={`relative group cursor-pointer bg-gradient-to-br ${accent} border p-4 rounded-md overflow-hidden transition-all hover:scale-[1.01] hover:brightness-110 active:scale-[0.99]`}
+                                    >
+                                        <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                                            {isFirst ? <Crown className="w-32 h-32 text-amber-500" /> : <Shield className="w-32 h-32 text-white" />}
+                                        </div>
                                         
-                                        <div className="flex items-center gap-2 lg:gap-3 min-w-0">
-                                            <div className="w-5 h-5 lg:w-6 lg:h-6 border border-[#1A1A1A]/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <Shield className="w-2 h-2 lg:w-3 lg:h-3 text-[#1A1A1A]/40" />
+                                        <div className="flex justify-between items-start relative z-10 mb-3">
+                                            <div className={`w-10 h-10 flex items-center justify-center rounded-sm font-black text-xl shadow-lg transform -rotate-3 group-hover:rotate-0 transition-transform ${isFirst ? 'bg-amber-500 text-black' : 'bg-white/10 text-white'}`}>
+                                                {team.rank}
                                             </div>
-                                            <span className={`${isPortrait ? 'text-sm' : 'text-xl'} font-bold text-[#1A1A1A] uppercase tracking-tight truncate`}>{team.name}</span>
-                                            {!isPortrait && wwcds > 0 && (
-                                                <div className="flex items-center gap-1 bg-[#C5A073]/20 px-2 py-0.5 rounded-sm border border-[#C5A073]/30">
-                                                    <span className="text-[8px] font-bold text-[#C5A073] uppercase tracking-widest">SDRR</span>
-                                                    <span className="text-[10px] font-black text-[#C5A073]">x{wwcds}</span>
+                                            <div className="text-right">
+                                                <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest block leading-none mb-0.5">Points</span>
+                                                <span className="text-3xl font-black text-white italic tracking-tighter leading-none">{team.totalPoints}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="relative z-10">
+                                            <h3 className="text-xl font-black text-white uppercase italic tracking-tighter mb-1 truncate drop-shadow-sm">{team.name}</h3>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1 text-[8px] font-bold text-white/70 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">
+                                                    <Trophy className={`w-2.5 h-2.5 ${isFirst ? 'text-amber-500' : 'text-white/40'}`} />
+                                                    <span>{team.history.filter(h => h.rank === 1).length} WINS</span>
                                                 </div>
-                                            )}
+                                                <div className="flex items-center gap-1 text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                                    <TrendingUp className="w-2.5 h-2.5" />
+                                                    <span>ELITE</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Standard List (Modern Web Feed / Stream) */}
+                    <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar pr-1 pb-4">
+                        {(() => {
+                            const teamsPerPage = rowsPerPage;
+                            const startIndex = (page - 1) * teamsPerPage;
+                            const displayData = (page === 1) ? sortedData.slice(3, startIndex + teamsPerPage) : sortedData.slice(startIndex, startIndex + teamsPerPage);
+                            
+                            return displayData.map((team, index) => {
+                                const overallIndex = (page === 1) ? index + 3 : startIndex + index;
+                                const isRising = team.trend === 'RISING';
+                                
+                                return (
+                                    <div 
+                                        key={team.name}
+                                        onClick={() => onElementClick?.('team', { teamId: team.name })}
+                                        className={tMode("group transition-all hover:bg-white/[0.08] bg-white/[0.03] border border-white/5 p-2 px-3 rounded flex items-center justify-between cursor-pointer")}
+                                    >
+                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            <div className="w-8 h-8 flex items-center justify-center font-black text-white/20 border border-white/5 rounded-sm group-hover:bg-white group-hover:text-black group-hover:border-white transition-all transform group-hover:scale-110">
+                                                {overallIndex + 1}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <h4 className="text-lg font-bold text-white uppercase italic tracking-tighter truncate leading-none group-hover:translate-x-1 transition-transform">{team.name}</h4>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    {isRising ? (
+                                                        <span className="flex items-center gap-1 text-[8px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/5 px-1 py-0.5 rounded">
+                                                            <ArrowUpRight className="w-2 h-2" /> Momentum
+                                                        </span>
+                                                    ) : team.trend === 'FALLING' ? (
+                                                        <span className="flex items-center gap-1 text-[8px] font-bold text-rose-400 uppercase tracking-widest bg-rose-500/5 px-1 py-0.5 rounded">
+                                                            <ArrowDownRight className="w-2 h-2" /> Performance Risk
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Steady Execution</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {!isPortrait && <span className="text-right text-lg font-bold text-[#1A1A1A]">{team.matchesPlayed}</span>}
-                                        <span className="text-right text-sm lg:text-lg font-bold text-[#1A1A1A]">{team.killPoints}</span>
-                                        {!isPortrait && <span className="text-right text-lg font-bold text-[#1A1A1A]">{team.placementPoints}</span>}
-                                        <span className={`text-right ${isPortrait ? 'text-xl' : 'text-3xl'} font-black text-[#1A1A1A]`}>{team.totalPoints}</span>
+                                        <div className="flex items-center gap-8 text-right">
+                                            {!isPortrait && (
+                                                <>
+                                                    <div className="flex flex-col min-w-[60px]">
+                                                        <span className="text-[7px] font-mono text-white/20 uppercase tracking-widest leading-none mb-0.5">MP</span>
+                                                        <span className="text-sm font-bold text-white/60">{team.matchesPlayed}</span>
+                                                    </div>
+                                                    <div className="flex flex-col min-w-[60px]">
+                                                        <span className="text-[7px] font-mono text-white/20 uppercase tracking-widest leading-none mb-0.5">Kills</span>
+                                                        <span className="text-sm font-bold text-white/60">{team.killPoints}</span>
+                                                    </div>
+                                                    <div className="flex flex-col min-w-[60px]">
+                                                        <span className="text-[7px] font-mono text-white/20 uppercase tracking-widest leading-none mb-0.5">Rank Pts</span>
+                                                        <span className="text-sm font-bold text-white/50">{team.placementPoints}</span>
+                                                    </div>
+                                                </>
+                                            )}
+                                            <div className="flex flex-col items-end min-w-[70px]">
+                                                <span className="text-[7px] font-mono text-cyan-400/60 uppercase tracking-[0.3em] leading-none mb-0.5">Aggregate</span>
+                                                <span className="text-2xl font-black text-white italic group-hover:text-cyan-400 transition-colors leading-none">{team.totalPoints}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 );
                             });
                         })()}
-                        </div>
                     </div>
                 </div>
 
-                {/* Right Sidebar (Sponsors) */}
-                <div className={`${isPortrait ? 'h-24 flex-row border-l-0 border-t mt-4 pt-4' : 'w-48 flex-col border-l pl-12 pt-12'} flex gap-4 lg:gap-8 border-[#1A1A1A]/10`}>
-                    <div className={`${isPortrait ? 'flex-1' : 'w-full aspect-square'} border-2 border-dashed border-[#1A1A1A]/20 rounded-sm flex items-center justify-center text-center p-2 lg:p-4`}>
-                        <span className="text-[8px] lg:text-[10px] font-bold text-[#1A1A1A]/30 uppercase tracking-widest">Sponsor 1</span>
-                    </div>
-                    <div className={`${isPortrait ? 'flex-1' : 'w-full aspect-square'} border-2 border-dashed border-[#1A1A1A]/20 rounded-full flex items-center justify-center text-center p-2 lg:p-4`}>
-                        <span className="text-[8px] lg:text-[10px] font-bold text-[#1A1A1A]/30 uppercase tracking-widest">Sponsor 2</span>
-                    </div>
-                    <div className={`${isPortrait ? 'flex-1' : 'mt-auto'} flex flex-col items-center gap-2`}>
-                        <span className="text-[6px] lg:text-[8px] font-bold text-[#1A1A1A]/40 uppercase tracking-widest">Powered By</span>
-                        <div className={`w-full ${isPortrait ? 'h-8' : 'h-12'} border border-[#1A1A1A]/20 rounded-sm flex items-center justify-center`}>
-                            <span className="text-[8px] lg:text-[10px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest">Sponsor 3</span>
+                {/* Right Column (Advanced Analytics Sidebar) - Dashboard Style */}
+                {!isPortrait && (
+                    <div className="w-72 flex flex-col gap-4">
+                        {/* Summary Narrative Card */}
+                        <div className={tMode("bg-white/5 border border-white/10 rounded p-4")}>
+                            <h3 className="text-[9px] font-bold text-white/40 uppercase tracking-[0.4em] mb-3 flex items-center gap-2">
+                                <Activity className="w-3 h-3 text-cyan-400" /> Analyst Stream
+                            </h3>
+                            <p className="text-[11px] text-white/60 leading-relaxed mb-4 italic">
+                                Tactical oversight identifies a <span className="text-white font-bold">14.2% shift</span> in mid-table dynamics. Roster consistency remains the primary differentiator for Top 3 sustainment.
+                            </p>
+                            <div className="space-y-4">
+                                <div className="p-2.5 bg-black/40 rounded border border-white/5">
+                                    <div className="flex justify-between text-[8px] uppercase text-white/30 mb-1.5 font-mono">
+                                        <span>Data Flow Integrity</span>
+                                        <span className="text-emerald-500">OPTIMAL // 99.8</span>
+                                    </div>
+                                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <div className="h-full bg-emerald-500 w-[99.8%] animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Top Performers (Mini List) */}
+                        <div className="flex-1 bg-white/[0.02] border border-white/5 rounded p-4 mt-2 overflow-hidden flex flex-col">
+                            <h3 className="text-[9px] font-bold text-white/30 uppercase tracking-[0.4em] mb-3">
+                                High Alpha Personnel
+                            </h3>
+                            <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto custom-scrollbar">
+                                {data.flatMap(t => t.players).sort((a,b) => b.impactScore - a.impactScore).slice(0, 6).map((player, i) => (
+                                    <div key={player.playerName} className="flex items-center justify-between group cursor-default hover:bg-white/5 p-1 px-1.5 rounded transition-colors">
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="text-[8px] font-mono text-white/20">0{i+1}</span>
+                                            <div>
+                                                <div className="text-[10px] font-bold text-white uppercase group-hover:text-cyan-400 transition-colors leading-none mb-0.5">{player.playerName}</div>
+                                                <div className="text-[7px] text-white/20 uppercase tracking-widest">{player.teamName}</div>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-black text-white italic">{player.impactScore.toFixed(1)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Security Visual Seal */}
+                        <div className="bg-transparent border-2 border-cyan-500/20 p-3 rounded-sm relative overflow-hidden group hover:border-cyan-500/40 transition-colors">
+                            <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-500"></div>
+                            <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-500"></div>
+                            <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-cyan-500"></div>
+                            <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-500"></div>
+                            
+                            <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.5em] block mb-1">Secure Intel v7</span>
+                            <div className="text-sm font-black text-cyan-400 italic tracking-tighter uppercase leading-none truncate font-mono">
+                                FRAGLAB_GEN_#{Math.floor(Math.random() * 9000) + 1000}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
+
             {/* Footer Section */}
-            <div className={`flex items-center justify-between ${isPortrait ? 'mt-4' : 'mt-8'} font-mono text-[8px] lg:text-[10px] text-[#7A7A7A] uppercase tracking-[0.3em]`}>
+            <div className={`flex items-center justify-between ${isPortrait ? 'mt-2' : 'mt-4'} font-mono text-[8px] lg:text-[10px] text-[#7A7A7A] uppercase tracking-[0.3em]`}>
                 <div className="flex items-center gap-4">
                     <Calendar className="w-3 h-3" />
                     <span className="hidden sm:inline">Generated: {new Date().toLocaleDateString('en-GB')}</span>

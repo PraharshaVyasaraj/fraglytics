@@ -1,19 +1,21 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { TeamMatchStats, MatchData, PlayerAtomic } from '../types';
+import { TeamMatchStats, MatchData, PlayerAtomic, ScoringRules } from '../types';
 import { parseRawData, extractScoreboardImages } from '../services/gemini';
 import { calculateMatchStats, applySlotMapping, DEFAULT_SCORING_RULES } from '../services/analyticsEngine';
 import { Loader2, Database, ScanLine, Upload, X, Layers, PlayCircle, Plus, Calendar, Sword, FileSpreadsheet, Download, FileText, CheckCircle2, AlertCircle, Lock, Table as TableIcon, Grid, Eraser, Trash2, Copy, Users, RotateCcw, ClipboardList, Save, Wand2, Merge, ArrowRight, CheckSquare, Square, Calculator, Redo, Undo, RefreshCw, FileStack, Globe, Beaker } from 'lucide-react';
 import { useTacticalGrid, GridRow } from '../lib/useTacticalGrid';
-import { SAMPLE_MASTER_DATA } from '../constants/sampleData';
+import { SAMPLE_MASTER_DATA } from '../services/sampleData';
 
 interface DataInputProps {
   initialData?: MatchData[];
   onDataLoaded: (matches: MatchData[]) => void;
   onLoading: (isLoading: boolean, message: string) => void;
   mode: 'manual' | 'auto';
+  currentGame?: 'scarfall' | 'bgmi' | 'universal';
   initialDay?: number;
   initialMatch?: number;
   readOnly?: boolean; // NEW: Snapshot Mode support
+  scoringRules?: ScoringRules;
 }
 
 interface QueuedImage {
@@ -42,7 +44,72 @@ const formatSecondsToMMSS = (seconds: number): string => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoading, mode, initialDay, initialMatch, readOnly = false }) => {
+// Slot List parsing types
+interface ParsedSlot {
+  slot: number;
+  teamName: string;
+  teamTag?: string;
+}
+
+const parseSlotLine = (line: string): ParsedSlot | null => {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // 1. Extract slot number from the start (e.g. 1. or 1, or 1 - or Slot 1:)
+  const firstNumMatch = trimmed.match(/^(?:Slot|Team|#)?\s*(\d+)/i);
+  if (!firstNumMatch) return null;
+
+  const slot = parseInt(firstNumMatch[1], 10);
+  const remainder = trimmed.substring(firstNumMatch[0].length).replace(/^[\.\-\s,\|:]+/, '').trim();
+  if (!remainder) {
+    return { slot, teamName: `Slot ${slot}` };
+  }
+
+  // 2. Check for tag in brackets/parentheses e.g. "Team Name (TAG)" Or "Team Name [TAG]"
+  const bracketMatch = remainder.match(/^(.+?)\s*[\(\{\[](.*?)[\]\}\)]$/);
+  if (bracketMatch) {
+    return { slot, teamName: bracketMatch[1].trim(), teamTag: bracketMatch[2].trim() };
+  }
+
+  // 3. Otherwise try split limiters: commas, tabs, vertical lines, or double dashes
+  const parts = remainder.split(/[\t,\|]+/).map(p => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return { slot, teamName: parts[0], teamTag: parts[1] };
+  }
+
+  // Fallback split by dash
+  const dashParts = remainder.split(/\s+-\s+/).map(p => p.trim()).filter(Boolean);
+  if (dashParts.length >= 2) {
+    return { slot, teamName: dashParts[0], teamTag: dashParts[1] };
+  }
+
+  return { slot, teamName: remainder };
+};
+
+const formatWithTag = (playerName: string, tag: string): string => {
+  if (!playerName) return '';
+  const cleanTag = tag.trim().toUpperCase();
+  const cleanPlayer = playerName.trim().toUpperCase();
+  
+  // If player already starts with the tag (ignore casing and check common delimiters: x, -, space)
+  if (cleanPlayer.startsWith(cleanTag)) {
+    const remainder = cleanPlayer.substring(cleanTag.length)
+      .replace(/^[\s\-_|xX]+/, '') // Strip separators
+      .trim();
+    return `${cleanTag}x${remainder}`;
+  }
+  
+  // If there is any existing tag suffix/prefix with common pattern (e.g. 'TAGxNAME' or 'TAG-NAME')
+  const genericRegex = /^([A-Z0-9]{2,5})[\s\-_|xX]+([A-Z0-9]{2,})$/i;
+  const genericMatch = cleanPlayer.match(genericRegex);
+  if (genericMatch) {
+    return `${cleanTag}x${genericMatch[2]}`;
+  }
+  
+  return `${cleanTag}x${cleanPlayer}`;
+};
+
+const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoading, mode, currentGame = 'scarfall', initialDay, initialMatch, readOnly = false, scoringRules }) => {
   const [activeInputType, setActiveInputType] = useState<'paste' | 'ocr' | 'csv' | 'master_csv' | 'grid' | 'sheets'>('grid');
   
   // Per-match input cache
@@ -71,6 +138,40 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   const [isSlotMapOpen, setIsSlotMapOpen] = useState(false);
   const [isStandardizeOpen, setIsStandardizeOpen] = useState(false);
   const [standardizeScope, setStandardizeScope] = useState<'current' | 'global'>('current');
+
+  const activeMetrics = useMemo(() => {
+    return scoringRules?.activeMetrics || { kills: true, assists: true, damage: true, time: true };
+  }, [scoringRules]);
+
+  const showAssists = currentGame !== 'bgmi' && (activeMetrics.assists ?? true);
+  const showDamage = currentGame !== 'bgmi' && (activeMetrics.damage ?? true);
+  const showTime = currentGame !== 'bgmi' && (activeMetrics.time ?? true);
+  const showPlayerRank = currentGame !== 'bgmi';
+
+  const colSpanCount = useMemo(() => {
+    let count = 5; // Base: Select, #, T.Pos, Team, Player, Kills, Adj
+    if (showPlayerRank) count += 1;
+    if (showAssists) count += 1;
+    if (showDamage) count += 1;
+    if (showTime) count += 1;
+    count += 2; // Kills and Adj (wait, Kills is base, so 5 includes it?)
+    // Re-count: 
+    // 1. Selector
+    // 2. #
+    // 3. T.Pos
+    // 4. Team
+    // 5. P.Pos (optional)
+    // 6. Player
+    // 7. Kills (base)
+    // 8. Ast (optional)
+    // 9. Dmg (optional)
+    // 10. Time (optional)
+    // 11. Adj
+    return 7 + (showPlayerRank ? 1 : 0) + (showAssists ? 1 : 0) + (showDamage ? 1 : 0) + (showTime ? 1 : 0);
+  }, [showPlayerRank, showAssists, showDamage, showTime]);
+
+  const [focusedTarget, setFocusedTarget] = useState<string | null>(null);
+  const [standardizeMappings, setStandardizeMappings] = useState<Record<string, string>>({});
   
   // Batch OCR State
   const [imageQueue, setImageQueue] = useState<QueuedImage[]>([]);
@@ -222,17 +323,25 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
   const paddingTop = startIndex * ROW_HEIGHT;
   const paddingBottom = (currentGridRows.length - endIndex) * ROW_HEIGHT;
 
-  const currentSlotMap = useMemo(() => {
-    const map: Record<number, string> = {};
+  const currentSlotDetailsMap = useMemo(() => {
+    const map: Record<number, { teamName: string; teamTag?: string }> = {};
     const lines = currentSlotListText.split('\n');
     lines.forEach(line => {
-      const match = line.match(/^(\d+)[\.\-\s]+(.+)$/);
-      if (match) {
-        map[parseInt(match[1])] = match[2].trim();
+      const parsed = parseSlotLine(line);
+      if (parsed) {
+        map[parsed.slot] = { teamName: parsed.teamName, teamTag: parsed.teamTag };
       }
     });
     return map;
   }, [currentSlotListText]);
+
+  const currentSlotMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    Object.entries(currentSlotDetailsMap).forEach(([slotStr, detail]) => {
+      map[parseInt(slotStr, 10)] = detail.teamName;
+    });
+    return map;
+  }, [currentSlotDetailsMap]);
 
   // Unique Teams for Standardization (Scoped)
   const standardizationTargets = useMemo(() => {
@@ -268,6 +377,46 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
     
     return Array.from(targets.entries()).sort((a,b) => a[0].localeCompare(b[0])); // [name, count][]
   }, [standardizeScope, currentGridRows, tournamentData, inputCache]);
+
+  // Combined Standard Reference Names from Slot Mapping and Committed History
+  const standardReferenceNames = useMemo(() => {
+    const names = new Set<string>();
+    
+    // 1. From current Slot Map
+    Object.values(currentSlotMap).forEach(name => {
+      if (typeof name === 'string' && name.trim()) {
+        names.add(name.trim());
+      }
+    });
+    
+    // 2. From Committed Tournament Data
+    Object.values(tournamentData).forEach(day => {
+      Object.values(day).forEach(teams => {
+        teams.forEach(t => {
+          if (t.teamName?.trim()) {
+            names.add(t.teamName.trim());
+          }
+        });
+      });
+    });
+    
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [currentSlotMap, tournamentData]);
+
+  // Pre-fill standardization dictionary on mount / scope shifts
+  useEffect(() => {
+    if (isStandardizeOpen) {
+      const initial: Record<string, string> = {};
+      standardizationTargets.forEach(([team]) => {
+        initial[team] = team;
+      });
+      setStandardizeMappings(initial);
+      setFocusedTarget(standardizationTargets[0]?.[0] || null);
+    } else {
+      setFocusedTarget(null);
+      setStandardizeMappings({});
+    }
+  }, [isStandardizeOpen, standardizationTargets]);
 
   const uniqueTeamsInGrid = useMemo(() => {
       const teams = new Set<string>();
@@ -305,6 +454,43 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
               [type]: value
           }
       }));
+  };
+
+  const handleSaveSlotMap = () => {
+    // Apply changes to the staging grid
+    const updatedRows = currentGridRows.map(row => {
+      if (!row.team) return row;
+      const teamVal = (row.team || '').trim();
+      
+      // Match slot number first (e.g. "1", "Slot 1", "#1", "Team 1", etc.)
+      const slotMatch = teamVal.match(/^(?:Team|Slot|#)?[\s-]*(\d+)$/i);
+      if (slotMatch) {
+        const slotNum = parseInt(slotMatch[1], 10);
+        const detail = currentSlotDetailsMap[slotNum];
+        if (detail) {
+          const newRow = { ...row };
+          newRow.team = detail.teamName;
+          if (row.player && detail.teamTag) {
+            newRow.player = formatWithTag(row.player, detail.teamTag);
+          }
+          return newRow;
+        }
+      } else {
+        // Try matching existing team name (case-insensitive) to retrieve the tag and auto-tag players
+        const foundSlot = Object.values(currentSlotDetailsMap).find(
+          item => item.teamName.toLowerCase().trim() === teamVal.toLowerCase()
+        );
+        if (foundSlot && foundSlot.teamTag && row.player) {
+          const newRow = { ...row };
+          newRow.player = formatWithTag(row.player, foundSlot.teamTag);
+          return newRow;
+        }
+      }
+      return row;
+    });
+
+    updateCache('gridRows', updatedRows);
+    setIsSlotMapOpen(false);
   };
 
   const days = Object.keys(tournamentData).map(Number).sort((a, b) => a - b);
@@ -669,7 +855,10 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
         const hasHeader = headerCols.some(h => h.includes('rank') || h.includes('team') || h.includes('player'));
         const startIdx = hasHeader ? 1 : 0;
 
-        let colIdx = {
+        let colIdx = currentGame === 'bgmi' ? {
+            teamRank: 0, teamName: 1, playerRank: -1, playerName: 2, 
+            damage: -1, assists: -1, kills: 3, time: -1, points: -1
+        } : {
             teamRank: 0, teamName: 1, playerRank: 2, playerName: 3, 
             damage: 4, assists: 5, kills: 6, time: 7, points: 8
         };
@@ -695,29 +884,29 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
             const line = lines[i].trim();
             if (!line) continue;
             const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-            if (cols.length < 4) continue; 
+            if (cols.length < (currentGame === 'bgmi' ? 3 : 4)) continue; 
             
             const safeParseRank = (val: string) => parseInt((val||'').replace(/[^0-9]/g, '')) || 0;
 
             const rank = safeParseRank(cols[colIdx.teamRank]) || 99;
             const teamName = cols[colIdx.teamName] || 'Unknown Team';
-            const individualRank = safeParseRank(cols[colIdx.playerRank]); 
+            const individualRank = colIdx.playerRank !== -1 && cols[colIdx.playerRank] ? safeParseRank(cols[colIdx.playerRank]) : 0; 
             const playerName = cols[colIdx.playerName] || 'Unknown Player';
-            const damage = parseInt(cols[colIdx.damage]) || 0;
-            const assists = parseInt(cols[colIdx.assists]) || 0;
-            const kills = parseInt(cols[colIdx.kills]) || 0;
+            const damage = colIdx.damage !== -1 && cols[colIdx.damage] ? parseInt(cols[colIdx.damage]) || 0 : 0;
+            const assists = colIdx.assists !== -1 && cols[colIdx.assists] ? parseInt(cols[colIdx.assists]) || 0 : 0;
+            const kills = colIdx.kills !== -1 && cols[colIdx.kills] ? parseInt(cols[colIdx.kills]) || 0 : 0;
             
-            let timeStr = cols[colIdx.time] || '0';
+            let timeStr = colIdx.time !== -1 && cols[colIdx.time] ? cols[colIdx.time] : '0';
             let seconds = 0;
-            if (timeStr.includes(':')) {
+            if (timeStr && timeStr.includes(':')) {
                 const parts = timeStr.split(':');
                 seconds = (parseInt(parts[0]) * 60) + (parseInt(parts[1] || '0'));
-            } else {
+            } else if (timeStr) {
                 const numericPart = timeStr.replace(/[^\d.]/g, '');
                 seconds = (parseFloat(numericPart) || 0) * 60;
             }
 
-            const manualPoints = cols[colIdx.points] ? parseInt(cols[colIdx.points]) || 0 : 0;
+            const manualPoints = colIdx.points !== -1 && cols[colIdx.points] ? parseInt(cols[colIdx.points]) || 0 : 0;
 
             parsedPlayers.push({
                 teamRank: rank,
@@ -739,7 +928,10 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
              stageDataToGrid(derived);
              updateCache('csvText', ''); 
         } else {
-            alert("Could not parse any valid rows. Please check format: Team Rank, Team Name, Player Rank, Player Name, Damage, Assist, Finishes, Play Time (Mins)");
+            const expectedFormat = currentGame === 'bgmi' 
+                 ? "Team Rank, Team Name, Player Name, Finishes"
+                 : "Team Rank, Team Name, Player Rank, Player Name, Damage, Assist, Finishes, Play Time (Mins)";
+            alert(`Could not parse any valid rows. Please check format: ${expectedFormat}`);
         }
     } catch (e) {
         console.error("CSV Parse Error", e);
@@ -1141,22 +1333,42 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
       let example = "";
       let filename = "";
 
-      if (type === 'master') {
-          headers = "Day,Match,Team Rank,Team Name,Player Rank,Player Name,Kills,Assists,Damage,Time,Manual Pts";
-          example = "1,1,1,Team Soul,1,SoulxMortal,4,2,800,24:00,0\n1,1,1,Team Soul,2,SoulxViper,2,5,600,24:00,0\n1,2,5,GodLike,1,Jonathan,8,1,1400,18:30,0";
-          filename = "scarfall_master_template.csv";
-      } else if (type === 'sheets') {
-          headers = "Match ID\tDay\tTeam Rank\tTeam Name\tPlayer Rank\tPlayer Name\tDamage\tAssist\tFinishes\tPlay Time (Mins)";
-          example = "D1-M1\t1\t1\tSC\t1\tSCxMOON021\t684\t0\t3\t24\nD1-M1\t1\t1\tSC\t7\tSCxAARAV99\t428\t1\t1\t24";
-          filename = "google_sheets_template.txt";
+      if (currentGame === 'bgmi') {
+          if (type === 'master') {
+              headers = "Day,Match,Team Rank,Team Name,Player Name,Finishes,Manual Pts";
+              example = "1,1,1,Team Soul,SoulxMortal,4,0\n1,1,1,Team Soul,SoulxViper,2,0\n1,2,5,GodLike,Jonathan,8,0";
+              filename = "bgmi_master_template.csv";
+          } else if (type === 'sheets') {
+              headers = "Match ID\tDay\tTeam Rank\tTeam Name\tPlayer Name\tFinishes";
+              example = "D1-M1\t1\t1\tSC\tSCxMOON021\t3\nD1-M1\t1\t1\tSC\tSCxAARAV99\t1";
+              filename = "bgmi_google_sheets_template.txt";
+          } else {
+              headers = type === 'excel' 
+                 ? "Team Rank\tTeam Name\tPlayer Name\tFinishes" 
+                 : "Team Rank,Team Name,Player Name,Finishes";
+              
+              const sep = type === 'excel' ? '\t' : ',';
+              example = `1${sep}Team NXT${sep}NXTxPREDATOR${sep}3`;
+              filename = type === 'excel' ? "bgmi_excel_template.xls" : "bgmi_data_template.csv";
+          }
       } else {
-          headers = type === 'excel' 
-             ? "Team Rank\tTeam Name\tPlayer Rank\tPlayer Name\tDamage\tAssist\tFinishes\tPlay Time (Mins)" 
-             : "Team Rank,Team Name,Player Rank,Player Name,Damage,Assist,Finishes,Play Time (Mins)";
-          
-          const sep = type === 'excel' ? '\t' : ',';
-          example = `1${sep}Team NXT${sep}1${sep}NXTxPREDATOR${sep}736${sep}0${sep}3${sep}23`;
-          filename = type === 'excel' ? "scarfall_excel_template.xls" : "scarfall_data_template.csv";
+          if (type === 'master') {
+              headers = "Day,Match,Team Rank,Team Name,Player Rank,Player Name,Kills,Assists,Damage,Time,Manual Pts";
+              example = "1,1,1,Team Soul,1,SoulxMortal,4,2,800,24:00,0\n1,1,1,Team Soul,2,SoulxViper,2,5,600,24:00,0\n1,2,5,GodLike,1,Jonathan,8,1,1400,18:30,0";
+              filename = "scarfall_master_template.csv";
+          } else if (type === 'sheets') {
+              headers = "Match ID\tDay\tTeam Rank\tTeam Name\tPlayer Rank\tPlayer Name\tDamage\tAssist\tFinishes\tPlay Time (Mins)";
+              example = "D1-M1\t1\t1\tSC\t1\tSCxMOON021\t684\t0\t3\t24\nD1-M1\t1\t1\tSC\t7\tSCxAARAV99\t428\t1\t1\t24";
+              filename = "google_sheets_template.txt";
+          } else {
+              headers = type === 'excel' 
+                 ? "Team Rank\tTeam Name\tPlayer Rank\tPlayer Name\tDamage\tAssist\tFinishes\tPlay Time (Mins)" 
+                 : "Team Rank,Team Name,Player Rank,Player Name,Damage,Assist,Finishes,Play Time (Mins)";
+              
+              const sep = type === 'excel' ? '\t' : ',';
+              example = `1${sep}Team NXT${sep}1${sep}NXTxPREDATOR${sep}736${sep}0${sep}3${sep}23`;
+              filename = type === 'excel' ? "scarfall_excel_template.xls" : "scarfall_data_template.csv";
+          }
       }
       
       const content = `data:text/${type === 'excel' ? 'plain' : 'csv'};charset=utf-8,${encodeURIComponent(`${headers}\n${example}`)}`;
@@ -1294,10 +1506,10 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
       {/* --- STANDARDIZE MODAL --- */}
       {isStandardizeOpen && !readOnly && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-              <div className="bg-tactical-black border border-tactical-gray w-full max-w-lg rounded-sm shadow-2xl relative max-h-[80vh] flex flex-col">
+              <div className="bg-tactical-black border border-tactical-gray w-full max-w-4xl rounded-sm shadow-2xl relative max-h-[85vh] flex flex-col">
                   <div className="flex items-center justify-between p-4 border-b border-tactical-gray bg-tactical-dark">
                       <h3 className="font-serif text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                          <Wand2 className="w-5 h-5 text-tactical-red" /> Team Name Standardizer
+                          <Wand2 className="w-5 h-5 text-tactical-red animate-pulse" /> Team Name Standardizer & Reference Registry
                       </h3>
                       <button onClick={() => setIsStandardizeOpen(false)} className="text-tactical-light hover:text-white transition-colors"><X className="w-5 h-5" /></button>
                   </div>
@@ -1319,49 +1531,159 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                       </button>
                   </div>
 
-                  <div className="p-4 overflow-y-auto flex-1">
-                      <p className="text-xs text-tactical-light mb-4 flex items-center gap-2">
-                          <AlertCircle className="w-3 h-3" />
-                          {standardizeScope === 'global' 
-                            ? "Correcting team names across ALL matches in the tournament." 
-                            : "Correcting team names in the CURRENT match only."}
-                      </p>
-                      <form id="standardize-form" onSubmit={(e) => {
-                          e.preventDefault();
-                          const formData = new FormData(e.currentTarget);
-                          const map: Record<string, string> = {};
-                          standardizationTargets.forEach(([team]) => {
-                              const newVal = formData.get(team) as string;
-                              if (newVal && newVal !== team) {
-                                  map[team] = newVal;
-                              }
-                          });
-                          handleApplyTeamNames(map);
-                      }}>
-                          <div className="space-y-2">
-                              {standardizationTargets.map(([team, count]) => (
-                                  <div key={team} className="flex items-center gap-2 bg-black/30 p-2 rounded-sm border border-tactical-gray/30">
-                                      <div className="flex-1 text-sm font-mono text-tactical-light truncate" title={team}>
-                                          {team} 
-                                          {standardizeScope === 'global' && <span className="ml-2 text-[9px] bg-white/10 px-1 rounded text-white/50">{count} matches</span>}
-                                      </div>
-                                      <ArrowRight className="w-3 h-3 text-tactical-gray" />
-                                      <input 
-                                          name={team}
-                                          defaultValue={team}
-                                          className="flex-1 bg-black border border-tactical-gray p-1.5 text-white text-sm focus:border-tactical-red outline-none rounded-sm"
-                                          list="team-suggestions"
-                                      />
-                                  </div>
-                              ))}
+                  <div className="grid grid-cols-1 md:grid-cols-5 flex-1 min-h-[350px] overflow-hidden">
+                      {/* Left side: Targets form (column span 3) */}
+                      <div className="md:col-span-3 border-r border-tactical-gray/40 flex flex-col overflow-y-auto p-4 bg-black/20">
+                          <div className="text-xs text-tactical-light mb-3 flex items-center gap-2">
+                              <AlertCircle className="w-3.5 h-3.5 text-tactical-red" />
+                              <span>
+                                {standardizeScope === 'global' 
+                                  ? "Correcting team names across ALL matches. Focus an input and click standard names on the right to auto-fill." 
+                                  : "Correcting team names in CURRENT match only. Focus an input and click standard names on the right to auto-fill."}
+                              </span>
                           </div>
-                      </form>
+
+                          <form id="standardize-form" onSubmit={(e) => {
+                              e.preventDefault();
+                              const map: Record<string, string> = {};
+                              standardizationTargets.forEach(([team]) => {
+                                  const newVal = standardizeMappings[team];
+                                  if (newVal && newVal !== team) {
+                                      map[team] = newVal;
+                                  }
+                              });
+                              handleApplyTeamNames(map);
+                              setIsStandardizeOpen(false);
+                          }}>
+                              <div className="space-y-2.5">
+                                  {standardizationTargets.map(([team, count]) => {
+                                      const isFocused = focusedTarget === team;
+                                      const mappedValue = standardizeMappings[team] || team;
+                                      const isValid = standardReferenceNames.includes(mappedValue);
+
+                                      return (
+                                          <div 
+                                              key={team} 
+                                              onClick={() => setFocusedTarget(team)}
+                                              className={`flex flex-col gap-2 p-3 rounded-sm border transition-all ${
+                                                  isFocused 
+                                                    ? 'bg-tactical-red/5 border-tactical-red/70 shadow-[0_0_8px_rgba(255,51,51,0.08)]' 
+                                                    : 'bg-black/40 border-tactical-gray/35 hover:border-white/25'
+                                              }`}
+                                          >
+                                              <div className="flex items-center justify-between">
+                                                  <div className="text-xs font-mono font-bold text-tactical-light truncate flex items-center gap-2" title={team}>
+                                                      <span className="text-white/40">Raw:</span>
+                                                      <span className="text-white font-black">{team}</span>
+                                                      {standardizeScope === 'global' && (
+                                                          <span className="text-[9px] bg-white/10 px-1 rounded text-white/50">{count} matches</span>
+                                                      )}
+                                                  </div>
+                                                  {!isValid && (
+                                                      <span className="text-[9px] font-mono uppercase bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1" title="Not matched to slot list / registered roster">
+                                                          <AlertCircle className="w-2.5 h-2.5" /> Unregistered Case
+                                                      </span>
+                                                  )}
+                                                  {isValid && (
+                                                      <span className="text-[9px] font-mono uppercase bg-green-500/15 border border-green-500/30 text-green-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
+                                                          <CheckCircle2 className="w-2.5 h-2.5" /> Validated
+                                                      </span>
+                                                  )}
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                  <ArrowRight className="w-3.5 h-3.5 text-tactical-gray" />
+                                                  <input 
+                                                      name={team}
+                                                      value={mappedValue}
+                                                      onFocus={() => setFocusedTarget(team)}
+                                                      onChange={(e) => {
+                                                          const val = e.target.value;
+                                                          setStandardizeMappings(prev => ({
+                                                              ...prev,
+                                                              [team]: val
+                                                          }));
+                                                      }}
+                                                      className="flex-1 bg-black border border-tactical-gray p-2 text-white text-sm focus:border-tactical-red outline-none rounded-sm font-mono font-bold"
+                                                      list="team-suggestions"
+                                                  />
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                          </form>
+                      </div>
+
+                      {/* Right side: standardReferenceNames Library (column span 2) */}
+                      <div className="md:col-span-2 bg-[#08080a] flex flex-col overflow-hidden">
+                          <div className="p-3 border-b border-tactical-gray/30 bg-black/40">
+                              <h4 className="text-xs font-bold uppercase tracking-widest text-[#00ffcc] flex items-center gap-1.5">
+                                  <ClipboardList className="w-4 h-4 text-tactical-green" /> Reference Registry
+                              </h4>
+                              <p className="text-[10px] text-zinc-500 mt-1">
+                                Match names perfectly with registered rosters:
+                              </p>
+                          </div>
+
+                          <div className="p-3 overflow-y-auto flex-1 space-y-1.5 custom-scrollbar">
+                              {standardReferenceNames.length === 0 ? (
+                                  <div className="text-center py-8 text-zinc-600 text-xs font-mono">
+                                      No registered team names found. Add a slot list first.
+                                  </div>
+                              ) : (
+                                  standardReferenceNames.map((refName) => {
+                                      const isUsed = Object.values(standardizeMappings).includes(refName);
+
+                                      return (
+                                          <button
+                                              key={refName}
+                                              type="button"
+                                              onClick={() => {
+                                                  if (focusedTarget) {
+                                                      setStandardizeMappings(prev => ({
+                                                          ...prev,
+                                                          [focusedTarget]: refName
+                                                      }));
+                                                  }
+                                              }}
+                                              className={`w-full text-left p-2 rounded-sm border text-xs font-mono font-bold flex items-center justify-between transition-all ${
+                                                  isUsed 
+                                                    ? 'bg-tactical-green/10 border-tactical-green/40 text-tactical-green' 
+                                                    : 'bg-black/40 border-zinc-900 text-zinc-300 hover:bg-white/5 hover:border-zinc-700'
+                                              }`}
+                                          >
+                                              <span className="truncate">{refName}</span>
+                                              {isUsed ? (
+                                                  <span className="text-[9px] bg-tactical-green/20 border border-tactical-green/40 text-tactical-green px-1.5 py-0.5 rounded-sm flex items-center gap-1 uppercase">
+                                                      <CheckCircle2 className="w-2.5 h-2.5" /> Match
+                                                  </span>
+                                              ) : (
+                                                  <span className="text-[8px] uppercase tracking-wider text-white/30 px-1 py-0.5 bg-white/5 border border-white/10 rounded-sm">
+                                                      Assign +
+                                                  </span>
+                                              )}
+                                          </button>
+                                      );
+                                  })
+                              )}
+                          </div>
+                      </div>
                   </div>
-                  <div className="p-4 border-t border-tactical-gray flex justify-end gap-2 bg-tactical-dark">
-                      <button onClick={() => setIsStandardizeOpen(false)} className="px-4 py-2 text-tactical-light hover:text-white text-xs font-bold uppercase">Cancel</button>
-                      <button type="submit" form="standardize-form" className={`px-6 py-2 text-white font-bold uppercase text-xs tracking-wider rounded-sm transition-colors ${standardizeScope === 'global' ? 'bg-tactical-red hover:bg-red-600' : 'bg-tactical-green text-black hover:bg-white'}`}>
-                          {standardizeScope === 'global' ? 'Apply Globally' : 'Apply Local Fixes'}
-                      </button>
+
+                  <div className="p-4 border-t border-tactical-gray flex justify-between items-center gap-2 bg-tactical-dark">
+                      <div className="text-[10px] font-mono text-zinc-500">
+                          {focusedTarget ? (
+                              <span>Target: <span className="text-[#ff3333] font-bold">{focusedTarget}</span></span>
+                          ) : (
+                              <span>Select an input on the left to map name</span>
+                          )}
+                      </div>
+                      <div className="flex gap-2">
+                          <button onClick={() => setIsStandardizeOpen(false)} className="px-4 py-2 text-tactical-light hover:text-white text-xs font-bold uppercase font-sans">Cancel</button>
+                          <button type="submit" form="standardize-form" className={`px-6 py-2 text-white font-bold uppercase text-xs tracking-wider rounded-sm transition-colors font-sans ${standardizeScope === 'global' ? 'bg-tactical-red hover:bg-red-600' : 'bg-tactical-green text-black hover:bg-white'}`}>
+                              {standardizeScope === 'global' ? 'Apply Globally' : 'Apply Local Fixes'}
+                          </button>
+                      </div>
                   </div>
               </div>
           </div>
@@ -1383,17 +1705,17 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                           <div className="text-white font-bold text-lg">DAY {activeDay} // MATCH {activeMatch}</div>
                       </div>
                       <p className="text-xs text-tactical-light mb-4 leading-relaxed">
-                          Paste your slot list below. Format: 1. Team Name, 2 - Team Name
+                          Paste your slot list below. Format: <strong className="text-white">Slot Number, Team Name, Team Tag</strong> (e.g., <code className="text-[11px] text-yellow-400 bg-black/40 px-1 py-0.5 rounded font-mono">1, Team Soul, SOUL</code>)
                       </p>
                       <textarea 
                           value={currentSlotListText}
                           onChange={(e) => updateCache('slotListText', e.target.value)}
                           className="w-full h-48 bg-black border border-tactical-gray p-3 text-white font-mono text-xs focus:border-tactical-white outline-none rounded-sm resize-none"
-                          placeholder={`1. Team Soul\n2. GodLike...`}
+                          placeholder={`1, Team Soul, SOUL\n2, GodLike, GODL\n3, Global Esports, GE`}
                       />
                   </div>
                   <div className="p-4 border-t border-tactical-gray flex justify-end">
-                      <button onClick={() => setIsSlotMapOpen(false)} className="px-6 py-2 bg-white text-black font-bold uppercase text-xs tracking-wider rounded-sm">Save</button>
+                      <button onClick={handleSaveSlotMap} className="px-6 py-2 bg-white text-black font-bold uppercase text-xs tracking-wider rounded-sm hover:bg-zinc-200 transition-colors">Save & Map</button>
                   </div>
               </div>
           </div>
@@ -1528,13 +1850,13 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                                 onChange={(e) => setBulkField(e.target.value as keyof GridRow)}
                                 className="bg-black border border-tactical-gray text-xs text-white p-1.5 rounded-sm outline-none focus:border-yellow-500"
                              >
-                                 <option value="kills">Kills</option>
-                                 <option value="damage">Damage</option>
-                                 <option value="assists">Assists</option>
-                                 <option value="time">Time</option>
+                                 <option value="kills">{currentGame === 'bgmi' ? 'Finishes' : 'Kills'}</option>
+                                 {showDamage && <option value="damage">Damage</option>}
+                                 {showAssists && <option value="assists">Assists</option>}
+                                 {showTime && <option value="time">Time</option>}
                                  <option value="adjustment">Adjust</option>
                                  <option value="rank">Team Rank</option>
-                                 <option value="playerRank">Player Rank</option>
+                                 {showPlayerRank && <option value="playerRank">Player Rank</option>}
                              </select>
                              <input 
                                 value={bulkValue}
@@ -1564,19 +1886,19 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                                 <th className="p-2 border-r border-tactical-gray/30 w-12 text-center">#</th>
                                 <th className="p-2 border-r border-tactical-gray/30 w-16 text-center">T.Pos</th>
                                 <th className="p-2 border-r border-tactical-gray/30 w-48">Team</th>
-                                <th className="p-2 border-r border-tactical-gray/30 w-16 text-center text-tactical-green">P.Pos</th>
+                                {showPlayerRank && <th className="p-2 border-r border-tactical-gray/30 w-16 text-center text-tactical-green">P.Pos</th>}
                                 <th className="p-2 border-r border-tactical-gray/30 w-48">Player</th>
-                                <th className="p-2 w-20 text-center border-r border-tactical-gray/30">Kills</th>
-                                <th className="p-2 w-20 text-center border-r border-tactical-gray/30">Ast</th>
-                                <th className="p-2 w-24 text-center border-r border-tactical-gray/30">Dmg</th>
-                                <th className="p-2 w-20 text-center border-r border-tactical-gray/30">Time</th>
+                                <th className="p-2 w-20 text-center border-r border-tactical-gray/30">{currentGame === 'bgmi' ? 'Finishes' : 'Kills'}</th>
+                                {showAssists && <th className="p-2 w-20 text-center border-r border-tactical-gray/30">Ast</th>}
+                                {showDamage && <th className="p-2 w-24 text-center border-r border-tactical-gray/30">Dmg</th>}
+                                {showTime && <th className="p-2 w-20 text-center border-r border-tactical-gray/30">Time</th>}
                                 <th className="p-2 w-16 text-center text-yellow-500 font-bold">Adj.</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {paddingTop > 0 && (
+                             {paddingTop > 0 && (
                                 <tr>
-                                    <td style={{ height: `${paddingTop}px` }} colSpan={11}></td>
+                                    <td style={{ height: `${paddingTop}px` }} colSpan={colSpanCount}></td>
                                 </tr>
                             )}
                             {currentGridRows.slice(startIndex, endIndex).map((row, index) => {
@@ -1593,21 +1915,22 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                                         <td className="p-0 border-r border-tactical-gray/30 relative">
                                             <input value={row.team} onChange={(e) => onGridChange(idx, 'team', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'team')} list="team-suggestions" className="w-full bg-transparent p-2 text-white font-bold focus:outline-none focus:bg-white/10" placeholder="Team" />
                                         </td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.playerRank} onChange={(e) => onGridChange(idx, 'playerRank', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'playerRank')} className="w-full bg-transparent p-2 text-tactical-green text-center focus:outline-none focus:bg-white/10" placeholder="#" /></td>
+                                        {showPlayerRank && <td className="p-0 border-r border-tactical-gray/30"><input value={row.playerRank} onChange={(e) => onGridChange(idx, 'playerRank', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'playerRank')} className="w-full bg-transparent p-2 text-tactical-green text-center focus:outline-none focus:bg-white/10" placeholder="#" /></td>}
                                         <td className="p-0 border-r border-tactical-gray/30"><input value={row.player} onChange={(e) => onGridChange(idx, 'player', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'player')} list="player-suggestions" className="w-full bg-transparent p-2 text-white focus:outline-none focus:bg-white/10" placeholder="Player" /></td>
                                         <td className="p-0 border-r border-tactical-gray/30"><input value={row.kills} onChange={(e) => onGridChange(idx, 'kills', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'kills')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.assists} onChange={(e) => onGridChange(idx, 'assists', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'assists')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.damage} onChange={(e) => onGridChange(idx, 'damage', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'damage')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>
-                                        <td className="p-0 border-r border-tactical-gray/30"><input value={row.time} onChange={(e) => onGridChange(idx, 'time', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'time')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="00:00" /></td>
+                                        {showAssists && <td className="p-0 border-r border-tactical-gray/30"><input value={row.assists} onChange={(e) => onGridChange(idx, 'assists', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'assists')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>}
+                                        {showDamage && <td className="p-0 border-r border-tactical-gray/30"><input value={row.damage} onChange={(e) => onGridChange(idx, 'damage', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'damage')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="0" /></td>}
+                                        {showTime && <td className="p-0 border-r border-tactical-gray/30"><input value={row.time} onChange={(e) => onGridChange(idx, 'time', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'time')} className="w-full bg-transparent p-2 text-center text-white focus:outline-none focus:bg-white/10" placeholder="00:00" /></td>}
                                         <td className="p-0"><input value={row.adjustment} onChange={(e) => onGridChange(idx, 'adjustment', e.target.value)} onPaste={(e)=>onGridPaste(e,idx,'adjustment')} className="w-full bg-transparent p-2 text-center text-yellow-500 font-bold focus:outline-none focus:bg-white/10" placeholder="+/-" /></td>
                                     </tr>
                                 );
                             })}
                             {paddingBottom > 0 && (
                                 <tr>
-                                    <td style={{ height: `${paddingBottom}px` }} colSpan={11}></td>
+                                    <td style={{ height: `${paddingBottom}px` }} colSpan={colSpanCount}></td>
                                 </tr>
                             )}
+
                         </tbody>
                     </table>
                     <button onClick={() => updateCache('gridRows', [...currentGridRows, ...Array(4).fill({ rank: '', team: '', playerRank: '', player: '', kills: '', assists: '', damage: '', time: '', adjustment: '' })])} className="w-full py-2 bg-tactical-dark text-tactical-light text-[10px] font-bold uppercase tracking-widest hover:bg-white/5">+ Add Rows</button>
@@ -1626,7 +1949,26 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                  <span className="text-[10px] text-tactical-light uppercase">Target: <span className="text-white font-bold">D{activeDay} / M{activeMatch}</span></span>
                  <button onClick={() => setIsSlotMapOpen(true)} className="px-2 py-1 text-[10px] bg-tactical-gray text-white rounded-sm">Slot Map</button>
               </div>
-              <textarea placeholder="Paste Raw Text..." className="w-full flex-1 p-4 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none min-h-[200px] focus:outline-none" value={currentAiText} onChange={(e) => updateCache('aiText', e.target.value)} />
+              <div className="relative flex-1 flex flex-col min-h-[200px]">
+                <textarea placeholder="Paste Raw Text..." className="w-full flex-1 p-4 pr-32 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none focus:outline-none" value={currentAiText} onChange={(e) => updateCache('aiText', e.target.value)} />
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      if (text) {
+                        updateCache('aiText', text);
+                      }
+                    } catch (err) {
+                      alert("Please paste using your standard touch controls, or allow clipboard permission.");
+                    }
+                  }}
+                  className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/80 hover:bg-white/10 active:scale-95 border border-tactical-gray hover:border-tactical-light text-[9px] font-bold text-white uppercase tracking-wider rounded-sm transition-all z-10"
+                >
+                  <ClipboardList className="w-3 h-3 text-tactical-green" />
+                  <span>Paste Clip</span>
+                </button>
+              </div>
               <button onClick={handleParseAI} disabled={isProcessing || !currentAiText} className="w-full py-3 bg-white text-black rounded-sm font-bold uppercase text-sm hover:bg-gray-200 flex justify-center items-center gap-2">{isProcessing && <Loader2 className="w-4 h-4 animate-spin"/>} Process to Grid</button>
             </div>
           )}
@@ -1656,7 +1998,26 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                 <div className="bg-white/10 border border-white/20 p-2 text-[10px] text-tactical-light font-mono">
                     EXPECTED FORMAT: Team Rank, Team Name, Player Rank, Player Name, Damage, Assist, Finishes, Play Time (Mins)
                 </div>
-                <textarea placeholder="Team Rank,Team Name,Player Rank,Player Name,Damage,Assist,Finishes,Play Time (Mins)" className="w-full flex-1 p-4 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none min-h-[200px] focus:outline-none" value={currentCsvText} onChange={(e) => updateCache('csvText', e.target.value)} />
+                <div className="relative flex-1 flex flex-col min-h-[200px]">
+                   <textarea placeholder="Team Rank,Team Name,Player Rank,Player Name,Damage,Assist,Finishes,Play Time (Mins)" className="w-full flex-1 p-4 pr-32 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none focus:outline-none" value={currentCsvText} onChange={(e) => updateCache('csvText', e.target.value)} />
+                   <button 
+                     type="button"
+                     onClick={async () => {
+                       try {
+                         const text = await navigator.clipboard.readText();
+                         if (text) {
+                           updateCache('csvText', text);
+                         }
+                       } catch (err) {
+                         alert("Please paste using your standard touch controls, or allow clipboard permission.");
+                       }
+                     }}
+                     className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/80 hover:bg-white/10 active:scale-95 border border-tactical-gray hover:border-tactical-light text-[9px] font-bold text-white uppercase tracking-wider rounded-sm transition-all z-10"
+                   >
+                     <ClipboardList className="w-3 h-3 text-tactical-green" />
+                     <span>Paste Clip</span>
+                   </button>
+                 </div>
                 <button onClick={handleParseCSV} disabled={isProcessing || !currentCsvText} className="w-full py-3 bg-white text-black rounded-sm font-bold uppercase text-sm hover:bg-gray-200 flex justify-center items-center gap-2">{isProcessing && <Loader2 className="w-4 h-4 animate-spin"/>} Import to Grid</button>
              </div>
           )}
@@ -1695,12 +2056,31 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                 <div className="bg-yellow-500/10 border border-yellow-500/20 p-2 text-[10px] text-yellow-500 font-mono">
                     FORMAT: Day, Match, Team Rank, Team Name, Player Rank, Player Name, Kills, Assists, Damage, Time, Manual Pts
                 </div>
-                <textarea 
-                    placeholder="Paste Master CSV Data..." 
-                    className="w-full flex-1 p-4 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none min-h-[200px] focus:outline-none focus:border-yellow-500" 
-                    value={masterCsvText} 
-                    onChange={(e) => setMasterCsvText(e.target.value)} 
-                />
+                 <div className="relative flex-1 flex flex-col min-h-[200px]">
+                   <textarea 
+                       placeholder="Paste Master CSV Data..." 
+                       className="w-full flex-1 p-4 pr-32 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none focus:outline-none focus:border-yellow-500" 
+                       value={masterCsvText} 
+                       onChange={(e) => setMasterCsvText(e.target.value)} 
+                   />
+                   <button 
+                     type="button"
+                     onClick={async () => {
+                       try {
+                         const text = await navigator.clipboard.readText();
+                         if (text) {
+                           setMasterCsvText(text);
+                         }
+                       } catch (err) {
+                         alert("Please paste using your standard touch controls, or allow clipboard permission.");
+                       }
+                     }}
+                     className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/80 hover:bg-white/10 active:scale-95 border border-tactical-gray hover:border-tactical-light text-[9px] font-bold text-white uppercase tracking-wider rounded-sm transition-all z-10"
+                   >
+                     <ClipboardList className="w-3 h-3 text-yellow-500" />
+                     <span>Paste Clip</span>
+                   </button>
+                 </div>
                 <button onClick={handleParseMasterCSV} disabled={isProcessing || !masterCsvText} className="w-full py-3 bg-white text-black rounded-sm font-bold uppercase text-sm hover:bg-yellow-500 hover:text-black transition-colors flex justify-center items-center gap-2">
                     {isProcessing && <Loader2 className="w-4 h-4 animate-spin"/>} Process Bulk Data
                 </button>
@@ -1720,12 +2100,31 @@ const DataInput: React.FC<DataInputProps> = ({ initialData, onDataLoaded, onLoad
                 <div className="bg-green-500/10 border border-green-500/20 p-2 text-[10px] text-green-500 font-mono">
                     EXPECTED FORMAT: Match ID, Day, Team Rank, Team Name, Player Rank, Player Name, Damage, Assist, Finishes, Play Time (Mins)
                 </div>
-                <textarea 
-                    placeholder="Paste data from Google Sheets here..." 
-                    className="w-full flex-1 p-4 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none min-h-[200px] focus:outline-none focus:border-green-500" 
-                    value={sheetsText} 
-                    onChange={(e) => setSheetsText(e.target.value)} 
-                />
+                 <div className="relative flex-1 flex flex-col min-h-[200px]">
+                   <textarea 
+                       placeholder="Paste data from Google Sheets here..." 
+                       className="w-full flex-1 p-4 pr-32 bg-black/50 border border-tactical-gray rounded-sm font-mono text-xs text-white resize-none focus:outline-none focus:border-green-500" 
+                       value={sheetsText} 
+                       onChange={(e) => setSheetsText(e.target.value)} 
+                   />
+                   <button 
+                     type="button"
+                     onClick={async () => {
+                       try {
+                         const text = await navigator.clipboard.readText();
+                         if (text) {
+                           setSheetsText(text);
+                         }
+                       } catch (err) {
+                         alert("Please paste using your standard touch controls, or allow clipboard permission.");
+                       }
+                     }}
+                     className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-black/80 hover:bg-white/10 active:scale-95 border border-tactical-gray hover:border-tactical-light text-[9px] font-bold text-white uppercase tracking-wider rounded-sm transition-all z-10"
+                   >
+                     <ClipboardList className="w-3 h-3 text-tactical-green" />
+                     <span>Paste Clip</span>
+                   </button>
+                 </div>
                 <button onClick={handleParseSheets} disabled={isProcessing || !sheetsText} className="w-full py-3 bg-white text-black rounded-sm font-bold uppercase text-sm hover:bg-green-500 hover:text-black transition-colors flex justify-center items-center gap-2">
                     {isProcessing && <Loader2 className="w-4 h-4 animate-spin"/>} Process Sheets Data
                 </button>
